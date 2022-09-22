@@ -208,6 +208,7 @@
         "^test_neg",
         "^test_convtranspose",
         "^test_convtranspose_dilations",
+        "^test_upsample_nearest.*", //Disabled as not supported in opset13
         "^test_maxpool_with_argmax_2d_precomputed_strides", //Disabled as it throws segfault
         "^test_maxpool_with_argmax_2d_precomputed_pads" //Disabled as it throws segfault
     ],
