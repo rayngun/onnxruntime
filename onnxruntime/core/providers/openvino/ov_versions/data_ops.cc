@@ -1151,19 +1151,6 @@ void DataOps::populate_op_mode_supported() {
     op_list_.insert({"Unsqueeze", obj});
   }
   {
-    UnsupportedOpMode obj = {{V_2022_1, V_2022_2},
-                             [this](const Node* node, const InitializedTensorSet&) {
-                               if (device_id_.find("GPU") != std::string::npos) {
-                                const auto& attributes = node->GetAttributes();
-                                //Op with zero scales count is not supported
-                                if (attributes.count("scales") == 0)
-                                 return true;
-                               }
-                               return false;
-                             }};
-    op_list_.insert({"Upsample", obj});
-  }
-  {
     UnsupportedOpMode obj = {{V_2021_4, V_2022_1, V_2022_2},
                              [this](const Node* node, const InitializedTensorSet&) {
                                //check for attributes
