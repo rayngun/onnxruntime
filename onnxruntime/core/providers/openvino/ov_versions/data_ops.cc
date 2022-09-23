@@ -867,19 +867,19 @@ void DataOps::populate_op_mode_supported() {
                             }};
     op_list_.insert({"Reshape", obj});
   }
-  {
-    UnsupportedOpMode obj = {{V_2022_1, V_2022_2},
-                             [this](const Node* node, const InitializedTensorSet&) {
-                                auto& attributes = node->GetAttributes();
-                                if (attributes.count("mode") ==1 && attributes.at("mode").s() == "linear") {
-                                  if (node->InputDefs().size() == 4) {
-                                    return true;
-                                  }
-                                }
-                               return false;
-                             }};
-    op_list_.insert({"Resize", obj});
-  }
+  // {
+  //   UnsupportedOpMode obj = {{V_2022_1, V_2022_2},
+  //                            [this](const Node* node, const InitializedTensorSet&) {
+  //                               auto& attributes = node->GetAttributes();
+  //                               if (attributes.count("mode") ==1 && attributes.at("mode").s() == "linear") {
+  //                                 if (node->InputDefs().size() == 4) {
+  //                                   return true;
+  //                                 }
+  //                               }
+  //                              return false;
+  //                            }};
+  //   op_list_.insert({"Resize", obj});
+  // }
   {
     UnsupportedOpMode obj = {{V_2021_4},
                              [this](const Node* node, const InitializedTensorSet&) {
