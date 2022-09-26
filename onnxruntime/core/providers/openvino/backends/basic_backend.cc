@@ -381,8 +381,16 @@ void BasicBackend::CompleteAsyncInference(Ort::CustomOpApi& ort, OrtKernelContex
   infer_request->WaitRequest();
   #if defined (OV_API_20)
   auto graph_output_info = exe_network_.Get().outputs();
+  for (auto output_info_iter = graph_output_info.begin();
+       output_info_iter != graph_output_info.end(); ++output_info_iter) {
+    auto output_names1 = output_info_iter->get_names();
+    for (auto it = output_names1.begin(); it != output_names1.end(); ++it) {
+      std::cout << "OV Output: " << *it << std::endl;
+    }
+  }
   for (const auto& it : subgraph_context_.output_names) {
     const auto& output_name = it.first;
+    std::cout << "ONNX Output: " << output_name << std::endl;
     // using the output name retrieved from ONNX original to match with the output names returned by OV tensors
     bool output_name_found = std::any_of(graph_output_info.begin(), graph_output_info.end(),
                                          [&output_name] (const ov::Output<const ov::Node>& node) {
@@ -390,8 +398,9 @@ void BasicBackend::CompleteAsyncInference(Ort::CustomOpApi& ort, OrtKernelContex
                                            return names.find(output_name) != names.end();
                                          });
     if (!output_name_found) {
-      ORT_THROW(log_tag + "Output names mismatch between OpenVINO and ONNX. [ONNX Output: ] " + output_name +
-                " doesn't exist in the list of OpenVINO output tensor names");
+      std::cout << "Output names mismatch between OpenVINO and ONNX. [ONNX Output: ] " + output_name + " doesn't exist in the list of OpenVINO output tensor names" << std::endl;
+    //   ORT_THROW(log_tag + "Output names mismatch between OpenVINO and ONNX. [ONNX Output: ] " + output_name +
+    //             " doesn't exist in the list of OpenVINO output tensor names");
     }
 
     OVTensorPtr graph_output_blob = infer_request->GetTensor(output_name);
