@@ -1107,10 +1107,9 @@ void DataOps::populate_op_mode_supported() {
     UnsupportedOpMode obj = {{V_2022_1, V_2022_2},
                              [this](const Node* node, const InitializedTensorSet&) {
                                if (device_id_.find("GPU") != std::string::npos) {
-                                const auto& attributes = node->GetAttributes();
-                                //Op with zero axes count is not supported
-                                if (attributes.count("axes") == 0)
-                                 return true;
+                                if (node->InputDefs().size() > 1 && (node->InputDefs()[0]->TypeAsProto()->tensor_type().elem_type() == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_FLOAT)) {
+                                  return true;
+                                }
                                }
                                return false;
                              }};
