@@ -103,9 +103,8 @@ OpenVINOExecutionProvider::OpenVINOExecutionProvider(const OpenVINOExecutionProv
 }
 
 std::vector<std::unique_ptr<ComputeCapability>>
-OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer, const std::vector<const KernelRegistry*>& kernel_registries) const {
-  ORT_UNUSED_PARAMETER(kernel_registries);
-
+OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
+                                         const IKernelLookup& /*kernel_lookup*/) const {
   std::vector<std::unique_ptr<ComputeCapability>> result;
   //Enable CI Logs
   if (!(GetEnvironmentVar("ORT_OPENVINO_ENABLE_CI_LOG").empty())) {
