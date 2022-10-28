@@ -42,7 +42,7 @@ RUN cd $WORKDIR && git clone https://github.com/openvinotoolkit/openvino.git && 
     git submodule update --recursive
 
 RUN cd $WORKDIR && cd openvino && mkdir build && cd build && \
-    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 -DCMAKE_INSTALL_PREFIX=/home/onnxruntimedev/openvino_$OV_VERSION && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 -DENABLE_PYTHON=ON -DPYTHON_EXECUTABLE=$PYTHON_EXE -DCMAKE_INSTALL_PREFIX=/home/onnxruntimedev/openvino_$OV_VERSION && \
     make -j8 && make install
 
 ENV INTEL_OPENVINO_DIR /home/onnxruntimedev/openvino_$OV_VERSION
