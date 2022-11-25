@@ -260,7 +260,8 @@ void BasicBackend::StartRemoteAsyncInference(Ort::CustomOpApi& ort, OrtKernelCon
       const cl::Buffer* shared_buffer_const = static_cast<const cl::Buffer*>(tensor_data);
       //Create an Input Remote Blob
       auto input = ie_cnn_network_->get_parameters().at(0);
-      auto remote_blob = remote_context_->create_tensor(input->get_element_type(), input->get_shape(), *shared_buffer_const);
+      auto remote_blob = remote_context_->create_tensor(input->get_element_type(),
+                         input->get_shape(), *shared_buffer_const);
       ov::Tensor tensor = static_cast<ov::Tensor>(remote_blob);
       OVTensorPtr tensor_ptr = std::make_shared<ov::Tensor>(tensor);
       infer_request->SetTensor(input_name, tensor_ptr);
@@ -303,7 +304,8 @@ void BasicBackend::StartRemoteAsyncInference(Ort::CustomOpApi& ort, OrtKernelCon
       const cl::Buffer* shared_buffer_const = static_cast<const cl::Buffer*>(tensor_data);
       // Create a shared Blob, set the Infer Request Output Blob
       auto output = ie_cnn_network_->get_results().at(0);
-      auto remote_tensor = remote_context_->create_tensor(output->get_element_type(), output->get_shape(), *shared_buffer_const);
+      auto remote_tensor = remote_context_->create_tensor(output->get_element_type(),
+                           output->get_shape(), *shared_buffer_const);
       ov::Tensor tensor = static_cast<ov::Tensor>(remote_tensor);
       OVTensorPtr tensor_ptr = std::make_shared<ov::Tensor>(tensor);
       infer_request->SetTensor(output_name, tensor_ptr);

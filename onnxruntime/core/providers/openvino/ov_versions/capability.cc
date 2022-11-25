@@ -35,7 +35,6 @@ GetCapability::GetCapability(const GraphViewer& graph_viewer_param, std::string 
   } else {
     data_ops_ = new DataOps(graph_viewer_, V_2022_3, device_type_);
   }
-
 }
 
 std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {

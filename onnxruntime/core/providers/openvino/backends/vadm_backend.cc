@@ -119,7 +119,6 @@ void VADMBackend::StartAsyncInference(Ort::CustomOpApi& ort, OrtKernelContext* c
 
   // Start Async inference
   infer_request->StartAsync();
-
 }
 
 // Wait for asynchronous inference completion on an Infer Request object indexed by infer_req_idx
