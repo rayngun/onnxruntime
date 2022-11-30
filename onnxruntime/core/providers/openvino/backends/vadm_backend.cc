@@ -36,7 +36,7 @@ VADMBackend::VADMBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
   // sets number of maximum parallel inferences
   num_inf_reqs_ = 8;
 
-  ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
+  ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_);
   OVConfig config;
 #ifndef NDEBUG
   if (openvino_ep::backend_utils::IsDebugEnabled()) {
