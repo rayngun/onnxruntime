@@ -31,8 +31,11 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
   if (hw_target == "MYRIAD")
     vpu_status = true;
   if (!ImportBlob(hw_target, vpu_status)) {
+  try{
     ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
-
+  } catch (std::string const & msg) {
+      throw msg;
+  }
   if (ValidateSubgraph(const_outputs_map_))
     return;
 
@@ -47,18 +50,30 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
   EnableGPUThrottling(config);
 
   #if defined(IO_BUFFER_ENABLED)
-    if ((global_context.device_type.find("GPU") != std::string::npos)  &&
-      (global_context_.context != nullptr) &&
-      (openvino_ep::BackendManager::GetGlobalContext().is_wholly_supported_graph)) {
-      LOGS_DEFAULT(INFO) << log_tag << "IO Buffering Enabled";
-      cl_context ctx = static_cast<cl_context>(global_context_.context);
-      remote_context_ = new ov::intel_gpu::ocl::ClContext(global_context_.ie_core.Get(), ctx);
-      exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, remote_context_, subgraph_context_.subgraph_name);
-    } else {
-    exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, subgraph_context_.subgraph_name);
-  }
+    try {
+      if ((global_context.device_type.find("GPU") != std::string::npos)  &&
+        (global_context_.context != nullptr) &&
+        (openvino_ep::BackendManager::GetGlobalContext().is_wholly_supported_graph)) {
+        LOGS_DEFAULT(INFO) << log_tag << "IO Buffering Enabled";
+        cl_context ctx = static_cast<cl_context>(global_context_.context);
+        #ifdef OV_API_20
+          remote_context_ = new ov::intel_gpu::ocl::ClContext(global_context_.ie_core.Get(), ctx);
+        #else
+          remote_context_ = InferenceEngine::gpu::make_shared_context(global_context_.ie_core.Get(), hw_target, ctx);
+        #endif
+        exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, remote_context_, subgraph_context_.subgraph_name);
+      } else {
+          exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, subgraph_context_.subgraph_name);
+      }
+    }catch (const char* msg) {
+        throw(msg);
+    }
   #else
-    exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, subgraph_context_.subgraph_name);
+  try{
+      exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, subgraph_context_.subgraph_name);
+  } catch (const char* msg) {
+      throw(msg);
+  }
   #endif
   LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
   }
@@ -85,47 +100,16 @@ bool BasicBackend::ValidateSubgraph(std::map<std::string, std::shared_ptr<ngraph
   return false;
 }
 
-void BasicBackend::PopulateCompiledDirectory(std::string hw_target, std::string& ov_compiled_blobs_dir, std::string& model_blob_name, bool& vpu_status) {
-  std::ifstream blob_path;
-  if(hw_target == "MYRIAD" && global_context_.use_compiled_network == true) {
-    if(!openvino_ep::backend_utils::UseCompiledNetwork()) {
-      std::size_t model_index = global_context_.onnx_model_path_name.find_last_of("/\\");
-      std::string model_name= global_context_.onnx_model_path_name.substr(model_index+1);
-      std::size_t model_extension_index = model_name.find_last_of(".");
-      if(openvino_ep::BackendManager::GetGlobalContext().is_wholly_supported_graph) {
-          model_blob_name = global_context_.onnx_model_name + "_" + "op_v_" + std::to_string(global_context_.onnx_opset_version) + "_" + model_name.substr(0,model_extension_index) + "_" + hw_target + "_" + subgraph_context_.subgraph_name + "_ov_" + "fully" + ".blob";
-      }
-      else {
-          model_blob_name = global_context_.onnx_model_name + "_" + "op_v_" + std::to_string(global_context_.onnx_opset_version) + "_" + model_name.substr(0,model_extension_index) + "_" + hw_target + "_" + subgraph_context_.subgraph_name + "_ov_" + "partially" + ".blob";
-      }
-      if(global_context_.blob_dump_path == "" || global_context_.blob_dump_path == "\"" || global_context_.blob_dump_path.empty()) {
-        ov_compiled_blobs_dir = openvino_ep::backend_utils::GetCurrentWorkingDir() + "/ov_compiled_blobs/";
-      } else {
-        ov_compiled_blobs_dir = global_context_.blob_dump_path + "/ov_compiled_blobs";
-      }
-      if(openvino_ep::backend_utils::IsDirExists(ov_compiled_blobs_dir)) {
-        LOGS_DEFAULT(INFO) << log_tag << "'ov_compiled_blobs' directory already exists at the executable path";
-      }
-      else {
-        CreateDirectory(ov_compiled_blobs_dir);
-      }
-      blob_path.open(ov_compiled_blobs_dir + "/" + model_blob_name);
-      if (!blob_path.is_open()) {
-          LOGS_DEFAULT(INFO) << log_tag << "Device specific Compiled blob doesn't exist for this model";
-      } else {
-          LOGS_DEFAULT(INFO) << log_tag << "Device specific Compiled blob already exists for this model";
-          vpu_status = true;
-      }
-    }
-  }
-}
-
 bool BasicBackend::ImportBlob(std::string hw_target, bool vpu_status) {
   const std::string compiled_blob_path = onnxruntime::GetEnvironmentVar("OV_BLOB_PATH");
   if (vpu_status == true && openvino_ep::backend_utils::UseCompiledNetwork() && !compiled_blob_path.empty() &&
     openvino_ep::BackendManager::GetGlobalContext().is_wholly_supported_graph) {
     LOGS_DEFAULT(INFO) << log_tag << "Importing the pre-compiled blob from the path set by the user";
-    exe_network_ = global_context_.ie_core.ImportModel(compiled_blob_path, hw_target, subgraph_context_.subgraph_name);
+     try{
+      exe_network_ = global_context_.ie_core.ImportModel(compiled_blob_path, hw_target, subgraph_context_.subgraph_name);
+    } catch (const char* msg) {
+        throw(msg);
+    }
     LOGS_DEFAULT(INFO) << log_tag << "Succesfully Created an executable network from a previously exported network";
     return true;
   } else {
@@ -220,10 +204,6 @@ void BasicBackend::StartAsyncInference(Ort::CustomOpApi& ort, OrtKernelContext* 
       graph_input_blob = infer_request->GetTensor(input_name);
       FillInputBlob(graph_input_blob, batch_slice_idx, input_name, ort, context, subgraph_context_);
     }
-    input_idx++;
-  }
-  // Start Async inference
-  infer_request->StartAsync();
 }
 
 #ifdef IO_BUFFER_ENABLED
@@ -273,27 +253,27 @@ void BasicBackend::StartRemoteAsyncInference(Ort::CustomOpApi& ort, OrtKernelCon
     }
   }
 
-  //Set the output blob as remote blob
-  auto graph_output_info = exe_network_.Get().outputs();
-  for (auto output_info_iter = graph_output_info.begin();
-       output_info_iter != graph_output_info.end(); ++output_info_iter) {
-    auto output_names = output_info_iter->get_names();
-    std::string onnx_output_name;
-    std::string output_name;
-    bool output_name_found = false;
-    // using the output name retrieved from ONNX original to match with the output names returned by OV tensors
-    for (auto it = subgraph_context_.output_names.begin(); it != subgraph_context_.output_names.end(); ++it) {
-      onnx_output_name = it->first;
-      if (output_names.find(onnx_output_name) != output_names.end()) {
-        //Assigning the output_name
-        output_name = it->first;
-        output_name_found = true;
-        break;
+    //Set the output blob as remote blob
+    auto graph_output_info = exe_network_.Get().outputs();
+    for (auto output_info_iter = graph_output_info.begin();
+        output_info_iter != graph_output_info.end(); ++output_info_iter) {
+      auto output_names = output_info_iter->get_names();
+      std::string onnx_output_name;
+      std::string output_name;
+      bool output_name_found = false;
+      // using the output name retrieved from ONNX original to match with the output names returned by OV tensors
+      for (auto it = subgraph_context_.output_names.begin(); it != subgraph_context_.output_names.end(); ++it) {
+        onnx_output_name = it->first;
+        if (output_names.find(onnx_output_name) != output_names.end()) {
+          //Assigning the output_name
+          output_name = it->first;
+          output_name_found = true;
+          break;
+        }
       }
-    }
-    if(!output_name_found) {
-      ORT_THROW(log_tag + "Output names mismatch between OpenVINO and ONNX. [ONNX Output: ] " + onnx_output_name + " doesn't exist in the list of OpenVINO output tensor names");
-    }
+      if(!output_name_found) {
+        throw std::string(log_tag + "Output names mismatch between OpenVINO and ONNX. [ONNX Output: ] " + onnx_output_name + " doesn't exist in the list of OpenVINO output tensor names");
+      }
 
     size_t batch_size = 1;
     auto tensor = GetOutputTensor(ort, context, batch_size, infer_request, output_name, subgraph_context_.output_names);
@@ -310,10 +290,12 @@ void BasicBackend::StartRemoteAsyncInference(Ort::CustomOpApi& ort, OrtKernelCon
       OVTensorPtr tensor_ptr = std::make_shared<ov::Tensor>(tensor);
       infer_request->SetTensor(output_name, tensor_ptr);
     }
-  }
 
-  // Start Async inference
-  infer_request->StartAsync();
+    // Start Async inference
+    infer_request->StartAsync();
+  }catch (const char* msg) {
+      throw(msg);
+  }
 }
 #endif
 
@@ -321,24 +303,25 @@ void BasicBackend::StartRemoteAsyncInference(Ort::CustomOpApi& ort, OrtKernelCon
 // and copy the results into a slice location within the batched output buffer indexed by batch_slice_idx
 void BasicBackend::CompleteAsyncInference(Ort::CustomOpApi& ort, OrtKernelContext* context, OVInferRequestPtr infer_request) {
   // Wait for Async inference completion
-
-  infer_request->WaitRequest();
-  auto graph_output_info = exe_network_.Get().outputs();
-  for (auto output_info_iter = graph_output_info.begin();
-       output_info_iter != graph_output_info.end(); ++output_info_iter) {
-    OVTensorPtr graph_output_blob;
-    auto output_names = output_info_iter->get_names();
-    std::string onnx_output_name;
-    std::string output_name;
-    bool output_name_found = false;
-    // using the output name retrieved from ONNX original to match with the output names returned by OV tensors
-    for (auto it = subgraph_context_.output_names.begin(); it != subgraph_context_.output_names.end(); ++it) {
-      onnx_output_name = it->first;
-      if (output_names.find(onnx_output_name) != output_names.end()) {
-        // Assigning the output_name
-        output_name = it->first;
-        output_name_found = true;
-        break;
+  try{
+    infer_request->WaitRequest();
+    auto graph_output_info = exe_network_.Get().outputs();
+    for (auto output_info_iter = graph_output_info.begin();
+        output_info_iter != graph_output_info.end(); ++output_info_iter) {
+      OVTensorPtr graph_output_blob;
+      auto output_names = output_info_iter->get_names();
+      std::string onnx_output_name;
+      std::string output_name;
+      bool output_name_found = false;
+      // using the output name retrieved from ONNX original to match with the output names returned by OV tensors
+      for (auto it = subgraph_context_.output_names.begin(); it != subgraph_context_.output_names.end(); ++it) {
+        onnx_output_name = it->first;
+        if (output_names.find(onnx_output_name) != output_names.end()) {
+          // Assigning the output_name
+          output_name = it->first;
+          output_name_found = true;
+          break;
+        }
       }
     }
     if (!output_name_found) {
@@ -370,6 +353,8 @@ void BasicBackend::CompleteAsyncInference(Ort::CustomOpApi& ort, OrtKernelContex
         FillOutputsWithConstantData(ort, node, output_tensor);
       }
     }
+  }catch (const char* msg) {
+      throw(msg);
   }
 }
 

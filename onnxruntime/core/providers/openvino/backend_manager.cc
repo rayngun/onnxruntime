@@ -40,7 +40,7 @@ BackendManager::BackendManager(const onnxruntime::Node& fused_node,
   } else if (prec_str == "FP16") {
     subgraph_context_.precision = InferenceEngine::Precision::FP16;
   } else {
-    ORT_THROW("Invalid OpenVINO Precision type: " + prec_str);
+    throw std::string("Invalid OpenVINO Precision type: " + prec_str);
   }
 
   // Save the indexes of graph inputs among fused_node's inputDefs
@@ -64,7 +64,7 @@ BackendManager::BackendManager(const onnxruntime::Node& fused_node,
     }
     auto it = subgraph_context_.input_names.find(input->Name());
     if (it == subgraph_context_.input_names.end()) {
-      ORT_THROW("Input not found in the input defs list");
+      throw std::string("Input not found in the input defs list");
     }
     int index = it->second;
     subgraph_context_.input_indexes.push_back(index);
@@ -85,7 +85,13 @@ BackendManager::BackendManager(const onnxruntime::Node& fused_node,
     subgraph_context_.enable_batching = true;
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model can be Batch inferenced \n";
     auto model_copy = ReWriteBatchDimWithOne(*model_proto_);
-    concrete_backend_ = BackendFactory::MakeBackend(*model_copy, GetGlobalContext(), subgraph_context_);
+    try {
+      concrete_backend_ = BackendFactory::MakeBackend(*model_copy,
+                                                      GetGlobalContext(),
+                                                      subgraph_context_);
+    } catch (std::string const & msg) {
+        throw msg;
+    }
     subgraph_context_.has_dynamic_input_shape = false;
 
   } else if (ModelHasSymbolicInputDims(subgraph)) {
@@ -100,7 +106,13 @@ BackendManager::BackendManager(const onnxruntime::Node& fused_node,
       if (GetGlobalContext().enable_dynamic_shapes) {
         LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Starting backend initialization. "
                         << "Creating backend Dynamic Shapes";
-        concrete_backend_ = BackendFactory::MakeBackend(*model_proto_, GetGlobalContext(), subgraph_context_);
+          try {
+            concrete_backend_ = BackendFactory::MakeBackend(*model_proto_,
+                                                            GetGlobalContext(),
+                                                            subgraph_context_);
+          } catch (std::string const & msg) {
+              throw msg;
+          }
         LOGS_DEFAULT(INFO) << "[OpenVINO-EP] "
                         << "Backend created for graph " << subgraph_context_.subgraph_name;
       }
@@ -113,7 +125,13 @@ BackendManager::BackendManager(const onnxruntime::Node& fused_node,
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model has concreate input dims. Initializing backend for graph " << subgraph_context_.subgraph_name;
 
     subgraph_context_.has_dynamic_input_shape = false;
-    concrete_backend_ = BackendFactory::MakeBackend(*model_proto_, GetGlobalContext(), subgraph_context_);
+    try {
+      concrete_backend_ = BackendFactory::MakeBackend(*model_proto_,
+                                                      GetGlobalContext(),
+                                                      subgraph_context_);
+    } catch (std::string const & msg) {
+        throw msg;
+    }
   }
 }
 
@@ -292,8 +310,13 @@ void BackendManager::Compute(Ort::CustomOpApi api, OrtKernelContext* context) {
       LOGS_DEFAULT(INFO) << "[OpenVINO-EP] "
                         << "Backend created for graph " << subgraph_context_.subgraph_name;
       auto modelproto_with_concrete_shapes = ReWriteInputShapeInfo(*model_proto_, tensor_shapes);
-      dynamic_backend = BackendFactory::MakeBackend(*modelproto_with_concrete_shapes,
-                                                    GetGlobalContext(), subgraph_context_);
+      try {
+        dynamic_backend = BackendFactory::MakeBackend(*modelproto_with_concrete_shapes,
+                                                        GetGlobalContext(),
+                                                        subgraph_context_);
+      } catch (std::string const & msg) {
+          throw msg;
+      }
       backend_map_.insert({key, dynamic_backend});
     } else {
       dynamic_backend = search->second;
