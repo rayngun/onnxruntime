@@ -817,10 +817,10 @@ bool DataOps::op_is_supported(std::string name, std::vector<SupportedOp>& op_lis
       }
     }
   }
-  if (device_id_.find("AUTO") == 0 && auto_support==true){
+  if (device_id_.find("AUTO") == 0 && auto_support==true) {
     return true;
   }
-  if (device_id_.find("MULTI") == 0 && multi_support == true ){
+  if (device_id_.find("MULTI") == 0 && multi_support == true) {
     return true;
   }
   return false;
