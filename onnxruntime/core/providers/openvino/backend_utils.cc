@@ -91,12 +91,14 @@ CreateOVModel(const ONNX_NAMESPACE::ModelProto& model_proto, const GlobalContext
     auto cnn_network = global_context.ie_core.ReadModel(model);
 
     #ifndef NDEBUG
+    #if defined OPENVINO_2022_3
     if (IsDebugEnabled()) {
       std::string name = cnn_network->get_friendly_name();
       ov::pass::Serialize serializer(name + ".xml", name + ".bin");
       serializer.run_on_model(cnn_network);
       ngraph::plot_graph(cnn_network, name+"_executable" + ".dot");
     }
+    #endif
     #endif
     return cnn_network;
   }catch (std::string const & msg) {
@@ -306,7 +308,7 @@ void printPerformanceCounts(const std::vector<OVProfilingInfo>& performanceMap,
       totalTime += it.real_time.count();
     }
   }
-  stream << std::setw(20) << std::left << "Total time: " + std::to_string(totalTime) << " microseconds" << std::endl;
+  stream << std::setw(20) << "Total time: " + std::to_string(totalTime) << " microseconds" << std::endl;
   std::cout << std::endl;
   std::cout << "Full device name: " << deviceName << std::endl;
   std::cout << std::endl;

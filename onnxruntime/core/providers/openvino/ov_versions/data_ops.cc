@@ -108,7 +108,6 @@ std::vector<SupportedOp> supported_op_mode = {
     {"DequantizeLinear", V_2021_4, {"CPU", "GPU"}},
     {"Div", V_2020_4, {"All"}},
     {"Dropout", V_2020_4, {"All"}},
-    {"Einsum", V_2022_3, {"CPU"}},
     {"Elu", V_2020_4, {"All"}},
     {"Equal", V_2020_4, {"All"}},
     {"Erf", V_2020_4, {"All"}},
@@ -164,7 +163,6 @@ std::vector<SupportedOp> supported_op_mode = {
     {"Pad", V_2020_4, {"All"}},
     {"Pow", V_2020_4, {"All"}},
     {"PRelu", V_2020_4, {"All"}},
-    {"QLinearConv", V_2022_3, {"CPU"}},
     {"QLinearMatMul", V_2022_3, {"CPU"}},
     {"QuantizeLinear", V_2021_4, {"CPU", "GPU"}},
     {"Range", V_2021_2, {"MYRIAD"}},
@@ -192,7 +190,6 @@ std::vector<SupportedOp> supported_op_mode = {
     {"RoiAlign", V_2021_1, {"All"}},
     {"Round", V_2021_2, {"MYRIAD"}},
     {"Round", V_2021_4, {"All"}},
-    {"Scan", V_2022_3, {"CPU"}},
     {"Scatter", V_2021_1, {"MYRIAD"}},
     {"Scatter", V_2022_1, {"All"}},
     {"ScatterElements", V_2021_2, {"MYRIAD"}},
@@ -224,7 +221,6 @@ std::vector<SupportedOp> supported_op_mode = {
     {"ThresholdedRelu", V_2022_1, {"All"}},
     {"Tile", V_2021_3, {"All"}},
     {"Transpose", V_2020_4, {"All"}},
-    {"Trilu", V_2022_3, {"CPU"}},
     {"TopK", V_2020_4, {"All"}},
     {"Unsqueeze", V_2020_4, {"All"}},
     {"Upsample", V_2021_1, {"CPU"}},
@@ -771,7 +767,8 @@ void DataOps::populate_op_mode_supported() {
 }
 
 bool DataOps::op_is_supported(std::string name, std::vector<SupportedOp>& op_list) {
-  bool auto_support = true;
+  bool auto_support = false;
+  bool multi_support = false;
   for (size_t i = 0; i < op_list.size(); i++) {
 
     if (op_list[i].optype == name) {
@@ -784,7 +781,7 @@ bool DataOps::op_is_supported(std::string name, std::vector<SupportedOp>& op_lis
           //The operator to be marked true, it should be supported by either of the devices specified with HETERO
           if (device_id_.find("HETERO") == 0) {
               status = true;
-              if (device_id_.find(*it) != std::string::npos) {
+              if (device_id_.find(*it) != std::string::npos || (*it == "All")) {
                 return true;
               }
           }
@@ -792,8 +789,8 @@ bool DataOps::op_is_supported(std::string name, std::vector<SupportedOp>& op_lis
          //The operator to be marked true, it should be supported by all the devices specified with MULTI/AUTO
           if (device_id_.find("MULTI") == 0) {
               status = true;
-              if (device_id_.find(*it) == std::string::npos) {
-                return false;
+              if ((*it == "All") || device_id_.find(*it) != std::string::npos) {
+                multi_support = true;
               }
           }
           //The operator to be marked true, it should be supported by atleast CPU device specified with AUTO
@@ -821,7 +818,10 @@ bool DataOps::op_is_supported(std::string name, std::vector<SupportedOp>& op_lis
       }
     }
   }
-  if (auto_support==true){
+  if (device_id_.find("AUTO") == 0 && auto_support == true) {
+    return true;
+  }
+  if (device_id_.find("MULTI") == 0 && multi_support == true) {
     return true;
   }
   return false;
@@ -1028,8 +1028,7 @@ bool DataOps::node_is_supported(const std::map<std::string, std::set<std::string
       } else {
         //Zero dimension check
         for (const auto& dim : shape->dim()) {
-          if (utils::HasDimValue(dim) && dim.dim_value() == 0 &&
-              graph_viewer_.IsConstantInitializer(node_arg.Name(), true)) {
+          if (utils::HasDimValue(dim) && dim.dim_value() == 0) {
             if ((device_id_.find("MYRIAD") != std::string::npos) && (optype == "Resize"))
               return;
             if ((device_id_.find("GPU") != std::string::npos) && ((optype == "Expand") ||
@@ -1158,8 +1157,11 @@ bool DataOps::SpecialConditionForClusterSizeOne(std::unordered_set<std::string>&
     }
   } else if (node->OpType() == "MaxPool" && device_id_.find("MYRIAD") != std::string::npos) {
     auto output_data_type = node->OutputDefs()[0]->TypeAsProto()->tensor_type().elem_type();
-    if (output_data_type != ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_FLOAT ||
-        output_data_type != ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_FLOAT16) {
+    if (output_data_type == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_FLOAT ||
+        output_data_type == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_FLOAT16) {
+      return false;
+    }
+    else {
       return true;
     }
   }
