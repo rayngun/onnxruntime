@@ -554,7 +554,7 @@ typedef struct OrtMIGraphXProviderOptions {
 typedef struct OrtOpenVINOProviderOptions {
 #ifdef __cplusplus
   OrtOpenVINOProviderOptions() : device_type{}, enable_vpu_fast_compile{}, device_id{},
-                                 num_of_threads{}, use_compiled_network{}, blob_dump_path{},
+                                 num_of_threads{}, cache_dir{},
                                  context{}, enable_opencl_throttling{}, enable_dynamic_shapes{} {}
 #endif
   /** \brief Device type string
@@ -565,8 +565,7 @@ typedef struct OrtOpenVINOProviderOptions {
   unsigned char enable_vpu_fast_compile;  ///< 0 = disabled, nonzero = enabled
   const char* device_id;
   size_t num_of_threads;               ///< 0 = Use default number of threads
-  unsigned char use_compiled_network;  ///< 0 = disabled, nonzero = enabled
-  const char* blob_dump_path;          // path is set to empty by default
+  const char* cache_dir;          // path is set to empty by default
   void* context;
   unsigned char enable_opencl_throttling; ///< 0 = disabled, nonzero = enabled
   unsigned char enable_dynamic_shapes;  ///< 0 = disabled, nonzero = enabled
@@ -3632,7 +3631,7 @@ struct OrtApi {
   * 2. For windows, ort will infer the group id from a logical processor id, for example, assuming there are two groups with each has 64 logical processors,
   *    an id of 64 will be inferred as the last processor of the 1st group, while 65 will be interpreted as the 1st processor of the second group.
   *    Hence 64-65 is an invalid configuration, because a windows thread cannot be attached to processors across group boundary.
-  * 
+  *
   *  \since Version 1.14
   */
   ORT_API2_STATUS(SetGlobalIntraOpThreadAffinity, _Inout_ OrtThreadingOptions* tp_options, const char* affinity_string);
