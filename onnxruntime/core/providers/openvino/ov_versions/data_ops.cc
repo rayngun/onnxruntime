@@ -304,7 +304,6 @@ void DataOps::populate_op_mode_supported() {
   no_dimension_supported_.push_back({"QuantizeLinear", V_2021_4, {"All"}});
   no_dimension_supported_.push_back({"DequantizeLinear", V_2021_4, {"All"}});
   no_dimension_supported_.push_back({"Shape", V_2022_1, {"GPU"}});
-  no_dimension_supported_.push_back({"Dropout", V_2022_3, {"All"}});
 
   subgraph_supported_.push_back({"Mul", V_2020_4, {"All"}});
   subgraph_supported_.push_back({"Transpose", V_2020_4, {"All"}});
@@ -1042,7 +1041,7 @@ bool DataOps::node_is_supported(const std::map<std::string, std::set<std::string
         if (op_is_supported(optype, no_dimension_supported_)) {
           return;
         }
-        if ((optype == "Identity") || (optype == "Sqrt")) {
+        if ((optype == "Identity") || (optype == "Sqrt")||(optype == "Dropout")) {
           return;
         }
         has_unsupported_dimension = true;
