@@ -46,6 +46,24 @@ namespace onnxruntime {
         }
     }
 
+    OVExeNetwork OVCore::LoadNetwork(const std::string& model, std::string& hw_target, OVConfig& config, ov::AnyMap& device_config, std::string name) {
+        ov::CompiledModel obj;
+        try {
+            // OVTensor weights;
+            if (hw_target.find("MYRIAD")==std::string::npos || hw_target.find("VAD-M_FP16")==std::string::npos){
+                obj = oe.compile_model(model, hw_target, config=device_config);
+            } else {
+                obj = oe.compile_model(model, hw_target, config=config);
+            }
+            OVExeNetwork exe(obj);
+            return exe;
+        } catch (const Exception& e) {
+            ORT_THROW (log_tag + " Exception while Loading Network for graph: " + name + e.what());
+        } catch (...) {
+            ORT_THROW (log_tag + " Exception while Loading Network for graph " + name);
+        }
+    }
+
     void OVCore::SetCache(std::string cache_dir_path) {
         oe.set_property(ov::cache_dir(cache_dir_path));
     }
