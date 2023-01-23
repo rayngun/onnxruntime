@@ -1291,6 +1291,38 @@ std::shared_ptr<IExecutionProviderFactory> OpenVINOProviderFactoryCreator::Creat
   return s_library_openvino.Get().CreateExecutionProviderFactory(provider_options);
 }
 
+
+
+// Adapter to convert the legacy OrtOpenVINOProviderOptions to the latest OrtOpenVINOProviderOptionsV2
+OrtOpenVINOProviderOptionsV2 OrtOpenVINOProviderOptionsToOrtOpenVINOProviderOptionsV2(const OrtOpenVINOProviderOptions* legacy_ov_options) {
+  OrtOpenVINOProviderOptionsV2 ov_options_converted;
+
+  ov_options_converted.device_type = legacy_ov_options->device_type;
+  ov_options_converted.device_id = legacy_ov_options->device_id;
+  ov_options_converted.enable_vpu_fast_compile = legacy_ov_options->enable_vpu_fast_compile;
+  ov_options_converted.num_of_threads = legacy_ov_options->num_of_threads;
+  ov_options_converted.use_compiled_network = legacy_ov_options->use_compiled_network;
+  ov_options_converted.blob_dump_path = legacy_ov_options->blob_dump_path;
+  ov_options_converted.context = legacy_ov_options->context;
+  ov_options_converted.enable_opencl_throttling = legacy_ov_options->enable_opencl_throttling;
+  ov_options_converted.enable_dynamic_shapes = legacy_ov_options->enable_dynamic_shapes;
+  return ov_options_converted;
+}
+
+std::shared_ptr<IExecutionProviderFactory> OpenVINOProviderFactoryCreator::Create(const OrtOpenVINOProviderOptions* provider_options) {
+  OrtOpenVINOProviderOptionsV2 ov_options_converted = onnxruntime::OrtOpenVINOProviderOptionsToOrtOpenVINOProviderOptionsV2(provider_options);
+  return s_library_openvino.Get().CreateExecutionProviderFactory(&ov_options_converted);
+}
+
+std::shared_ptr<IExecutionProviderFactory> OpenVINOProviderFactoryCreator::Create(const OrtOpenVINOProviderOptionsV2* provider_options) {
+  return s_library_openvino.Get().CreateExecutionProviderFactory(provider_options);
+}
+
+
+
+
+
+
 ProviderInfo_OpenVINO* GetProviderInfo_OpenVINO() {
   return reinterpret_cast<ProviderInfo_OpenVINO*>(s_library_openvino.Get().GetInfo());
 }
@@ -1669,6 +1701,129 @@ ORT_API(void, OrtApis::ReleaseTensorRTProviderOptions, _Frees_ptr_opt_ OrtTensor
   ORT_UNUSED_PARAMETER(ptr);
 #endif
 }
+
+ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_OpenVINO_V2, _In_ OrtSessionOptions* options, _In_ const OrtOpenVINOProviderOptionsV2* openvino_options) {
+  API_IMPL_BEGIN
+  auto factory = onnxruntime::OpenvinoProviderFactoryCreator::Create(openvino_options);
+  if (!factory) {
+    return OrtApis::CreateStatus(ORT_FAIL, "OrtSessionOptionsAppendExecutionProvider_OpenVINO: Failed to load shared library");
+  }
+
+  options->provider_factories.push_back(factory);
+  return nullptr;
+  API_IMPL_END
+}
+
+ORT_API_STATUS_IMPL(OrtApis::CreateOpenVINOProviderOptions, _Outptr_ OrtOpenVINOProviderOptionsV2** out) {
+  API_IMPL_BEGIN
+#ifdef USE_OPENVINO
+  *out = new OrtOpenVINOProviderOptionsV2();
+  (*out)->device_type = nullptr;
+  (*out)->device_id = nullptr;
+  (*out)->enable_vpu_fast_compile = 0;
+  (*out)->num_of_threads = 0;
+  (*out)->use_compiled_network = 0;
+  (*out)->blob_dump_path = nullptr;
+  (*out)->context = nullptr;
+  (*out)->enable_opencl_throttling = 0;
+  (*out)->enable_dynamic_shapes = 0;
+  return nullptr;
+#else
+  ORT_UNUSED_PARAMETER(out);
+  return CreateStatus(ORT_FAIL, "OpenVINO execution provider is not enabled in this build.");
+#endif
+  API_IMPL_END
+}
+
+ORT_API_STATUS_IMPL(OrtApis::UpdateOpenVINOProviderOptions,
+                    _Inout_ OrtOpenVINOProviderOptionsV2* openvino_options,
+                    _In_reads_(num_keys) const char* const* provider_options_keys,
+                    _In_reads_(num_keys) const char* const* provider_options_values,
+                    size_t num_keys) {
+  API_IMPL_BEGIN
+#ifdef USE_OPENVINO
+  onnxruntime::ProviderOptions provider_options_map;
+  for (size_t i = 0; i != num_keys; ++i) {
+    if (provider_options_keys[i] == nullptr || provider_options_keys[i][0] == '\0' ||
+        provider_options_values[i] == nullptr || provider_options_values[i][0] == '\0') {
+      return OrtApis::CreateStatus(ORT_INVALID_ARGUMENT, "key/value cannot be empty");
+    }
+
+    provider_options_map[provider_options_keys[i]] = provider_options_values[i];
+  }
+
+  onnxruntime::UpdateProviderInfo_Openvino(reinterpret_cast<OrtOpenVINOProviderOptions*>(openvino_options),
+                                           reinterpret_cast<const onnxruntime::ProviderOptions&>(provider_options_map));
+  return nullptr;
+#else
+  ORT_UNUSED_PARAMETER(openvino_options);
+  ORT_UNUSED_PARAMETER(provider_options_keys);
+  ORT_UNUSED_PARAMETER(provider_options_values);
+  ORT_UNUSED_PARAMETER(num_keys);
+  return CreateStatus(ORT_FAIL, "OpenVINO execution provider is not enabled in this build.");
+#endif
+  API_IMPL_END
+}
+
+ORT_API_STATUS_IMPL(OrtApis::GetOpenVINOProviderOptionsAsString, _In_ const OrtOpenVINOProviderOptionsV2* openvino_options, _Inout_ OrtAllocator* allocator,
+                    _Outptr_ char** ptr) {
+  API_IMPL_BEGIN
+#ifdef USE_OPENVINO
+  onnxruntime::ProviderOptions options = onnxruntime::GetProviderInfo_Openvino(reinterpret_cast<const OrtOpenVINOProviderOptions*>(openvino_options));
+  onnxruntime::ProviderOptions::iterator it = options.begin();
+  std::string options_str = "";
+
+  while (it != options.end()) {
+    if (options_str == "") {
+      options_str += it->first;
+      options_str += "=";
+      options_str += it->second;
+    } else {
+      options_str += ";";
+      options_str += it->first;
+      options_str += "=";
+      options_str += it->second;
+    }
+    it++;
+  }
+
+  *ptr = onnxruntime::StrDup(options_str, allocator);
+  return nullptr;
+#else
+  ORT_UNUSED_PARAMETER(openvino_options);
+  ORT_UNUSED_PARAMETER(allocator);
+  ORT_UNUSED_PARAMETER(ptr);
+  return CreateStatus(ORT_FAIL, "OpenVINO execution provider is not enabled in this build.");
+#endif
+  API_IMPL_END
+}
+
+ORT_API(void, OrtApis::ReleaseOpenVINOProviderOptions, _Frees_ptr_opt_ OrtOpenVINOProviderOptionsV2* ptr) {
+#ifdef USE_OPENVINO
+  if (ptr != nullptr) {
+    if (ptr->device_type != nullptr) {
+      delete ptr->device_type;
+    }
+
+    if (ptr->device_id != nullptr) {
+      delete ptr->device_id;
+    }
+
+    if (ptr->blob_dump_path != nullptr) {
+      delete ptr->blob_dump_path;
+    }
+
+    if (ptr->context != nullptr) {
+      delete ptr->context;
+    }
+  }
+
+  delete ptr;
+#else
+  ORT_UNUSED_PARAMETER(ptr);
+#endif
+}
+
 
 ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_CUDA_V2, _In_ OrtSessionOptions* options, _In_ const OrtCUDAProviderOptionsV2* cuda_options) {
   API_IMPL_BEGIN

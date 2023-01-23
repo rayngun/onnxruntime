@@ -267,6 +267,7 @@ ORT_RUNTIME_CLASS(ArenaCfg);
 ORT_RUNTIME_CLASS(PrepackedWeightsContainer);
 ORT_RUNTIME_CLASS(TensorRTProviderOptionsV2);
 ORT_RUNTIME_CLASS(CUDAProviderOptionsV2);
+ORT_RUNTIME_CLASS(OpenVINOProviderOptionsV2);
 ORT_RUNTIME_CLASS(CANNProviderOptions);
 ORT_RUNTIME_CLASS(Op);
 ORT_RUNTIME_CLASS(OpAttr);
@@ -2849,6 +2850,81 @@ struct OrtApi {
    * \note This is an exception in the naming convention of other Release* functions, as the name of the method does not have the V2 suffix, but the type does
    */
   void(ORT_API_CALL* ReleaseTensorRTProviderOptions)(_Frees_ptr_opt_ OrtTensorRTProviderOptionsV2* input);
+
+  /// @}
+  /// \name OrtSessionOptions
+  /// @{
+
+  /** \brief Append OpenVINO execution provider to the session options
+   *
+   * If OpenVINO is not available (due to a non OpenVINO enabled build), this function will return failure.
+   *
+   * This is slightly different from OrtApi::SessionOptionsAppendExecutionProvider_OpenVINO, it takes an
+   * ::OrtOpenVINOProviderOptions which is publicly defined. This takes an opaque ::OrtOpenVINOProviderOptionsV2
+   * which must be created with OrtApi::CreateOpenVINOProviderOptions.
+   *
+   * For OrtApi::SessionOptionsAppendExecutionProvider_OpenVINO, the user needs to instantiate ::OrtOpenVINOProviderOptions
+   * as well as allocate/release buffers for some members of ::OrtOpenVINOProviderOptions.
+   * Here, OrtApi::CreateOpenVINOProviderOptions and Ortapi::ReleaseOpenVINOProviderOptions will do the memory management for you.
+   *
+   * \param[in] options
+   * \param[in] openvino_options
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   */
+  ORT_API2_STATUS(SessionOptionsAppendExecutionProvider_OpenVINO_V2,
+                  _In_ OrtSessionOptions* options, _In_ const OrtOpenVINOProviderOptionsV2* openvino_options);
+
+  /// @}
+  /// \name OrtOpenVINOProviderOptionsV2
+  /// @{
+
+  /** \brief Create an OrtOpenVINOProviderOptionsV2
+   *
+   * \param[out] out Newly created ::OrtOpenVINOProviderOptionsV2. Must be released with OrtApi::ReleaseOpenVINOProviderOptions
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   */
+  ORT_API2_STATUS(CreateOpenVINOProviderOptions, _Outptr_ OrtOpenVINOProviderOptionsV2** out);
+
+  /** \brief Set options in a OpenVINO Execution Provider.
+   *
+   * Please refer to https://www.onnxruntime.ai/docs/reference/execution-providers/TensorRT-ExecutionProvider.html#c-api-example
+   * to know the available keys and values. Key should be in null terminated string format of the member of ::OrtOpenVINOProviderOptionsV2
+   * and value should be its related range.
+   *
+   * For example, key="trt_max_workspace_size" and value="2147483648"
+   *
+   * \param[in] openvino_options
+   * \param[in] provider_options_keys Array of UTF-8 null-terminated string for provider options keys
+   * \param[in] provider_options_values Array of UTF-8 null-terminated string for provider options values
+   * \param[in] num_keys Number of elements in the `provider_option_keys` and `provider_options_values` arrays
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   */
+  ORT_API2_STATUS(UpdateOpenVINOProviderOptions, _Inout_ OrtOpenVINOProviderOptionsV2* openvino_options,
+                  _In_reads_(num_keys) const char* const* provider_options_keys,
+                  _In_reads_(num_keys) const char* const* provider_options_values,
+                  _In_ size_t num_keys);
+
+  /** \brief Get serialized OpenVINO provider options string.
+   *
+   * For example, "trt_max_workspace_size=2147483648;trt_max_partition_iterations=10;trt_int8_enable=1;......"
+   *
+   * \param openvino_options - OrOpenVINOProviderOptionsV2 instance
+   * \param allocator - a ptr to an instance of OrtAllocator obtained with OrtApi::CreateAllocator or OrtApi::GetAllocatorWithDefaultOptions
+   *                      the specified allocator will be used to allocate continuous buffers for output strings and lengths.
+   * \param ptr - is a UTF-8 null terminated string allocated using 'allocator'. The caller is responsible for using the same allocator to free it.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   */
+  ORT_API2_STATUS(GetOpenVINOProviderOptionsAsString, _In_ const OrtOpenVINOProviderOptionsV2* openvino_options, _Inout_ OrtAllocator* allocator, _Outptr_ char** ptr);
+
+  /** \brief Release an ::OrtOpenVINOProviderOptionsV2
+   *
+   * \note This is an exception in the naming convention of other Release* functions, as the name of the method does not have the V2 suffix, but the type does
+   */
+  void(ORT_API_CALL* ReleaseOpenVINOProviderOptions)(_Frees_ptr_opt_ OrtOpenVINOProviderOptionsV2* input);
 
   /// @}
   /// \name OrtSessionOptions

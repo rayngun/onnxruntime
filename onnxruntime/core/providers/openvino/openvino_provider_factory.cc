@@ -5,6 +5,9 @@
 #include "core/providers/openvino/openvino_provider_factory.h"
 #include "openvino_execution_provider.h"
 #include "openvino_provider_factory_creator.h"
+#include "core/framework/provider_options.h"
+#include "core/providers/openvino/openvino_provider_options.h"
+#include <string.h>
 
 namespace onnxruntime {
 struct OpenVINOProviderFactory : IExecutionProviderFactory {
@@ -72,6 +75,41 @@ struct OpenVINO_Provider : Provider {
                                                      params.use_compiled_network, params.blob_dump_path,
                                                      params.context, params.enable_opencl_throttling,
                                                      params.enable_dynamic_shapes);
+  }
+
+  std::shared_ptr<IExecutionProviderFactory> CreateExecutionProviderFactory(const void* provider_options) override {
+    auto& options = *reinterpret_cast<const OrtOpenVINOProviderOptionsV2*>(provider_options);
+    OpenVINOExecutionProviderInfo info;
+
+    info.device_type_ = options.device_type;
+    info.enable_vpu_fast_compile_ = options.enable_vpu_fast_compile;
+    info.device_id_ = options.device_id;
+    info.num_of_threads_ = options.num_of_threads;
+    info.use_compiled_network_ = options.use_compiled_network;
+    info.blob_dump_path_ = options.blob_dump_path;
+    info.context_ = options.context;
+    info.enable_opencl_throttling_ = options.enable_opencl_throttling;
+    info.enable_dynamic_shapes_ = options.enable_dynamic_shapes;
+    return std::make_shared<OpenVINOProviderFactory>(info);
+  }
+
+  void UpdateProviderOptions(void* provider_options, const ProviderOptions& options) override {
+    auto internal_options = onnxruntime::OpenVINOExecutionProviderInfo::FromProviderOptions(options);
+    auto& ov_options = *reinterpret_cast<OrtOpenVINOProviderOptionsV2*>(provider_options);
+    ov_options.device_type = internal_options.device_type_;
+    ov_options.enable_vpu_fast_compile = internal_options.enable_vpu_fast_compile_;
+    ov_options.device_id = internal_options.device_id_;
+    ov_options.num_of_threads = internal_options.num_of_threads_;
+    ov_options.use_compiled_network = internal_options.use_compiled_network_;
+    ov_options.blob_dump_path = internal_options.blob_dump_path_;
+    ov_options.context = internal_options.context_;
+    ov_options.enable_opencl_throttling = internal_options.enable_opencl_throttling_;
+    ov_options.enable_opencl_throttling = internal_options.enable_dynamic_shapes_;
+  }
+
+  ProviderOptions GetProviderOptions(const void* provider_options) override {
+    auto& options = *reinterpret_cast<const OrtOpenVINOProviderOptions*>(provider_options);
+    return onnxruntime::OpenVINOExecutionProviderInfo::ToProviderOptions(options);
   }
 
   void Initialize() override {

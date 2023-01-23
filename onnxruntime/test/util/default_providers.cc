@@ -100,6 +100,16 @@ std::unique_ptr<IExecutionProvider> DefaultOpenVINOExecutionProvider() {
 #endif
 }
 
+std::unique_ptr<IExecutionProvider> OpenVINOExecutionProviderWithOptions(const OrtOpenVINOProviderOptionsV2* params) {
+#ifdef USE_OPENVINO
+  if (auto factory = OpenVINOProviderFactoryCreator::Create(params))
+    return factory->CreateProvider();
+#else
+  ORT_UNUSED_PARAMETER(params);
+#endif
+  return nullptr;
+}
+
 std::unique_ptr<IExecutionProvider> DefaultCudaExecutionProvider() {
 #ifdef USE_CUDA
   OrtCUDAProviderOptions provider_options{};

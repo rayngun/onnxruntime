@@ -2580,6 +2580,7 @@ static constexpr OrtApi ort_api_1_to_14 = {
     // End of Version 8 - DO NOT MODIFY ABOVE (see above text for more information)
 
     &OrtApis::SessionOptionsAppendExecutionProvider_TensorRT_V2,
+    &OrtApis::SessionOptionsAppendExecutionProvider_OpenVINO_V2,
     &OrtApis::CreateTensorRTProviderOptions,
     &OrtApis::UpdateTensorRTProviderOptions,
     &OrtApis::GetTensorRTProviderOptionsAsString,

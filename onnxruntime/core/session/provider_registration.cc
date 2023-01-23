@@ -220,6 +220,52 @@ ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_OpenVINO,
   return CreateNotEnabledStatus("OpenVINO");
 }
 
+
+
+//##############################################################################
+
+ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_OpenVINO_V2,
+                    _In_ OrtSessionOptions* options, _In_ const OrtOpenVINOProviderOptionsV2* openvino_options) {
+  ORT_UNUSED_PARAMETER(options);
+  ORT_UNUSED_PARAMETER(openvino_options);
+  return CreateNotEnabledStatus("OpenVINO");
+}
+
+ORT_API_STATUS_IMPL(OrtApis::CreateOpenVINOProviderOptions, _Outptr_ OrtOpenVINOProviderOptionsV2** out) {
+  ORT_UNUSED_PARAMETER(out);
+  return CreateNotEnabledStatus("OpenVINO");
+}
+
+ORT_API_STATUS_IMPL(OrtApis::UpdateOpenVINOProviderOptions,
+                    _Inout_ OrtOpenVINOProviderOptionsV2* openvino_options,
+                    _In_reads_(num_keys) const char* const* provider_options_keys,
+                    _In_reads_(num_keys) const char* const* provider_options_values,
+                    size_t num_keys) {
+  ORT_UNUSED_PARAMETER(openvino_options);
+  ORT_UNUSED_PARAMETER(provider_options_keys);
+  ORT_UNUSED_PARAMETER(provider_options_values);
+  ORT_UNUSED_PARAMETER(num_keys);
+  return CreateNotEnabledStatus("OpenVINO");
+}
+
+ORT_API_STATUS_IMPL(OrtApis::GetOpenVINOProviderOptionsAsString,
+                    _In_ const OrtOpenVINOProviderOptionsV2* openvino_options,
+                    _Inout_ OrtAllocator* allocator,
+                    _Outptr_ char** ptr) {
+  ORT_UNUSED_PARAMETER(openvino_options);
+  ORT_UNUSED_PARAMETER(allocator);
+  ORT_UNUSED_PARAMETER(ptr);
+  return CreateNotEnabledStatus("OpenVINO");
+}
+
+ORT_API(void, OrtApis::ReleaseOpenVINOProviderOptions, _Frees_ptr_opt_ OrtOpenVINOProviderOptionsV2* ptr) {
+  ORT_UNUSED_PARAMETER(ptr);
+}
+
+//##############################################################################
+
+
+
 ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_TensorRT,
                     _In_ OrtSessionOptions* options, _In_ const OrtTensorRTProviderOptions* tensorrt_options) {
   ORT_UNUSED_PARAMETER(options);

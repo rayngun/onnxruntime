@@ -289,6 +289,17 @@ ORT_API_STATUS_IMPL(UpdateTensorRTProviderOptions, _Inout_ OrtTensorRTProviderOp
                     size_t num_keys);
 ORT_API_STATUS_IMPL(GetTensorRTProviderOptionsAsString, _In_ const OrtTensorRTProviderOptionsV2* tensorrt_options, _Inout_ OrtAllocator* allocator, _Outptr_ char** ptr);
 ORT_API(void, ReleaseTensorRTProviderOptions, _Frees_ptr_opt_ OrtTensorRTProviderOptionsV2*);
+
+ORT_API_STATUS_IMPL(SessionOptionsAppendExecutionProvider_OpenVINO_V2,
+                    _In_ OrtSessionOptions* options, _In_ const OrtOpenVINOProviderOptionsV2* openvino_options);
+ORT_API_STATUS_IMPL(CreateOpenVINOProviderOptions, _Outptr_ OrtOpenVINOProviderOptionsV2** out);
+ORT_API_STATUS_IMPL(UpdateOpenVINOProviderOptions, _Inout_ OrtOpenVINOProviderOptionsV2* openvino_options,
+                    _In_reads_(num_keys) const char* const* provider_options_keys,
+                    _In_reads_(num_keys) const char* const* provider_options_values,
+                    size_t num_keys);
+ORT_API_STATUS_IMPL(GetOpenVINOProviderOptionsAsString, _In_ const OrtOpenVINOProviderOptionsV2* openvino_options, _Inout_ OrtAllocator* allocator, _Outptr_ char** ptr);
+ORT_API(void, ReleaseOpenVINOProviderOptions, _Frees_ptr_opt_ OrtOpenVINOProviderOptionsV2*);
+
 ORT_API_STATUS_IMPL(EnableOrtCustomOps, _Inout_ OrtSessionOptions* options);
 ORT_API_STATUS_IMPL(RegisterAllocator, _Inout_ OrtEnv* env, _In_ OrtAllocator* allocator);
 ORT_API_STATUS_IMPL(UnregisterAllocator, _Inout_ OrtEnv* env, _In_ const OrtMemoryInfo* mem_info);
