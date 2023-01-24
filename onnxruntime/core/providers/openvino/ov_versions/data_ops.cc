@@ -1041,7 +1041,7 @@ bool DataOps::node_is_supported(const std::map<std::string, std::set<std::string
         if (op_is_supported(optype, no_dimension_supported_)) {
           return;
         }
-        if ((optype == "Identity") || (optype == "Sqrt")||(optype == "Dropout")) {
+        if ((optype == "Identity") || (optype == "Sqrt")) {
           return;
         }
         has_unsupported_dimension = true;
