@@ -1,8 +1,3 @@
-# DISCONTINUATION OF PROJECT #
-This project will no longer be maintained by Intel.
-This project has been identified as having known security escapes.
-Intel has ceased development and contributions including, but not limited to, maintenance, bug fixes, new releases, or updates, to this project.
-Intel no longer accepts patches to this project.
 <p align="center"><img width="50%" src="docs/images/ONNX_Runtime_logo_dark.png" /></p>
 
 **ONNX Runtime is a cross-platform inference and training machine-learning accelerator**.
