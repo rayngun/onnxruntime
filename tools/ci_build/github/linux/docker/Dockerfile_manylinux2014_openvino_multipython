@@ -53,11 +53,11 @@ RUN cp ${IE_PLUGINS_PATH}/libopenvino_c.so /home/onnxruntimedev/onnxruntime/onnx
 RUN cp ${IE_PLUGINS_PATH}/libopenvino_onnx_frontend.so /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
 RUN cp ${IE_PLUGINS_PATH}/libopenvino_intel_cpu_plugin.so /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
 RUN cp ${IE_PLUGINS_PATH}/libopenvino_intel_gpu_plugin.so /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
-RUN cp ${IE_PLUGINS_PATH}/libopenvino_intel_myriad_plugin.so /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
+#RUN cp ${IE_PLUGINS_PATH}/libopenvino_intel_myriad_plugin.so /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
 RUN cp ${IE_PLUGINS_PATH}/libopenvino_hetero_plugin.so /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
 RUN cp ${IE_PLUGINS_PATH}/libopenvino_auto_plugin.so /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
 RUN cp ${IE_PLUGINS_PATH}/plugins.xml /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
-RUN cp ${IE_PLUGINS_PATH}/usb-ma2x8x.mvcmd /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
+#RUN cp ${IE_PLUGINS_PATH}/usb-ma2x8x.mvcmd /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
 RUN cp ${TBB_LIBS}/libtbb.so /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
 RUN cp ${TBB_LIBS}/libtbb.so.2 /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
 RUN cp ${TBB_LIBS}/libtbbmalloc.so /home/onnxruntimedev/onnxruntime/onnxruntime/core/providers/openvino/scripts/
