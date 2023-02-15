@@ -39,22 +39,19 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
   //Setting OpenCL queue throttling for GPU
   EnableGPUThrottling(device_config);
 
+  #ifndef NDEBUG
+    if (IsDebugEnabled()) {
+      std::string file_name = subgraph_context.subgraph_name + "_static.onnx";
+      std::fstream outfile(file_name, std::ios::out | std::ios::trunc | std::ios::binary);
+      model_proto.SerializeToOstream(outfile);
+    }
+  #endif
+
   if ((subgraph_context.precision == InferenceEngine::Precision::FP16)||
       (!global_context.is_wholly_supported_graph)){
-    try{
-      #ifndef NDEBUG
-        if (IsDebugEnabled()) {
-          std::string file_name = subgraph_context.subgraph_name + "_static.onnx";
-          std::fstream outfile(file_name, std::ios::out | std::ios::trunc | std::ios::binary);
-          model_proto.SerializeToOstream(outfile);
-        }
-      #endif
-      ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
-    } catch (std::string const & msg) {
-        throw msg;
-    }
-
       try {
+        ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
+
         if ((global_context.device_type.find("GPU") != std::string::npos)  &&
           (global_context_.context != nullptr) &&
           (openvino_ep::BackendManager::GetGlobalContext().is_wholly_supported_graph)) {
