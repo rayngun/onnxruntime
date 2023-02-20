@@ -607,7 +607,7 @@ std::unique_ptr<IExecutionProvider> CreateExecutionProviderInstance(
             ORT_THROW("Invalid value passed for enable_vpu_fast_compile: ", option.second);
           }
 
-        }  else if (option.first == "enable_opencl_throttling") {
+        } else if (option.first == "enable_opencl_throttling") {
           if (option.second == "True") {
             params.enable_opencl_throttling = true;
           } else if (option.second == "False") {
@@ -630,6 +630,8 @@ std::unique_ptr<IExecutionProvider> CreateExecutionProviderInstance(
         } else if (option.first == "cache_dir") {
           cache_dir = option.second;
           params.cache_dir = cache_dir.c_str();
+        } else if (option.first == "num_streams") {
+          params.num_streams = std::stoi(option.second);
         } else if (option.first == "context") {
           params.context = (void*)(option.second.c_str());
         } else {
@@ -1064,33 +1066,33 @@ void addObjectMethods(py::module& m, Environment& env, ExecutionProviderRegistra
   // See docs/C_API.md for details on what the following parameters mean and how to choose these values
   ort_arena_cfg_binding.def(py::init([](size_t max_mem, int arena_extend_strategy_local,
                                         int initial_chunk_size_bytes, int max_dead_bytes_per_chunk) {
-    auto ort_arena_cfg = std::make_unique<OrtArenaCfg>();
-    ort_arena_cfg->max_mem = max_mem;
-    ort_arena_cfg->arena_extend_strategy = arena_extend_strategy_local;
-    ort_arena_cfg->initial_chunk_size_bytes = initial_chunk_size_bytes;
-    ort_arena_cfg->max_dead_bytes_per_chunk = max_dead_bytes_per_chunk;
-    return ort_arena_cfg;
-  }))
+                         auto ort_arena_cfg = std::make_unique<OrtArenaCfg>();
+                         ort_arena_cfg->max_mem = max_mem;
+                         ort_arena_cfg->arena_extend_strategy = arena_extend_strategy_local;
+                         ort_arena_cfg->initial_chunk_size_bytes = initial_chunk_size_bytes;
+                         ort_arena_cfg->max_dead_bytes_per_chunk = max_dead_bytes_per_chunk;
+                         return ort_arena_cfg;
+                       }))
       .def(py::init([](const py::dict& feeds) {
-    auto ort_arena_cfg = std::make_unique<OrtArenaCfg>();
-    for (const auto kvp : feeds) {
-      std::string key = kvp.first.cast<std::string>();
-      if (key == "max_mem") {
-        ort_arena_cfg->max_mem = kvp.second.cast<size_t>();
-      } else if (key == "arena_extend_strategy") {
-        ort_arena_cfg->arena_extend_strategy = kvp.second.cast<int>();
-      } else if (key == "initial_chunk_size_bytes") {
-        ort_arena_cfg->initial_chunk_size_bytes = kvp.second.cast<int>();
-      } else if (key == "max_dead_bytes_per_chunk") {
-        ort_arena_cfg->max_dead_bytes_per_chunk = kvp.second.cast<int>();
-      } else if (key == "initial_growth_chunk_size_bytes") {
-        ort_arena_cfg->initial_growth_chunk_size_bytes = kvp.second.cast<int>();
-        } else {
-        ORT_THROW("Invalid OrtArenaCfg option: ", key);
-      }
-    }
-    return ort_arena_cfg;
-  }))
+        auto ort_arena_cfg = std::make_unique<OrtArenaCfg>();
+        for (const auto kvp : feeds) {
+          std::string key = kvp.first.cast<std::string>();
+          if (key == "max_mem") {
+            ort_arena_cfg->max_mem = kvp.second.cast<size_t>();
+          } else if (key == "arena_extend_strategy") {
+            ort_arena_cfg->arena_extend_strategy = kvp.second.cast<int>();
+          } else if (key == "initial_chunk_size_bytes") {
+            ort_arena_cfg->initial_chunk_size_bytes = kvp.second.cast<int>();
+          } else if (key == "max_dead_bytes_per_chunk") {
+            ort_arena_cfg->max_dead_bytes_per_chunk = kvp.second.cast<int>();
+          } else if (key == "initial_growth_chunk_size_bytes") {
+            ort_arena_cfg->initial_growth_chunk_size_bytes = kvp.second.cast<int>();
+          } else {
+            ORT_THROW("Invalid OrtArenaCfg option: ", key);
+          }
+        }
+        return ort_arena_cfg;
+      }))
       .def_readwrite("max_mem", &OrtArenaCfg::max_mem)
       .def_readwrite("arena_extend_strategy", &OrtArenaCfg::arena_extend_strategy)
       .def_readwrite("initial_chunk_size_bytes", &OrtArenaCfg::initial_chunk_size_bytes)
@@ -1122,7 +1124,7 @@ void addObjectMethods(py::module& m, Environment& env, ExecutionProviderRegistra
           "enable_cpu_mem_arena",
           [](const PySessionOptions* options) -> bool { return options->value.enable_cpu_mem_arena; },
           [](PySessionOptions* options, bool enable_cpu_mem_arena) -> void {
-              options->value.enable_cpu_mem_arena = enable_cpu_mem_arena;
+            options->value.enable_cpu_mem_arena = enable_cpu_mem_arena;
           },
           R"pbdoc(Enables the memory arena on CPU. Arena may pre-allocate memory for future usage.
 Set this option to false if you don't want it. Default is True.)pbdoc")
@@ -1130,13 +1132,13 @@ Set this option to false if you don't want it. Default is True.)pbdoc")
           "enable_profiling",
           [](const PySessionOptions* options) -> bool { return options->value.enable_profiling; },
           [](PySessionOptions* options, bool enable_profiling) -> void {
-              options->value.enable_profiling = enable_profiling;
+            options->value.enable_profiling = enable_profiling;
           },
           R"pbdoc(Enable profiling for this session. Default is false.)pbdoc")
       .def_property(
           "profile_file_prefix",
           [](const PySessionOptions* options) -> std::basic_string<ORTCHAR_T> {
-              return options->value.profile_file_prefix;
+            return options->value.profile_file_prefix;
           },
           [](PySessionOptions* options, std::basic_string<ORTCHAR_T> profile_file_prefix) -> void {
             options->value.profile_file_prefix = std::move(profile_file_prefix);
@@ -1162,14 +1164,14 @@ Serialized model format will default to ONNX unless:
           "enable_mem_pattern",
           [](const PySessionOptions* options) -> bool { return options->value.enable_mem_pattern; },
           [](PySessionOptions* options, bool enable_mem_pattern) -> void {
-              options->value.enable_mem_pattern = enable_mem_pattern;
+            options->value.enable_mem_pattern = enable_mem_pattern;
           },
           R"pbdoc(Enable the memory pattern optimization. Default is true.)pbdoc")
       .def_property(
           "enable_mem_reuse",
           [](const PySessionOptions* options) -> bool { return options->value.enable_mem_reuse; },
           [](PySessionOptions* options, bool enable_mem_reuse) -> void {
-              options->value.enable_mem_reuse = enable_mem_reuse;
+            options->value.enable_mem_reuse = enable_mem_reuse;
           },
           R"pbdoc(Enable the memory reuse optimization. Default is true.)pbdoc")
       .def_property(
@@ -1185,7 +1187,7 @@ Serialized model format will default to ONNX unless:
           "log_severity_level",
           [](const PySessionOptions* options) -> int { return options->value.session_log_severity_level; },
           [](PySessionOptions* options, int log_severity_level) -> void {
-              options->value.session_log_severity_level = log_severity_level;
+            options->value.session_log_severity_level = log_severity_level;
           },
           R"pbdoc(Log severity level. Applies to session load, initialization, etc.
 0:Verbose, 1:Info, 2:Warning. 3:Error, 4:Fatal. Default is 2.)pbdoc")
@@ -1211,7 +1213,7 @@ Applies to session load, initialization, etc. Default is 0.)pbdoc")
           "execution_mode",
           [](const PySessionOptions* options) -> ExecutionMode { return options->value.execution_mode; },
           [](PySessionOptions* options, ExecutionMode execution_mode) -> void {
-              options->value.execution_mode = execution_mode;
+            options->value.execution_mode = execution_mode;
           },
           R"pbdoc(Sets the execution mode. Default is sequential.)pbdoc")
       .def_property(
@@ -1267,7 +1269,7 @@ Applies to session load, initialization, etc. Default is 0.)pbdoc")
           "use_deterministic_compute",
           [](const PySessionOptions* options) -> bool { return options->value.use_deterministic_compute; },
           [](PySessionOptions* options, bool use_deterministic_compute) -> void {
-              options->value.use_deterministic_compute = use_deterministic_compute;
+            options->value.use_deterministic_compute = use_deterministic_compute;
           },
           R"pbdoc(Whether to use deterministic compute. Default is false.)pbdoc")
       .def(
