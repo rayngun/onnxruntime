@@ -39,8 +39,20 @@ typedef ov::intel_gpu::ocl::ClContext* OVRemoteContextPtr;
 typedef ov::RemoteContext OVRemoteContext;
 #endif
 
-class OVCore {
-  ov::Core oe;
+  class OVCore {
+    ov::Core oe;
+    public:
+        std::shared_ptr<OVNetwork> ReadModel(const std::string& model_stream) const;
+        OVExeNetwork LoadNetwork(std::shared_ptr<OVNetwork>& ie_cnn_network, std::string& hw_target, ov::AnyMap& device_config, std::string name);
+        void SetCache(std::string cache_dir_path);
+        #ifdef IO_BUFFER_ENABLED
+        OVExeNetwork LoadNetwork(std::shared_ptr<OVNetwork>& model, OVRemoteContextPtr context, std::string& name);
+        #endif
+        std::vector<std::string> GetAvailableDevices();
+        ov::Core& Get() {
+            return oe;
+        }
+    };
 
  public:
   std::shared_ptr<OVNetwork> ReadModel(const std::string& model_stream) const;

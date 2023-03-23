@@ -41,9 +41,8 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
     return;
 
   // OV Config
-  OVConfig config;
   ov::AnyMap device_config;
-  PopulateConfigValue(config, device_config);
+  PopulateConfigValue(device_config);
 
   // Enable caching
   EnableCaching();
@@ -101,7 +100,7 @@ bool BasicBackend::ValidateSubgraph(std::map<std::string, std::shared_ptr<ngraph
   return false;
 }
 
-void BasicBackend::PopulateConfigValue(OVConfig& config, ov::AnyMap& device_config) {
+void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
   // Set inference precision if device_type != AUTO
   // if (global_context_.device_type.find("GPU_FP16")!= std::string::npos){
   //   device_config.emplace(ov::hint::inference_precision(global_context_.precision_str));
@@ -117,19 +116,7 @@ void BasicBackend::PopulateConfigValue(OVConfig& config, ov::AnyMap& device_conf
     if (openvino_ep::backend_utils::IsDebugEnabled()) {
       config["PERF_COUNT"] = CONFIG_VALUE(YES);
     }
-#endif
-    if (subgraph_context_.set_vpu_config) {
-      config["MYRIAD_DETECT_NETWORK_BATCH"] = CONFIG_VALUE(NO);
-    }
-    if (global_context_.enable_vpu_fast_compile) {
-      config["MYRIAD_HW_INJECT_STAGES"] = CONFIG_VALUE(NO);
-      config["MYRIAD_COPY_OPTIMIZATION"] = CONFIG_VALUE(NO);
-    }
-// to check preprocessing inside model
-#if defined(OPENVINO_2022_1) || (OPENVINO_2022_2) || (OPENVINO_2022_3)
-    config["MYRIAD_CHECK_PREPROCESSING_INSIDE_MODEL"] = CONFIG_VALUE(NO);
-#endif
-  }
+  #endif
 }
 
 void BasicBackend::EnableCaching() {
