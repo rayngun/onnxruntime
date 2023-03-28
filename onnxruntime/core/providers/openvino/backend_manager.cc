@@ -195,7 +195,18 @@ BackendManager::GetModelProtoFromFusedNode(const onnxruntime::Node& fused_node,
 
   auto model_proto = model->ToProto();
   model_proto->set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
-  subgraph.ToProto(*model_proto->mutable_graph(), true, true);
+  ONNX_NAMESPACE::GraphProto& graph_proto = *model_proto->mutable_graph();
+  auto& initializers = subgraph.GetAllInitializedTensors();
+  std::vector<std::string> const_inits;
+  for (auto& it : initializers) {
+    const_inits.push_back(it.first);
+  }
+  std::sort(const_inits.begin(), const_inits.end());
+
+  for (auto& it : const_inits){
+    *(graph_proto.mutable_initializer()->Add()) = *(initializers.at(it));
+  }
+  subgraph.ToProto(graph_proto, false, true);
 
 #ifndef NDEBUG
   if (openvino_ep::backend_utils::IsDebugEnabled()) {
