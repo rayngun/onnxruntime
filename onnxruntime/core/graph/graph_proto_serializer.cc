@@ -46,16 +46,10 @@ void GraphViewerToProto(const GraphViewer& graph_view,
     std::unordered_set<std::string> current_scope_initializer_set;
 
     auto& initializers = graph_view.GetAllInitializedTensors();
-    std::vector<std::string> const_inits;
     for (auto& it : initializers) {
-      const_inits.push_back(it.first);
-    }
-    std::sort(const_inits.begin(), const_inits.end());
-
-    for (auto& it : const_inits){
       auto* p_initializer = graph_proto.add_initializer();
-      *p_initializer = *(initializers.at(it));
-      current_scope_initializer_set.insert(it);
+      *p_initializer = *(it.second);
+      current_scope_initializer_set.insert(it.first);
     }
 
 
