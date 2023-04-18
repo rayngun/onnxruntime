@@ -67,30 +67,20 @@ typedef ov::RemoteContext OVRemoteContext;
   }
 };
 
-class OVExeNetwork {
-  ov::CompiledModel obj;
-
- public:
-  OVExeNetwork(ov::CompiledModel md) { obj = md; }
-  OVExeNetwork() { obj = ov::CompiledModel(); }
-  ov::CompiledModel& Get() { return obj; }
-  OVInferRequest CreateInferRequest();
-};
-
-class OVInferRequest {
-  ov::InferRequest ovInfReq;
-
- public:
-  OVTensorPtr GetTensor(const std::string& name);
-  void SetTensor(const std::string& name, OVTensorPtr& blob);
-  void StartAsync();
-  void WaitRequest();
-  void QueryStatus();
-  explicit OVInferRequest(ov::InferRequest obj) { ovInfReq = obj; }
-  OVInferRequest() { ovInfReq = ov::InferRequest(); }
-  ov::InferRequest& GetNewObj() {
-    return ovInfReq;
-  }
-};
-}  // namespace openvino_ep
+    class OVInferRequest {
+        ov::InferRequest ovInfReq;
+    public:
+        OVTensorPtr GetTensor(const std::string& name);
+        void SetTensor(const std::string& name, OVTensorPtr& blob);
+        void StartAsync();
+        void Infer();
+        void WaitRequest();
+        void QueryStatus();
+        explicit OVInferRequest(ov::InferRequest obj) { ovInfReq = obj; }
+        OVInferRequest() { ovInfReq = ov::InferRequest(); }
+        ov::InferRequest& GetNewObj() {
+        return ovInfReq;
+        }
+    };
+   }
 }  // namespace onnxruntime

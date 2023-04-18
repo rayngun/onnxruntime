@@ -64,14 +64,14 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
 #endif
       exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, remote_context_, subgraph_context_.subgraph_name);
     } else {
-      exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
+      exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
     }
   } catch (const char* msg) {
     throw(msg);
   }
 #else
   try {
-    exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
+    exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
   } catch (const char* msg) {
     throw(msg);
   }
@@ -111,17 +111,11 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
     device_config.emplace(ov::enable_profiling(true));
   }
 #endif
-  if (global_context_.device_type.find("MYRIAD") != std::string::npos) {
-#ifndef NDEBUG
-    if (openvino_ep::backend_utils::IsDebugEnabled()) {
-      config["PERF_COUNT"] = CONFIG_VALUE(YES);
-    }
-  #endif
 }
 
 void BasicBackend::EnableCaching() {
   if (!global_context_.cache_dir.empty() && global_context_.is_wholly_supported_graph) {
-#if defined(OPENVINO_2022_3)
+#if defined(OPENVINO_2022_3) || (OPENVINO_2023_0)
 #if defined(_WIN32) || defined(WIN32) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__BORLANDC__)
     _putenv_s("OV_GPU_CACHE_MODEL", "1");
 #else
@@ -167,7 +161,8 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
       size_t batch_slice_idx = 0;
       if (subgraph_context_.has_dynamic_input_shape &&
           global_context_.enable_dynamic_shapes == true &&
-          global_context_.device_type.find("CPU") != std::string::npos) {
+          (global_context_.device_type.find("CPU") != std::string::npos ||
+           global_context_.device_type.find("GPU") != std::string::npos)) {
         auto tensor = context.GetInput(subgraph_context_.input_names.at(input_name));
         auto tensor_info = tensor.GetTensorTypeAndShapeInfo();
         auto tensor_shape = tensor_info.GetShape();

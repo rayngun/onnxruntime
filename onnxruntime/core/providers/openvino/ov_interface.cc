@@ -124,6 +124,25 @@ void OVInferRequest::StartAsync() {
     throw std::string(log_tag + " In Error Couldn't start Inference");
   }
 }
+    void OVInferRequest::Infer() {
+        try {
+            ovInfReq.infer();
+        } catch (const Exception& e) {
+            throw std::string(log_tag + " Couldn't start Inference: " + e.what());
+        } catch (...) {
+            throw std::string(log_tag + " In Error Couldn't start Inference");
+        }
+    }
+
+    void OVInferRequest::WaitRequest() {
+        try {
+            ovInfReq.wait();
+        } catch (const Exception& e) {
+            throw std::string(log_tag + " Wait Model Failed: " + e.what());
+        } catch (...) {
+            throw std::string(log_tag + " Wait Mode Failed");
+        }
+    }
 
 void OVInferRequest::WaitRequest() {
   try {
