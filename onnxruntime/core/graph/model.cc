@@ -343,6 +343,21 @@ ModelProto Model::ToProto() {
   return result;
 }
 
+ModelProto Model::ToProto(Graph* subgraph) {
+  // Overloading function that takes a subgraph, hijacks the existing subgraph
+  // adds parent graph's initializers to its own list. This is to ensure no weights
+  // are missed out.
+  ModelProto result(model_proto_);
+  auto& graph = *subgraph;
+  // Add initializers of the parent graph to the subgraphs
+
+  for(const auto& parent_graph_initializer: graph_->GetAllInitializedTensors())
+    graph.AddInitializedTensor(*parent_graph_initializer.second);
+  
+  *(result.mutable_graph()) = graph.ToGraphProto();
+  return result;
+}
+
 ModelProto Model::ToGraphProtoWithExternalInitializers(const std::string& external_file_name,
                                                        size_t initializer_size_threshold) {
   ModelProto result(model_proto_);

@@ -186,6 +186,7 @@ class Model {
 #if !defined(ORT_MINIMAL_BUILD)
   // Get model's serialization proto data.
   ONNX_NAMESPACE::ModelProto ToProto();
+  ONNX_NAMESPACE::ModelProto ToProto(Graph* subgraph);
 
   // Get model's serialization proto data.
   // Save initializer larger than the given threshold (in bytes) into an external binary file

@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <sstream>
+#include <fstream>
 #include <unordered_set>
 #include <list>
 #include <string>
@@ -1327,6 +1328,23 @@ common::Status InferenceSession::Initialize() {
 
     // Verify that there are no external initializers in the graph if external data is disabled.
     onnxruntime::Graph& graph = model_->MainGraph();
+  for (auto& node : graph.Nodes()) {
+      for (auto& entry : node.GetAttributeNameToMutableSubgraphMap()) {
+
+        auto& attr_name = entry.first;
+        Graph* subgraph = entry.second;
+        LOGS(*session_logger_, INFO) << "Encountered subgraph with name : " << attr_name;
+
+        auto model_proto = model_->ToProto(subgraph);
+        model_proto.set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
+        // subgraph->ToProto(*model_proto->mutable_graph(), true, true);
+
+        std::fstream dump(attr_name + ".onnx", std::ios::out | std::ios::trunc | std::ios::binary);
+        model_proto.SerializeToOstream(&dump);
+        
+        ORT_ENFORCE(subgraph, "Main Graph instance should have populated all subgraphs when being resolved.");
+    }
+  }
 #ifdef DISABLE_EXTERNAL_INITIALIZERS
     const InitializedTensorSet& initializers = graph.GetAllInitializedTensors();
     for (const auto& it : initializers) {
