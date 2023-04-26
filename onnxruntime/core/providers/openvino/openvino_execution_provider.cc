@@ -6,6 +6,7 @@
 #include "contexts.h"
 #include "backend_manager.h"
 #include "ov_versions/capabilities.h"
+#include "contrib_ops/openvino/openvino_contrib_kernels.h"
 
 #define MEMCPY_S(dest, src, destsz, srcsz) memcpy(dest, src, std::min(destsz, srcsz))
 
@@ -188,4 +189,27 @@ common::Status OpenVINOExecutionProvider::Compile(
   return Status::OK();
 }
 
+static std::shared_ptr<KernelRegistry> s_kernel_registry;
+
+void InitializeRegistry() {
+  s_kernel_registry = KernelRegistry::Create();
+  ORT_THROW_IF_ERROR(openvino::RegisterOpenVINOKernels(*s_kernel_registry));
+}
+
+void DeleteRegistry() {
+  s_kernel_registry.reset();
+}
+
+std::shared_ptr<KernelRegistry> OpenVINOExecutionProvider::GetKernelRegistry() const {
+  return s_kernel_registry;
+}
+
 }  // namespace onnxruntime
+
+// namespace openvino
+namespace openvino {
+static Status RegisterOpenVINOKernels(KernelRegistry& kernel_registry) {
+  ORT_RETURN_IF_ERROR(::onnxruntime::contrib::openvino::RegisterOpenVINOContribKernels(kernel_registry));
+}
+}
+

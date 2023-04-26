@@ -176,6 +176,8 @@ class OpenVINOExecutionProvider : public IExecutionProvider {
   const void* GetExecutionHandle() const noexcept override {
     return nullptr;
   }
+
+  std::shared_ptr<KernelRegistry> GetKernelRegistry() const override;
 };
 
 }  // namespace onnxruntime
