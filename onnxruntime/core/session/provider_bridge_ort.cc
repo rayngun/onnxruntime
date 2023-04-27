@@ -1358,6 +1358,12 @@ std::shared_ptr<IExecutionProviderFactory> OpenVINOProviderFactoryCreator::Creat
   return s_library_openvino.Get().CreateExecutionProviderFactory(provider_options);
 }
 
+std::shared_ptr<IExecutionProviderFactory> OpenVINOProviderFactoryCreator::Create(const ProviderOptions* provider_options_map) {
+  return s_library_openvino.Get().CreateExecutionProviderFactory(provider_options_map);
+}
+
+
+
 std::shared_ptr<IExecutionProviderFactory> DnnlProviderFactoryCreator::Create(const OrtDnnlProviderOptions* dnnl_options) {
   return s_library_dnnl.Get().CreateExecutionProviderFactory(dnnl_options);
 }

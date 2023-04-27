@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "core/providers/providers.h"
+#include "core/framework/provider_options.h"
 
 struct OrtOpenVINOProviderOptions;
 struct OrtOpenVINOProviderOptionsV2;
@@ -15,5 +16,6 @@ namespace onnxruntime {
 struct OpenVINOProviderFactoryCreator {
   static std::shared_ptr<IExecutionProviderFactory> Create(const OrtOpenVINOProviderOptions* provider_options);
   static std::shared_ptr<IExecutionProviderFactory> Create(const OrtOpenVINOProviderOptionsV2* provider_options);
+  static std::shared_ptr<IExecutionProviderFactory> Create(const ProviderOptions* provider_options_map);
 };
 }  // namespace onnxruntime
