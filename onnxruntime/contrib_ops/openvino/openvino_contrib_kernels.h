@@ -3,12 +3,9 @@
 
 #pragma once
 
-#include "core/framework/op_kernel.h"
-#include "core/framework/kernel_registry.h"
-
 namespace onnxruntime {
 namespace contrib {
-namespace openvino {
+namespace openvino_ep {
 Status RegisterOpenVINOContribKernels(KernelRegistry& kernel_registry);
 } // namespace OpenVINO
 } // namespace contrib

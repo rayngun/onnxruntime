@@ -15,8 +15,10 @@ function(substitute_op_reduction_srcs all_srcs)
   set(original_srcs
     "${ONNXRUNTIME_ROOT}/contrib_ops/cpu/cpu_contrib_kernels.cc"
     "${ONNXRUNTIME_ROOT}/contrib_ops/cuda/cuda_contrib_kernels.cc"
+    "${ONNXRUNTIME_ROOT}/contrib_ops/openvino/openvino_contrib_kernels.cc"
     "${ONNXRUNTIME_ROOT}/core/providers/cpu/cpu_execution_provider.cc"
     "${ONNXRUNTIME_ROOT}/core/providers/cuda/cuda_execution_provider.cc"
+    "${ONNXRUNTIME_ROOT}/core/providers/openvino/openvino_execution_provider.cc"
     "${ONNXRUNTIME_ROOT}/core/providers/op_kernel_type_control_overrides.inc"
     "${ORTTRAINING_SOURCE_DIR}/training_ops/cpu/cpu_training_kernels.cc"
     "${ORTTRAINING_SOURCE_DIR}/training_ops/cuda/cuda_training_kernels.cc"
@@ -91,6 +93,11 @@ file(GLOB_RECURSE onnxruntime_rocm_contrib_ops_cc_srcs CONFIGURE_DEPENDS
 file(GLOB_RECURSE onnxruntime_rocm_contrib_ops_cu_srcs CONFIGURE_DEPENDS
   "${ONNXRUNTIME_ROOT}/contrib_ops/rocm/*.cu"
   "${ONNXRUNTIME_ROOT}/contrib_ops/rocm/*.cuh"
+)
+
+file(GLOB_RECURSE onnxruntime_openvino_contrib_ops_cc_srcs CONFIGURE_DEPENDS
+  "${ONNXRUNTIME_ROOT}/contrib_ops/openvino/*.h"
+  "${ONNXRUNTIME_ROOT}/contrib_ops/openvino/*.cc"
 )
 
 file(GLOB onnxruntime_providers_common_srcs CONFIGURE_DEPENDS
@@ -824,6 +831,7 @@ if (onnxruntime_USE_OPENVINO)
     unset(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO)
   endif()
 
+  
   if ((DEFINED ENV{OPENCL_LIBS}) AND (DEFINED ENV{OPENCL_INCS}))
     add_definitions(-DIO_BUFFER_ENABLED=1)
     list(APPEND OPENVINO_LIB_LIST $ENV{OPENCL_LIBS} ${OV_20_LIBS} ${InferenceEngine_LIBRARIES} ${NGRAPH_LIBRARIES} ngraph::onnx_importer ${PYTHON_LIBRARIES})
@@ -832,6 +840,9 @@ if (onnxruntime_USE_OPENVINO)
   endif()
 
   source_group(TREE ${ONNXRUNTIME_ROOT}/core FILES ${onnxruntime_providers_openvino_cc_srcs})
+  source_group(TREE ${ONNXRUNTIME_ROOT} FILES ${onnxruntime_openvino_contrib_ops_cc_srcs})
+  list(APPEND onnxruntime_providers_openvino_cc_srcs ${onnxruntime_openvino_contrib_ops_cc_srcs})
+
   onnxruntime_add_shared_library_module(onnxruntime_providers_openvino ${onnxruntime_providers_openvino_cc_srcs} "${ONNXRUNTIME_ROOT}/core/dll/onnxruntime.rc")
   onnxruntime_add_include_to_target(onnxruntime_providers_openvino onnxruntime_common onnx)
   install(DIRECTORY ${PROJECT_SOURCE_DIR}/../include/onnxruntime/core/providers/openvino  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/onnxruntime/core/providers)
