@@ -5,7 +5,6 @@
 #include "core/common/status.h"
 
 namespace onnxruntime {
-   class KernelRegistry;
 namespace contrib {
 namespace openvino_ep {
 Status RegisterOpenVINOContribKernels(KernelRegistry& kernel_registry);
