@@ -6,6 +6,12 @@
 #include <map>
 #include <algorithm>
 #include <iostream>
+#include <vector>
+#include <sstream>
+#include "core/providers/shared_library/provider_api.h"
+#include "contexts.h"
+#include "backend_manager.h"
+#include "ov_versions/capabilities.h"
 
 namespace onnxruntime {
 

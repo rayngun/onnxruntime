@@ -1,21 +1,24 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "core/providers/openvino/openvino_execution_provider.h"
 #include "contrib_ops/openvino/beam_search.h"
 
 namespace onnxruntime {
 namespace contrib {
 namespace openvino_ep {
 
-ONNX_OPERATOR_KERNEL_EX(
-    BeamSearch,
-    kMSDomain,
-    1,
-    kOpenVINOExecutionProvider,
-    (*KernelDefBuilder::Create())
-        .TypeConstraint("T", DataTypeImpl::GetTensorType<T>()),
-    transformers::BeamSearch BeamSearch);
+#define REGISTER_KERNEL_TYPED(T)                                  \
+  ONNX_OPERATOR_TYPED_KERNEL_EX(                                  \
+      BeamSearch,                                                 \
+      kMSDomain,                                                  \
+      1,                                                          \
+      T,                                                          \
+      kOpenVINOExecutionProvider,                                 \
+      (*KernelDefBuilder::Create())                               \
+          .TypeConstraint("T", DataTypeImpl::GetTensorType<T>()), \
+      BeamSearch);
+
+REGISTER_KERNEL_TYPED(float)
 
 BeamSearch::BeamSearch(const OpKernelInfo& info)
     : onnxruntime::contrib::transformers::BeamSearch(info) {
