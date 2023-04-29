@@ -157,75 +157,69 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
     }
   }
 
-  void BasicBackend::EnableGPUThrottling(ov::AnyMap & device_config) {
-    if (global_context_.enable_opencl_throttling == true && global_context_.device_type.find("GPU") != std::string::npos) {
-      LOGS_DEFAULT(INFO) << log_tag << "Enabled OpenCL queue throttling for GPU device";
-      device_config[GPU_CONFIG_KEY(PLUGIN_THROTTLE)] = "1";
-    }
+void BasicBackend::EnableGPUThrottling(ov::AnyMap& device_config) {
+  if (global_context_.enable_opencl_throttling == true && global_context_.device_type.find("GPU") != std::string::npos) {
+    LOGS_DEFAULT(INFO) << log_tag << "Enabled OpenCL queue throttling for GPU device";
+    device_config[GPU_CONFIG_KEY(PLUGIN_THROTTLE)] = "1";
   }
+}
 
-  // Starts an asynchronous inference request for data in slice indexed by batch_slice_idx on
-  // an Infer Request indexed by infer_req_idx
-  void BasicBackend::StartAsyncInference(Ort::KernelContext & context, OVInferRequestPtr infer_request) {
-    try {
-      auto graph_input_info = exe_network_.Get().inputs();
-      int input_idx = 0;
-      for (auto input_info_iter = graph_input_info.begin();
-           input_info_iter != graph_input_info.end(); ++input_info_iter) {
-        auto input_names = input_info_iter->get_names();
-        std::string onnx_input_name;
-        std::string input_name;
-        // use names retrieved from original ONNX model to assign the right onnx input name for the graph
-        for (auto it = subgraph_context_.input_names.begin(); it != subgraph_context_.input_names.end(); ++it) {
-          if (it->second == input_idx) {
-            onnx_input_name = it->first;
-            break;
-          }
-        }
+// Starts an asynchronous inference request for data in slice indexed by batch_slice_idx on
+// an Infer Request indexed by infer_req_idx
+void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferRequestPtr infer_request) {
+  try {
+    auto graph_input_info = exe_network_.Get().inputs();
+    int input_idx = 0;
+    for (auto input_info_iter = graph_input_info.begin();
+         input_info_iter != graph_input_info.end(); ++input_info_iter) {
+      auto input_names = input_info_iter->get_names();
+      std::string onnx_input_name;
+      std::string input_name;
+      // use names retrieved from original ONNX model to assign the right onnx input name for the graph
+      for (auto it = subgraph_context_.input_names.begin(); it != subgraph_context_.input_names.end(); ++it) {
+        onnx_input_name = it->first;
         // using the input name retrieved from ONNX original to match with the input names returned by OV tensors
         if (input_names.find(onnx_input_name) != input_names.end()) {
           input_name = onnx_input_name;
+          break;
         } else {
+          continue;
           throw(log_tag + "Input names mismatch between OpenVINO and ONNX. " + onnx_input_name + " doesn't exist in the list of OpenVINO input tensor names");
         }
-        size_t batch_slice_idx = 0;
-        if (subgraph_context_.has_dynamic_input_shape &&
-            global_context_.enable_dynamic_shapes == true &&
-            (global_context_.device_type.find("CPU") != std::string::npos ||
-             global_context_.device_type.find("GPU") != std::string::npos)) {
-          auto tensor = context.GetInput(subgraph_context_.input_names.at(input_name));
-          auto tensor_info = tensor.GetTensorTypeAndShapeInfo();
-          auto tensor_shape = tensor_info.GetShape();
-          auto tensor_size = tensor_shape.size();
-          auto tensor_iter = 0;
-          ov::Shape input_tensor_shape = ov::Shape(tensor_size, 0);
-          for (auto i = tensor_shape.begin(); i != tensor_shape.end(); ++i) {
-            input_tensor_shape[tensor_iter] = *i;
-            tensor_iter += 1;
-          }
-          auto input = ie_cnn_network_->get_parameters().at(input_idx);
-          OVTensorPtr tensor_ptr = std::make_shared<ov::Tensor>(input->get_element_type(), input_tensor_shape);
-          FillInputBlob(tensor_ptr, batch_slice_idx, input_name, context, subgraph_context_);
-          try {
-            infer_request->SetTensor(input_name, tensor_ptr);
-          } catch (const char* msg) {
-            throw(msg);
-          }
-        } else {
-          OVTensorPtr graph_input_blob;
-          try {
-            graph_input_blob = infer_request->GetTensor(input_name);
-          } catch (const char* msg) {
-            throw(msg);
-          }
-          FillInputBlob(graph_input_blob, batch_slice_idx, input_name, context, subgraph_context_);
-        }
-        input_idx++;
       }
-      // Start Async inference
-      infer_request->StartAsync();
-    } catch (const char* msg) {
-      throw(msg);
+      size_t batch_slice_idx = 0;
+      if (subgraph_context_.has_dynamic_input_shape &&
+          global_context_.enable_dynamic_shapes == true &&
+          (global_context_.device_type.find("CPU") != std::string::npos ||
+           global_context_.device_type.find("GPU") != std::string::npos)) {
+        auto tensor = context.GetInput(subgraph_context_.input_names.at(input_name));
+        auto tensor_info = tensor.GetTensorTypeAndShapeInfo();
+        auto tensor_shape = tensor_info.GetShape();
+        auto tensor_size = tensor_shape.size();
+        auto tensor_iter = 0;
+        ov::Shape input_tensor_shape = ov::Shape(tensor_size, 0);
+        for (auto i = tensor_shape.begin(); i != tensor_shape.end(); ++i) {
+          input_tensor_shape[tensor_iter] = *i;
+          tensor_iter += 1;
+        }
+        auto input = ie_cnn_network_->get_parameters().at(input_idx);
+        OVTensorPtr tensor_ptr = std::make_shared<ov::Tensor>(input->get_element_type(), input_tensor_shape);
+        FillInputBlob(tensor_ptr, batch_slice_idx, input_name, context, subgraph_context_);
+        try {
+          infer_request->SetTensor(input_name, tensor_ptr);
+        } catch (const char* msg) {
+          throw(msg);
+        }
+      } else {
+        OVTensorPtr graph_input_blob;
+        try {
+          graph_input_blob = infer_request->GetTensor(input_name);
+        } catch (const char* msg) {
+          throw(msg);
+        }
+        FillInputBlob(graph_input_blob, batch_slice_idx, input_name, context, subgraph_context_);
+      }
+      input_idx++;
     }
   }
 
