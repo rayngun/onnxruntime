@@ -2,8 +2,6 @@
 // Licensed under the MIT License.
 
 #include "contrib_ops/openvino/openvino_contrib_kernels.h"
-#include "core/providers/shared_library/provider_api.h"
-#include "core/common/status.h"
 
 using namespace onnxruntime::common;
 

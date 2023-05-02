@@ -3,6 +3,7 @@
 
 #pragma once
 #include "core/common/status.h"
+#include "core/providers/shared_library/provider_api.h"
 
 namespace onnxruntime {
 namespace contrib {

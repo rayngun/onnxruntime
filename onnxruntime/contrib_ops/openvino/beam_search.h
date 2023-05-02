@@ -3,12 +3,15 @@
 
 #pragma once
 
+#include "core/providers/shared_library/provider_api.h"
 #include "contrib_ops/cpu/transformers/beam_search.h"
 
 namespace onnxruntime {
+
 class SessionState;
 
 namespace contrib {
+
 namespace openvino_ep {
 
 class BeamSearch final : public onnxruntime::contrib::transformers::BeamSearch {
@@ -21,6 +24,6 @@ class BeamSearch final : public onnxruntime::contrib::transformers::BeamSearch {
   Status ComputeInternal(OpKernelContext* context) const;
 };
 
-}  // namespace cuda.
+}  // namespace openvino
 }  // namespace contrib
 }  // namespace onnxruntime
