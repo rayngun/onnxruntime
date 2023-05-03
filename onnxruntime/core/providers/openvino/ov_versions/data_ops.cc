@@ -1033,7 +1033,9 @@ bool DataOps::node_is_supported(const std::map<std::string, std::set<std::string
       std::cout << "Dimension check failed" << std::endl;
     }
 #endif
-
+    if (optype == "Pow") {
+          return true;
+    }
     return false;
   }
 
