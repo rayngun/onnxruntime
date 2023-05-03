@@ -45,6 +45,8 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
   // if (graph_viewer_.IsSubgraph()) {
   //   return result;
   // }
+  if (graph_viewer_.Name() == "decoder subgraph" || graph_viewer_.Name() == "beam-search-test")
+    return result;
 
   // This is a list of initializers that nGraph considers as constants. Example weights, reshape shape etc.
   std::unordered_set<std::string> ng_required_initializers;

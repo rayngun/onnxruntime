@@ -184,7 +184,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           break;
         } else {
           continue;
-          throw(log_tag + "Input names mismatch between OpenVINO and ONNX. " + onnx_input_name + " doesn't exist in the list of OpenVINO input tensor names");
+          // throw(log_tag + "Input names mismatch between OpenVINO and ONNX. " + onnx_input_name + " doesn't exist in the list of OpenVINO input tensor names");
         }
       }
       size_t batch_slice_idx = 0;
