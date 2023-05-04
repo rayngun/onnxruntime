@@ -221,7 +221,12 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
       }
       input_idx++;
     }
+    // Start Async inference
+    infer_request->StartAsync();
+  } catch (const char* msg) {
+    throw(msg);
   }
+}
 
 #ifdef IO_BUFFER_ENABLED
   // Wait for Remote Aynchronous inference completion

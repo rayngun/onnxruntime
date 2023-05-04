@@ -1379,7 +1379,6 @@ common::Status InferenceSession::Initialize() {
 
         for(const auto& parent_graph_initializer: graph.GetAllInitializedTensors()) {
           if (initializer_names_to_preserve.find(parent_graph_initializer.first) != initializer_names_to_preserve.cend()) {
-            // std::cout << "Adding initializer " << parent_graph_initializer.first << " to subgraph " << entry.first << std::endl;
             subgraph->AddInitializedTensor(*parent_graph_initializer.second);
         }
       }
