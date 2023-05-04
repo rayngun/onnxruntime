@@ -41,10 +41,6 @@ GetCapability::GetCapability(const GraphViewer& graph_viewer_param, std::string 
 std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
   std::vector<std::unique_ptr<ComputeCapability>> result;
 
-  // Check if it is a subgraph
-  // if (graph_viewer_.IsSubgraph()) {
-  //   return result;
-  // }
   if (graph_viewer_.Name() == "decoder subgraph" || graph_viewer_.Name() == "beam-search-test")
     return result;
 

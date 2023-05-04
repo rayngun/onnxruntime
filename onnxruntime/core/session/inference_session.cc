@@ -1354,40 +1354,29 @@ common::Status InferenceSession::Initialize() {
     // Verify that there are no external initializers in the graph if external data is disabled.
     onnxruntime::Graph& graph = model_->MainGraph();
 
-    ///////////////////////////////////
+#ifdef USE_OPENVINO
     /// Move initializers from the MainGraph to subgraphs
-    const std::unordered_set<std::string> initializer_names_to_preserve = {
-      "s_d_onnx::MatMul_1152",
-      "s_d_onnx::MatMul_1151",
-      "s_d_onnx::MatMul_1116",
-      "s_d_onnx::MatMul_1079",
-      "s_d_decoder.model.decoder.layers.0.fc1.bias",
-      "s_d_decoder.model.decoder.layers.1.fc1.bias",
-      "s_d_onnx::MatMul_1044",
-      "s_d_decoder.model.decoder.layers.2.fc1.bias",
-      "s_d_decoder.model.decoder.layers.3.fc1.bias",
-      "s_d_onnx::MatMul_1153",
-      "s_d_onnx::MatMul_1115",
-      "s_d_onnx::MatMul_1080",
-      "s_d_onnx::MatMul_1043",
-      "s_d_decoder.model.decoder.embed_tokens.weight"
-    };
-
+    std::unordered_set<std::string> initializer_names_to_preserve;
     for (auto& node: graph.Nodes()) {
+
+      // Preserve implicitInputDefs in the subgraphs
+      for (auto& def : node.ImplicitInputDefs())
+        initializer_names_to_preserve.insert(def->Name());
+
       for(auto& entry: node.GetAttributeNameToMutableSubgraphMap()) {
         Graph *subgraph = entry.second;
 
         for(const auto& parent_graph_initializer: graph.GetAllInitializedTensors()) {
-          if (initializer_names_to_preserve.find(parent_graph_initializer.first) != initializer_names_to_preserve.cend()) {
+          if (initializer_names_to_preserve.find(parent_graph_initializer.first) != initializer_names_to_preserve.cend())
             subgraph->AddInitializedTensor(*parent_graph_initializer.second);
-        }
       }
     }
   }
 
+  // Now remove those initializers from the MainGraph
   for(auto& name: initializer_names_to_preserve)
     graph.RemoveInitializedTensor(name);
-  ///////////////////////////////////////////
+#endif
 
 #ifdef DISABLE_EXTERNAL_INITIALIZERS
     const InitializedTensorSet& initializers = graph.GetAllInitializedTensors();
