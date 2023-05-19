@@ -108,6 +108,7 @@ std::vector<SupportedOp> supported_op_mode = {
     {"DequantizeLinear", V_2021_4, {"CPU", "GPU"}},
     {"Div", V_2020_4, {"All"}},
     {"Dropout", V_2020_4, {"All"}},
+    {"Einsum", V_2023_0, {"CPU", "GPU"}},
     {"Elu", V_2020_4, {"All"}},
     {"Equal", V_2020_4, {"All"}},
     {"Erf", V_2020_4, {"All"}},
@@ -129,10 +130,14 @@ std::vector<SupportedOp> supported_op_mode = {
     {"Greater", V_2020_4, {"All"}},
     {"GreaterOrEqual", V_2022_1, {"All"}},
     {"GridSample", V_2022_3, {"CPU"}},
-    {"Identity", V_2020_4, {"All"}},
-    {"If", V_2022_3, {"All"}},
-    {"ImageScaler", V_2022_1, {"All"}},
-    {"InstanceNormalization", V_2020_4, {"All"}},
+    {"GridSample", V_2023_0, {"GPU"}},
+    {"Identity", V_2020_4, {"CPU", "GPU"}},
+    {"Identity", V_2023_0, {"VPUX"}},  // NoOP
+    {"If", V_2022_3, {"CPU", "GPU"}},
+    {"ImageScaler", V_2022_1, {"CPU", "GPU"}},
+    {"ImageScaler", V_2023_0, {"VPUX"}},
+    {"InstanceNormalization", V_2020_4, {"CPU", "GPU"}},
+    {"InstanceNormalization", V_2023_0, {"VPUX"}},
     {"HardSigmoid", V_2020_4, {"CPU", "GPU"}},
     {"HardMax", V_2022_1, {"CPU", "GPU"}},
     {"LeakyRelu", V_2020_4, {"All"}},
@@ -156,6 +161,7 @@ std::vector<SupportedOp> supported_op_mode = {
     {"Neg", V_2020_4, {"All"}},
     {"NonMaxSuppression", V_2021_1, {"All"}},
     {"NonZero", V_2021_1, {"CPU", "MYRIAD"}},
+    {"NonZero", V_2023_0, {"GPU"}},
     {"Not", V_2021_1, {"All"}},
     {"Not", V_2020_4, {"CPU", "GPU"}},
     {"OneHot", V_2020_4, {"All"}},
@@ -275,6 +281,9 @@ void DataOps::populate_op_mode_supported() {
   no_dimension_supported_.push_back({"Sub", V_2020_4, {"All"}});
   no_dimension_supported_.push_back({"Min", V_2020_4, {"All"}});
   no_dimension_supported_.push_back({"Div", V_2020_4, {"All"}});
+  no_dimension_supported_.push_back({"DequantizeLinear", V_2021_4, {"All"}});
+  no_dimension_supported_.push_back({"Equal", V_2022_1, {"CPU"}});
+  no_dimension_supported_.push_back({"Equal", V_2023_0, {"GPU"}});
   no_dimension_supported_.push_back({"Floor", V_2020_4, {"All"}});
   no_dimension_supported_.push_back({"Where", V_2021_2, {"All"}});
   no_dimension_supported_.push_back({"Range", V_2021_2, {"All"}});
@@ -304,6 +313,11 @@ void DataOps::populate_op_mode_supported() {
   no_dimension_supported_.push_back({"QuantizeLinear", V_2021_4, {"All"}});
   no_dimension_supported_.push_back({"DequantizeLinear", V_2021_4, {"All"}});
   no_dimension_supported_.push_back({"Shape", V_2022_1, {"GPU"}});
+  no_dimension_supported_.push_back({"Shape", V_2023_0, {"CPU"}});
+  no_dimension_supported_.push_back({"Squeeze", V_2020_4, {"All"}});
+  no_dimension_supported_.push_back({"Sub", V_2020_4, {"All"}});
+  no_dimension_supported_.push_back({"Unsqueeze", V_2020_4, {"All"}});
+  no_dimension_supported_.push_back({"Where", V_2021_2, {"All"}});
 
 
   subgraph_supported_.push_back({"Mul", V_2020_4, {"All"}});
@@ -784,6 +798,7 @@ void DataOps::populate_op_mode_supported() {
 bool DataOps::op_is_supported(std::string name, std::vector<SupportedOp>& op_list) {
   bool auto_support = false;
   bool multi_support = false;
+  std::cout << " version_id_" << version_id_ << std::endl;
   for (size_t i = 0; i < op_list.size(); i++) {
 
     if (op_list[i].optype == name) {
@@ -1053,8 +1068,10 @@ bool DataOps::node_is_supported(const std::map<std::string, std::set<std::string
           if (utils::HasDimValue(dim) && dim.dim_value() == 0) {
             if ((device_id_.find("MYRIAD") != std::string::npos) && (optype == "Resize"))
               return;
-            if ((device_id_.find("GPU") != std::string::npos) && ((optype == "Expand") ||
-                (optype == "Slice") || (optype == "Concat") || (optype == "Shape"))) {
+            if (((device_id_.find("CPU") != std::string::npos) || (device_id_.find("GPU") != std::string::npos) ) &&
+                                                                  ((optype == "Expand") || (optype == "Equal") ||
+                                                                  (optype == "Slice") || (optype == "Concat") ||
+                                                                  (optype == "Shape"))) {
                 return;
               }
             has_unsupported_dimension = true;
