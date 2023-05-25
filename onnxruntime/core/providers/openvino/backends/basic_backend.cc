@@ -47,6 +47,7 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
     }
   #endif
   try{
+    std::string dev_prec = global_context.device_type + "_" + global_context_.precision_str;
     if (global_context.is_wholly_supported_graph){
       #if defined(IO_BUFFER_ENABLED)
         if ((global_context.device_type.find("GPU") != std::string::npos)  &&
@@ -57,7 +58,7 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
           ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
           exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, remote_context_, subgraph_context_.subgraph_name);
           LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
-        } else if (subgraph_context.precision == InferenceEngine::Precision::FP16){
+        } else if (global_context_.enable_dynamic_shapes == false && dev_prec!="CPU_FP16") {
             ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
             exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
             LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
@@ -67,7 +68,7 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
             LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
           }
       #else
-        if (subgraph_context.precision == InferenceEngine::Precision::FP16){
+        if (global_context_.enable_dynamic_shapes == false && dev_prec!="CPU_FP16") {
           ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
           exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
           LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
@@ -109,11 +110,15 @@ bool BasicBackend::ValidateSubgraph(std::map<std::string, std::shared_ptr<ngraph
 }
 
 void BasicBackend::PopulateConfigValue(OVConfig& config, ov::AnyMap& device_config) {
-  // Set inference precision if device_type != AUTO
-  // if (global_context_.device_type.find("GPU_FP16")!= std::string::npos){
-  //   device_config.emplace(ov::hint::inference_precision(global_context_.precision_str));
-  // }
   device_config = {};
+  // Set inference precision if device_type != AUTO
+  if (global_context_.precision_str.find("FP16")!= std::string::npos && global_context_.device_type == "GPU"){
+      device_config.emplace(ov::hint::inference_precision("f16"));
+    }
+  if (global_context_.precision_str.find("FP32")!= std::string::npos){
+    device_config.emplace(ov::hint::inference_precision("f32"));
+  }
+
   #ifndef NDEBUG
     if (openvino_ep::backend_utils::IsDebugEnabled()) {
       device_config.emplace(ov::enable_profiling(true));
