@@ -59,22 +59,22 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
           exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, remote_context_, subgraph_context_.subgraph_name);
           LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
         } else if (global_context_.enable_dynamic_shapes == false && dev_prec!="CPU_FP16") {
-            ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
-            exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
-            LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
-          } else {
             const std::string model = model_proto.SerializeAsString();
             exe_network_ = global_context_.ie_core.LoadNetwork(model, hw_target, config, device_config, subgraph_context_.subgraph_name);
+            LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
+          } else {
+            ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
+            exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
             LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
           }
       #else
         if (global_context_.enable_dynamic_shapes == false && dev_prec!="CPU_FP16") {
-          ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
-          exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
-          LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
-        } else {
           const std::string model = model_proto.SerializeAsString();
           exe_network_ = global_context_.ie_core.LoadNetwork(model, hw_target, config, device_config, subgraph_context_.subgraph_name);
+          LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
+        } else {
+          ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
+          exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
           LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
         }
       #endif
@@ -147,7 +147,7 @@ void BasicBackend::PopulateConfigValue(OVConfig& config, ov::AnyMap& device_conf
 void BasicBackend::EnableCaching() {
   if (!global_context_.cache_dir.empty()){
     if(global_context_.is_wholly_supported_graph) {
-      #if defined (OPENVINO_2022_3)
+      #if defined (OPENVINO_2022_3)  || (OPENVINO_2023_0)
         #if defined(_WIN32) || defined(WIN32) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__BORLANDC__)
         _putenv_s("OV_GPU_CACHE_MODEL", "1");
         #else
