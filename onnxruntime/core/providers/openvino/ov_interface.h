@@ -5,11 +5,13 @@
 
 #include <vector>
 
-#include <inference_engine.hpp>
+
 #if defined (OPENVINO_2022_1) || (OPENVINO_2022_2) || (OPENVINO_2022_3)  || (OPENVINO_2023_0)
 #define OV_API_20
 #include "openvino/openvino.hpp"
 #include "openvino/pass/convert_fp32_to_fp16.hpp"
+#else
+#include <inference_engine.hpp>
 #endif
 
 #ifdef IO_BUFFER_ENABLED
@@ -26,10 +28,8 @@ class OVCore;
 class OVInferRequest;
 class OVExeNetwork;
 
-typedef InferenceEngine::Precision OVPrecision;
 typedef ov::Tensor OVTensor;
 typedef ov::ProfilingInfo OVProfilingInfo;
-typedef ov::AnyMap OVConfig;
 typedef ov::Model OVNetwork;
 typedef std::shared_ptr<OVInferRequest> OVInferRequestPtr;
 typedef std::shared_ptr<OVTensor> OVTensorPtr;
@@ -43,8 +43,8 @@ typedef std::shared_ptr<OVTensor> OVTensorPtr;
     ov::Core oe;
     public:
         std::shared_ptr<OVNetwork> ReadModel(const std::string& model_stream) const;
-        OVExeNetwork LoadNetwork(std::shared_ptr<OVNetwork>& ie_cnn_network, std::string& hw_target, OVConfig& config, ov::AnyMap& device_config, std::string name);
-        OVExeNetwork LoadNetwork(const std::string& model_stream, std::string& hw_target, OVConfig& config, ov::AnyMap& device_config, std::string name);
+        OVExeNetwork LoadNetwork(std::shared_ptr<OVNetwork>& ie_cnn_network, std::string& hw_target, ov::AnyMap& device_config, std::string name);
+        OVExeNetwork LoadNetwork(const std::string& model_stream, std::string& hw_target, ov::AnyMap& device_config, std::string name);
         void SetCache(std::string cache_dir_path);
         #ifdef IO_BUFFER_ENABLED
         OVExeNetwork LoadNetwork(std::shared_ptr<OVNetwork>& model, OVRemoteContextPtr context, std::string& name);

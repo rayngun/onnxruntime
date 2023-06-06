@@ -53,12 +53,6 @@ VADMBackend::VADMBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
   if (subgraph_context_.is_constant)
     return;
   std::string& hw_target = (global_context_.device_id != "") ? global_context_.device_id : global_context_.device_type;
-  OVConfig config;
-#ifndef NDEBUG
-  if (openvino_ep::backend_utils::IsDebugEnabled()) {
-    config["PERF_COUNT"] = CONFIG_VALUE(YES);
-  }
-#endif
   ov::AnyMap device_config;
 
   // Loading model to the plugin
@@ -67,8 +61,7 @@ VADMBackend::VADMBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
   if (global_context_.is_wholly_supported_graph && subgraph_context_.enable_batching) {
     for (int j = 0; j < 8; j++) {
       OVExeNetwork exe_network;
-      config[InferenceEngine::HDDL_DEVICE_TAG] = global_context_.deviceTags[j];
-      exe_network = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
+      exe_network = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
       exe_networks.push_back(exe_network);
     }
     LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
@@ -85,8 +78,7 @@ VADMBackend::VADMBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
     i = GetFirstAvailableDevice(global_context);
     LOGS_DEFAULT(INFO) << log_tag << "Device Tag is: " << i;
     OVExeNetwork exe_network;
-    config[InferenceEngine::HDDL_DEVICE_TAG] = global_context_.deviceTags[i];
-    exe_network = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
+    exe_network = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
     LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
     OVInferRequestPtr infRequest;
     infRequest = std::make_shared<OVInferRequest>(exe_network.CreateInferRequest());

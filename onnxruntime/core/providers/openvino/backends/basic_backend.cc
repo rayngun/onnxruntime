@@ -29,9 +29,8 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
     return;
 
   // OV Config
-  OVConfig config;
   ov::AnyMap device_config;
-  PopulateConfigValue(config, device_config);
+  PopulateConfigValue(device_config);
 
   //Enable caching
   EnableCaching();
@@ -60,27 +59,28 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
           LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
         } else if (global_context_.enable_dynamic_shapes == false && dev_prec!="CPU_FP16") {
             const std::string model = model_proto.SerializeAsString();
-            exe_network_ = global_context_.ie_core.LoadNetwork(model, hw_target, config, device_config, subgraph_context_.subgraph_name);
+            exe_network_ = global_context_.ie_core.LoadNetwork(model, hw_target, device_config, subgraph_context_.subgraph_name);
             LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
           } else {
             ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
-            exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
+            exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
             LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
           }
       #else
         if (global_context_.enable_dynamic_shapes == false && dev_prec!="CPU_FP16") {
+        // if (dev_prec!="CPU_FP16") {
           const std::string model = model_proto.SerializeAsString();
-          exe_network_ = global_context_.ie_core.LoadNetwork(model, hw_target, config, device_config, subgraph_context_.subgraph_name);
+          exe_network_ = global_context_.ie_core.LoadNetwork(model, hw_target, device_config, subgraph_context_.subgraph_name);
           LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
         } else {
           ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
-          exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
+          exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
           LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
         }
       #endif
     } else{
       ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
-      exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, config, device_config, subgraph_context_.subgraph_name);
+      exe_network_ = global_context_.ie_core.LoadNetwork(ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
       LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
     }
   }catch (const char* msg) {
@@ -109,7 +109,7 @@ bool BasicBackend::ValidateSubgraph(std::map<std::string, std::shared_ptr<ngraph
   return false;
 }
 
-void BasicBackend::PopulateConfigValue(OVConfig& config, ov::AnyMap& device_config) {
+void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
   device_config = {};
   // Set inference precision if device_type != AUTO
   if (global_context_.precision_str.find("FP16")!= std::string::npos && global_context_.device_type == "GPU"){
@@ -124,24 +124,6 @@ void BasicBackend::PopulateConfigValue(OVConfig& config, ov::AnyMap& device_conf
       device_config.emplace(ov::enable_profiling(true));
     }
   #endif
-  if (global_context_.device_type.find("MYRIAD") != std::string::npos) {
-      #ifndef NDEBUG
-      if (openvino_ep::backend_utils::IsDebugEnabled()) {
-        config["PERF_COUNT"] = CONFIG_VALUE(YES);
-      }
-      #endif
-      if (subgraph_context_.set_vpu_config) {
-        config["MYRIAD_DETECT_NETWORK_BATCH"] = CONFIG_VALUE(NO);
-      }
-      if (global_context_.enable_vpu_fast_compile) {
-        config["MYRIAD_HW_INJECT_STAGES"] = CONFIG_VALUE(NO);
-        config["MYRIAD_COPY_OPTIMIZATION"] = CONFIG_VALUE(NO);
-      }
-      //to check preprocessing inside model
-      #if defined (OPENVINO_2022_1) || (OPENVINO_2022_2) || (OPENVINO_2022_3)
-        config["MYRIAD_CHECK_PREPROCESSING_INSIDE_MODEL"] = CONFIG_VALUE(NO);
-      #endif
-  }
 }
 
 void BasicBackend::EnableCaching() {
@@ -163,7 +145,10 @@ void BasicBackend::EnableCaching() {
 void BasicBackend::EnableGPUThrottling(ov::AnyMap& device_config) {
   if (global_context_.enable_opencl_throttling == true && global_context_.device_type.find("GPU") != std::string::npos) {
     LOGS_DEFAULT(INFO) << log_tag << "Enabled OpenCL queue throttling for GPU device";
-    device_config[GPU_CONFIG_KEY(PLUGIN_THROTTLE)] = "1";
+    std::pair<std::string, ov::Any> device_property;
+    device_property = std::make_pair("PLUGIN_THROTTLE", "1");
+    device_config.emplace(ov::device::properties("GPU_CONFIG_KEY", device_property));
+    // device_config[GPU_CONFIG_KEY(PLUGIN_THROTTLE)] = "1";
   }
 }
 
@@ -194,7 +179,8 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
       size_t batch_slice_idx = 0;
       if (subgraph_context_.has_dynamic_input_shape &&
         global_context_.enable_dynamic_shapes == true &&
-        global_context_.device_type.find("CPU") != std::string::npos) {
+        (global_context_.device_type.find("CPU") != std::string::npos ||
+        global_context_.device_type.find("GPU") != std::string::npos)) {
         auto tensor = context.GetInput(subgraph_context_.input_names.at(input_name));
         auto tensor_info = tensor.GetTensorTypeAndShapeInfo();
         auto tensor_shape = tensor_info.GetShape();
