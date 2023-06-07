@@ -388,7 +388,7 @@ if is_manylinux:
             "libopenvino_intel_gpu_plugin.so",
             "libopenvino_auto_plugin.so",
             "libopenvino_hetero_plugin.so",
-            "libtbb.so.2",
+            "libtbb.so.12.2",
             "libtbbmalloc.so.2",
             "libopenvino.so",
             "libopenvino_c.so",
