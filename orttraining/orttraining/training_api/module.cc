@@ -25,6 +25,7 @@ namespace {
 // TODO: consolidate with frontend tooling
 const std::string ACCUMULATE_GRAD_CONTROL_INPUT_NAME{"lazy_reset_grad"};
 
+#if !defined(ORT_MINIMAL_BUILD)
 std::unordered_set<const Node*> GetReverseReachableNodes(Graph& inference_graph,
                                                          InlinedVector<const NodeArg*>& output_node_args) {
   // Perform a graph traversal from the graph outputs to collect all reachable nodes from the outputs
@@ -116,7 +117,7 @@ Status TransformModelInputsForInference(Graph& inference_graph,
 
   return Status::OK();
 }
-
+#endif
 }  // namespace
 
 Status Parameter::SetGrad(const std::string& gradient_name, const OrtValue& param_grad) {
@@ -178,12 +179,12 @@ Module::Module(const std::string& train_model_path_or_bytes,
   state_->module_checkpoint_state.train_session_data_transfer_mgr = &train_sess_->GetDataTransferManager();
 
   // Extract model input and output names
-  std::vector<std::string> train_input_names, train_output_names;
+  InlinedVector<std::string> train_input_names, train_output_names;
   utils::GetGraphInputOutputNames(train_sess_, train_input_names, train_output_names);
 
   // Reorder the extracted input names in the following order:
   // user inputs, weights, gradients, reset_grad
-  std::vector<std::string> user_input_names, param_input_names, grad_input_names, reset_grad_name;
+  InlinedVector<std::string> user_input_names, param_input_names, grad_input_names, reset_grad_name;
 
   std::unordered_map<std::string, size_t> param_name_to_grad_input_index_map;
   for (const auto& input_name : train_input_names) {
@@ -283,7 +284,7 @@ Module::Module(const std::string& train_model_path_or_bytes,
     // We are making certain assumptions: Like the order in which parameters occur will be same between train and eval
     // graphs, and all the weights present in both graphs match.
     // TODO: Add the checks instead of making assumptions??
-    std::vector<std::string> eval_user_input_names, eval_param_input_names;
+    InlinedVector<std::string> eval_user_input_names, eval_param_input_names;
     for (const auto& input_name : eval_input_names_) {
       if (state_->module_checkpoint_state.named_parameters.find(input_name) !=
           state_->module_checkpoint_state.named_parameters.end()) {
@@ -470,6 +471,10 @@ Status Module::EvalStep(const std::vector<OrtValue>& inputs, std::vector<OrtValu
   return Status::OK();
 }
 
+#if !defined(ORT_MINIMAL_BUILD)
+// TODO (baijumeswani): ExportModelForInferencing should work irrespective of whether
+//                      the build is minimal or not. This will require to read the ort_format eval model,
+//                      trainsform it to an inference model and save it in ort_format.
 Status Module::ExportModelForInferencing(const std::string& inference_model_path,
                                          gsl::span<const std::string> graph_output_names) const {
   ORT_RETURN_IF(!eval_sess_ || eval_model_path_.empty(),
@@ -493,9 +498,9 @@ Status Module::ExportModelForInferencing(const std::string& inference_model_path
 
   // Save the model at the desired location.
   ORT_THROW_IF_ERROR(Model::Save(*inference_model, inference_model_path));
-
   return Status::OK();
 }
+#endif
 
 size_t Module::GetTrainingModelInputCount() const noexcept {
   return train_user_input_count_;

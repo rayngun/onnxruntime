@@ -5,19 +5,24 @@
 #import "TensorHelper.h"
 
 #import <Foundation/Foundation.h>
+#import <React/RCTBlobManager.h>
+#import <React/RCTBridge+Private.h>
 #import <React/RCTLog.h>
-#import <onnxruntime/onnxruntime_cxx_api.h>
 
+// Note: Using below syntax for including ort c api and ort extensions headers to resolve a compiling error happened
+// in an expo react native ios app when ort extensions enabled (a redefinition error of multiple object types defined
+// within ORT C API header). It's an edge case that compiler allows both ort c api headers to be included when #include
+// syntax doesn't match. For the case when extensions not enabled, it still requires a onnxruntime prefix directory for
+// searching paths. Also in general, it's a convention to use #include for C/C++ headers rather then #import. See:
+// https://google.github.io/styleguide/objcguide.html#import-and-include
+// https://microsoft.github.io/objc-guide/Headers/ImportAndInclude.html
 #ifdef ORT_ENABLE_EXTENSIONS
-extern "C" {
-// Note: Declared in onnxruntime_extensions.h but forward declared here to resolve a build issue:
-// (A compilation error happened while building an expo react native ios app, onnxruntime_c_api.h header
-// included in the onnxruntime_extensions.h leads to a redefinition conflicts with multiple object defined in the ORT C
-// API.) So doing a forward declaration here instead of #include "onnxruntime_extensions.h" as a workaround for now
-// before we have a fix.
-// TODO: Investigate if we can include onnxruntime_extensions.h here
-OrtStatus *RegisterCustomOps(OrtSessionOptions *options, const OrtApiBase *api);
-} // Extern C
+#include "coreml_provider_factory.h"
+#include "onnxruntime_cxx_api.h"
+#include "onnxruntime_extensions.h"
+#else
+#include "onnxruntime/coreml_provider_factory.h"
+#include <onnxruntime/onnxruntime_cxx_api.h>
 #endif
 
 @implementation OnnxruntimeModule
@@ -43,6 +48,21 @@ static int nextSessionId = 0;
 
 RCT_EXPORT_MODULE(Onnxruntime)
 
+RCTBlobManager *blobManager = nil;
+
+- (void)checkBlobManager {
+  if (blobManager == nil) {
+    blobManager = [[RCTBridge currentBridge] moduleForClass:RCTBlobManager.class];
+    if (blobManager == nil) {
+      @throw @"RCTBlobManager is not initialized";
+    }
+  }
+}
+
+- (void)setBlobManager:(RCTBlobManager *)manager {
+  blobManager = manager;
+}
+
 /**
  * React native binding API to load a model using given uri.
  *
@@ -67,25 +87,49 @@ RCT_EXPORT_METHOD(loadModel
 }
 
 /**
- * React native binding API to load a model using BASE64 encoded model data string.
+ * React native binding API to load a model using blob object that data stored in RCTBlobManager.
  *
- * @param modelData the BASE64 encoded model data string
+ * @param modelDataBlob a model data blob object
  * @param options onnxruntime session options
  * @param resolve callback for returning output back to react native js
  * @param reject callback for returning an error back to react native js
  * @note when run() is called, the same modelPath must be passed into the first parameter.
  */
-RCT_EXPORT_METHOD(loadModelFromBase64EncodedBuffer
-                  : (NSString *)modelDataBase64EncodedString options
+RCT_EXPORT_METHOD(loadModelFromBlob
+                  : (NSDictionary *)modelDataBlob options
                   : (NSDictionary *)options resolver
                   : (RCTPromiseResolveBlock)resolve rejecter
                   : (RCTPromiseRejectBlock)reject) {
   @try {
-    NSData *modelDataDecoded = [[NSData alloc] initWithBase64EncodedString:modelDataBase64EncodedString options:0];
-    NSDictionary *resultMap = [self loadModelFromBuffer:modelDataDecoded options:options];
+    [self checkBlobManager];
+    NSString *blobId = [modelDataBlob objectForKey:@"blobId"];
+    long size = [[modelDataBlob objectForKey:@"size"] longValue];
+    long offset = [[modelDataBlob objectForKey:@"offset"] longValue];
+    auto modelData = [blobManager resolve:blobId offset:offset size:size];
+    NSDictionary *resultMap = [self loadModelFromBuffer:modelData options:options];
+    [blobManager remove:blobId];
     resolve(resultMap);
   } @catch (...) {
     reject(@"onnxruntime", @"failed to load model from buffer", nil);
+  }
+}
+
+/**
+ * React native binding API to dispose a session using given key from loadModel()
+ *
+ * @param key a model path location given at loadModel()
+ * @param resolve callback for returning output back to react native js
+ * @param reject callback for returning an error back to react native js
+ */
+RCT_EXPORT_METHOD(dispose
+                  : (NSString *)key resolver
+                  : (RCTPromiseResolveBlock)resolve rejecter
+                  : (RCTPromiseRejectBlock)reject) {
+  @try {
+    [self dispose:key];
+    resolve(nil);
+  } @catch (...) {
+    reject(@"onnxruntime", @"failed to dispose session", nil);
   }
 }
 
@@ -196,6 +240,25 @@ RCT_EXPORT_METHOD(run
 }
 
 /**
+ * Dispose a session given a key.
+ *
+ * @param key a session key returned from loadModel()
+ */
+- (void)dispose:(NSString *)key {
+  NSValue *value = [sessionMap objectForKey:key];
+  if (value == nil) {
+    NSException *exception = [NSException exceptionWithName:@"onnxruntime"
+                                                     reason:@"can't find onnxruntime session"
+                                                   userInfo:nil];
+    @throw exception;
+  }
+  [sessionMap removeObjectForKey:key];
+  SessionInfo *sessionInfo = (SessionInfo *)[value pointerValue];
+  delete sessionInfo;
+  sessionInfo = nullptr;
+}
+
+/**
  * Run a model using given uri.
  *
  * @param url a model path location given at loadModel()
@@ -216,6 +279,8 @@ RCT_EXPORT_METHOD(run
   }
   SessionInfo *sessionInfo = (SessionInfo *)[value pointerValue];
 
+  [self checkBlobManager];
+
   std::vector<Ort::Value> feeds;
   std::vector<Ort::MemoryAllocation> allocations;
   feeds.reserve(sessionInfo->inputNames.size());
@@ -226,7 +291,10 @@ RCT_EXPORT_METHOD(run
       @throw exception;
     }
 
-    Ort::Value value = [TensorHelper createInputTensor:inputTensor ortAllocator:ortAllocator allocations:allocations];
+    Ort::Value value = [TensorHelper createInputTensor:blobManager
+                                                 input:inputTensor
+                                          ortAllocator:ortAllocator
+                                           allocations:allocations];
     feeds.emplace_back(std::move(value));
   }
 
@@ -241,7 +309,7 @@ RCT_EXPORT_METHOD(run
       sessionInfo->session->Run(runOptions, sessionInfo->inputNames.data(), feeds.data(),
                                 sessionInfo->inputNames.size(), requestedOutputs.data(), requestedOutputs.size());
 
-  NSDictionary *resultMap = [TensorHelper createOutputTensor:requestedOutputs values:result];
+  NSDictionary *resultMap = [TensorHelper createOutputTensor:blobManager outputNames:requestedOutputs values:result];
 
   return resultMap;
 }
@@ -305,6 +373,44 @@ static NSDictionary *executionModeTable = @{@"sequential" : @(ORT_SEQUENTIAL), @
     }
   }
 
+  if ([options objectForKey:@"executionProviders"]) {
+    NSArray *executionProviders = [options objectForKey:@"executionProviders"];
+    for (auto *executionProvider in executionProviders) {
+      NSString *epName = nil;
+      bool useOptions = false;
+      if ([executionProvider isKindOfClass:[NSString class]]) {
+        epName = (NSString *)executionProvider;
+      } else {
+        epName = [executionProvider objectForKey:@"name"];
+        useOptions = true;
+      }
+      if ([epName isEqualToString:@"coreml"]) {
+        uint32_t coreml_flags = 0;
+        if (useOptions) {
+          if ([[executionProvider objectForKey:@"useCPUOnly"] boolValue]) {
+            coreml_flags |= COREML_FLAG_USE_CPU_ONLY;
+          }
+          if ([[executionProvider objectForKey:@"enableOnSubgraph"] boolValue]) {
+            coreml_flags |= COREML_FLAG_ENABLE_ON_SUBGRAPH;
+          }
+          if ([[executionProvider objectForKey:@"onlyEnableDeviceWithANE"] boolValue]) {
+            coreml_flags |= COREML_FLAG_ONLY_ENABLE_DEVICE_WITH_ANE;
+          }
+        }
+        Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CoreML(sessionOptions, coreml_flags));
+      } else if ([epName isEqualToString:@"xnnpack"]) {
+        sessionOptions.AppendExecutionProvider("XNNPACK", {});
+      } else if ([epName isEqualToString:@"cpu"]) {
+        continue;
+      } else {
+        NSException *exception = [NSException exceptionWithName:@"onnxruntime"
+                                                         reason:@"unsupported execution provider"
+                                                       userInfo:nil];
+        @throw exception;
+      }
+    }
+  }
+
   if ([options objectForKey:@"logId"]) {
     NSString *logId = [[options objectForKey:@"logId"] stringValue];
     sessionOptions.SetLogId([logId UTF8String]);
@@ -337,11 +443,9 @@ static NSDictionary *executionModeTable = @{@"sequential" : @(ORT_SEQUENTIAL), @
 - (void)dealloc {
   NSEnumerator *iterator = [sessionMap keyEnumerator];
   while (NSString *key = [iterator nextObject]) {
-    NSValue *value = [sessionMap objectForKey:key];
-    SessionInfo *sessionInfo = (SessionInfo *)[value pointerValue];
-    delete sessionInfo;
-    sessionInfo = nullptr;
+    [self dispose:key];
   }
+  blobManager = nullptr;
 }
 
 @end
