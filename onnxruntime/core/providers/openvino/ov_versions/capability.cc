@@ -44,7 +44,7 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
   if (graph_viewer_.Name() == "decoder subgraph" || graph_viewer_.Name() == "beam-search-test")
     return result;
   // Check if it is a subgraph
-  if (graph_viewer_.IsSubgraph() && graph_viewer_.Name() == "tf2onnx") {
+  if (graph_viewer_.IsSubgraph() && graph_viewer_.Name() == "tf2onnx")
     return result;
 
   // This is a list of initializers that nGraph considers as constants. Example weights, reshape shape etc.
