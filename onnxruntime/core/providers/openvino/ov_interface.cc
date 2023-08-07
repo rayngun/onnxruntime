@@ -76,17 +76,10 @@ OVExeNetwork OVCore::LoadNetwork(std::shared_ptr<OVNetwork>& model, OVRemoteCont
 
 std::vector<std::string> OVCore::GetAvailableDevices() {
   auto available_devices = oe.get_available_devices();
-  // for (auto device : available_devices) {
   for (int i = 0; i < int(available_devices.size()); i++) {
     if (available_devices[i].find("GPU") != std::string::npos) {
-        std::cout << " Device name before LUID = " << available_devices[i] << std::endl;
-        std::string luid_str = oe.get_property("GPU", ov::device::luid.name()).as<std::string>();
+        std::string luid_str = oe.get_property(available_devices[i], ov::device::luid.name()).as<std::string>();
         available_devices[i] = available_devices[i]+"_"+ luid_str;
-        // ov::device::LUID luid = oe.get_property("GPU", ov::device::luid);
-        // std::ostringstream s;
-        // s << luid;
-        // available_devices[i] = available_devices[i]+"_"+ s.str();
-        std::cout << " Device name after LUID = " << available_devices[i] << std::endl;
       }
     }
   return available_devices;
