@@ -75,8 +75,14 @@ OVExeNetwork OVCore::LoadNetwork(std::shared_ptr<OVNetwork>& model, OVRemoteCont
 #endif
 
 std::vector<std::string> OVCore::GetAvailableDevices() {
-  auto obj = oe.get_available_devices();
-  return obj;
+  auto available_devices = oe.get_available_devices();
+  for (int i = 0; i < int(available_devices.size()); i++) {
+    if (available_devices[i].find("GPU") != std::string::npos) {
+        std::string luid_str = oe.get_property(available_devices[i], ov::device::luid.name()).as<std::string>();
+        available_devices[i] = available_devices[i]+"_"+ luid_str;
+      }
+    }
+  return available_devices;
 }
 
 OVInferRequest OVExeNetwork::CreateInferRequest() {
