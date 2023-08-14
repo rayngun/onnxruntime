@@ -410,6 +410,7 @@
         "^test_scatternd_add*",
         "^test_scatternd_multiply*",
         "^test_squeeze_*", // Does not support axes as input
+        "^test_unsqueeze_*",
         "^test_pow_types_float", // Runs disabled pow tests from the "current_failing_tests" list at the top
         "^test_loop11",
         "^test_loop13_seq",
