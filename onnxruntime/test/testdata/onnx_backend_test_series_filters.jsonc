@@ -436,7 +436,7 @@
         "test_loop11_cpu",
         "^test_loop13_seq_cpu",
         "^test_squeeze_cpu",
-        "test_squeeze_cpu"
+        "^test_squeeze_negative_axes_cpu"
     ],
     "current_failing_tests_OPENVINO_opset18": [
         // pending opset 18 support, RUNTIME_EXCEPTION : Encountered unknown exception in Initialize()
