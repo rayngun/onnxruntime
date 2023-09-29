@@ -57,7 +57,7 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
         LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
       } else {
 #if defined(OPENVINO_2023_0)
-        if (!subgraph_context_.has_dynamic_input_shape && dev_prec!="CPU_FP16") {
+        if (!subgraph_context_.has_dynamic_input_shape && dev_prec != "CPU_FP16") {
           const std::string model = model_proto.SerializeAsString();
           exe_network_ = global_context_.ie_core.LoadNetwork(model, hw_target, device_config, subgraph_context_.subgraph_name);
           LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
@@ -72,8 +72,8 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
         LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
 #endif
 #else
-#if defined(OPENVINO_2023_0)
-      if (!subgraph_context_.has_dynamic_input_shape && dev_prec!="CPU_FP16") {
+#if defined(OPENVINO_2023_0) || (OPENVINO_2023_1)
+      if (!subgraph_context_.has_dynamic_input_shape && dev_prec != "CPU_FP16") {
         const std::string model = model_proto.SerializeAsString();
         exe_network_ = global_context_.ie_core.LoadNetwork(model, hw_target, device_config, subgraph_context_.subgraph_name);
         LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
@@ -124,10 +124,10 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
   void BasicBackend::PopulateConfigValue(ov::AnyMap & device_config) {
     device_config = {};
     // Set inference precision based on device precision for OV backend
-    if (global_context_.precision_str.find("FP16")!= std::string::npos && global_context_.device_type == "GPU"){
+    if (global_context_.precision_str.find("FP16") != std::string::npos && global_context_.device_type == "GPU") {
       device_config.emplace(ov::hint::inference_precision("f16"));
     }
-    if (global_context_.precision_str.find("FP32")!= std::string::npos){
+    if (global_context_.precision_str.find("FP32") != std::string::npos) {
       device_config.emplace(ov::hint::inference_precision("f32"));
     }
 #ifndef NDEBUG
@@ -135,7 +135,7 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
       device_config.emplace(ov::enable_profiling(true));
     }
 #endif
-#if defined(OPENVINO_2023_0)
+#if defined(OPENVINO_2023_0) || (OPENVINO_2023_1)
     if (global_context_.device_type.find("VPUX") != std::string::npos) {
       std::pair<std::string, ov::Any> device_property;
       device_property = std::make_pair("VPUX_COMPILER_TYPE", "MLIR");
@@ -160,15 +160,15 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
     }
   }
 
-void BasicBackend::EnableGPUThrottling(ov::AnyMap& device_config) {
-  if (global_context_.enable_opencl_throttling == true && global_context_.device_type.find("GPU") != std::string::npos) {
-    LOGS_DEFAULT(INFO) << log_tag << "Enabled OpenCL queue throttling for GPU device";
-    std::pair<std::string, ov::Any> device_property;
-    device_property = std::make_pair("PLUGIN_THROTTLE", "1");
-    device_config.emplace(ov::device::properties("GPU_CONFIG_KEY", device_property));
-    // device_config[GPU_CONFIG_KEY(PLUGIN_THROTTLE)] = "1";
+  void BasicBackend::EnableGPUThrottling(ov::AnyMap & device_config) {
+    if (global_context_.enable_opencl_throttling == true && global_context_.device_type.find("GPU") != std::string::npos) {
+      LOGS_DEFAULT(INFO) << log_tag << "Enabled OpenCL queue throttling for GPU device";
+      std::pair<std::string, ov::Any> device_property;
+      device_property = std::make_pair("PLUGIN_THROTTLE", "1");
+      device_config.emplace(ov::device::properties("GPU_CONFIG_KEY", device_property));
+      // device_config[GPU_CONFIG_KEY(PLUGIN_THROTTLE)] = "1";
+    }
   }
-}
 
   // Starts an asynchronous inference request for data in slice indexed by batch_slice_idx on
   // an Infer Request indexed by infer_req_idx

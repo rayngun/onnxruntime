@@ -64,30 +64,27 @@ struct OpenVINO_Provider : Provider {
 
   std::shared_ptr<IExecutionProviderFactory> CreateExecutionProviderFactory(const void* void_params) override {
     auto& params = *reinterpret_cast<const OrtOpenVINOProviderOptions*>(void_params);
-    std::string device_type = params.device_type;
-    int num_of_threads = 1;
-    std::set<std::string> ov_supported_device_types = {"CPU_FP32", "CPU_FP16", "GPU_FP32",
+    if (params.device_type != nullptr) {  // check for device_type correctness only if provided, skip checks otherwise
+      std::string device_type = params.device_type;
+      std::set<std::string> ov_supported_device_types = {"CPU_FP32", "CPU_FP16", "GPU_FP32",
                                                          "GPU.0_FP32", "GPU.1_FP32", "GPU_FP16",
                                                          "GPU.0_FP16", "GPU.1_FP16",
                                                          "NPU_FP16", "NPU_U8"};
 
       if (!((ov_supported_device_types.find(device_type) != ov_supported_device_types.end()) ||
             (device_type.find("HETERO:") == 0) || (device_type.find("MULTI:") == 0) || (device_type.find("AUTO:") == 0))) {
-        LOGS_DEFAULT(ERROR) <<
-          "[ERROR] [OpenVINO] You have selcted wrong configuration value for the key 'device_type'.\n "
-          "Select from 'CPU_FP32', 'CPU_FP16', 'GPU_FP32', 'GPU.0_FP32', 'GPU.1_FP32', 'GPU_FP16', "
-          "'GPU.0_FP16', 'GPU.1_FP16', 'NPU_FP16', 'NPU_U8' or from"
-          " HETERO/MULTI/AUTO options available. \n";
+        LOGS_DEFAULT(ERROR) << "[ERROR] [OpenVINO] You have selcted wrong configuration value for the key 'device_type'.\n "
+                               "Select from 'CPU_FP32', 'CPU_FP16', 'GPU_FP32', 'GPU.0_FP32', 'GPU.1_FP32', 'GPU_FP16', "
+                               "'GPU.0_FP16', 'GPU.1_FP16', 'NPU_FP16', 'NPU_U8' or from"
+                               " HETERO/MULTI/AUTO options available. \n";
       }
-
-    num_of_threads = params.num_of_threads;
+    }
+    int num_of_threads = params.num_of_threads;
     if (num_of_threads <= 0) {
       num_of_threads = 1;
       LOGS_DEFAULT(WARNING) << "[OpenVINO-EP] The value for the key 'num_threads' should be in the positive range.\n "
-                        << "Executing with num_threads=1";
+                            << "Executing with num_threads=1";
     }
-
-
 
     return std::make_shared<OpenVINOProviderFactory>(params.device_type, params.enable_vpu_fast_compile,
                                                      params.device_id, num_of_threads,

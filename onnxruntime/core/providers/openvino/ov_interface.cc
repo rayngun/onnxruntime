@@ -42,7 +42,7 @@ OVExeNetwork OVCore::LoadNetwork(std::shared_ptr<OVNetwork>& ie_cnn_network, std
   }
 }
 
-#if defined(OPENVINO_2023_0)
+#if defined(OPENVINO_2023_0) || (OPENVINO_2023_1)
 OVExeNetwork OVCore::LoadNetwork(const std::string& model, std::string& hw_target, ov::AnyMap& device_config, std::string name) {
   ov::CompiledModel obj;
   try {
@@ -78,10 +78,10 @@ std::vector<std::string> OVCore::GetAvailableDevices() {
   auto available_devices = oe.get_available_devices();
   for (int i = 0; i < int(available_devices.size()); i++) {
     if (available_devices[i].find("GPU") != std::string::npos) {
-        std::string luid_str = oe.get_property(available_devices[i], ov::device::luid.name()).as<std::string>();
-        available_devices[i] = available_devices[i]+"_"+ luid_str;
-      }
+      std::string luid_str = oe.get_property(available_devices[i], ov::device::luid.name()).as<std::string>();
+      available_devices[i] = available_devices[i] + "_" + luid_str;
     }
+  }
   return available_devices;
 }
 
