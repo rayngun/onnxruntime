@@ -64,7 +64,7 @@ struct OpenVINO_Provider : Provider {
 
   std::shared_ptr<IExecutionProviderFactory> CreateExecutionProviderFactory(const void* void_params) override {
     auto& params = *reinterpret_cast<const OrtOpenVINOProviderOptions*>(void_params);
-    if (params.device_type != nullptr) {  // check for device_type correctness only if provided, skip checks otherwise
+    if (params.device_type != nullptr && !((std::string)params.device_type).empty()) {  // check for device_type correctness only if provided, skip checks otherwise
       std::string device_type = params.device_type;
       std::set<std::string> ov_supported_device_types = {"CPU_FP32", "CPU_FP16", "GPU_FP32",
                                                          "GPU.0_FP32", "GPU.1_FP32", "GPU_FP16",
@@ -73,8 +73,9 @@ struct OpenVINO_Provider : Provider {
 
       if (!((ov_supported_device_types.find(device_type) != ov_supported_device_types.end()) ||
             (device_type.find("HETERO:") == 0) || (device_type.find("MULTI:") == 0) || (device_type.find("AUTO:") == 0))) {
-        LOGS_DEFAULT(ERROR) << "[ERROR] [OpenVINO] You have selcted wrong configuration value for the key 'device_type'.\n "
-                               "Select from 'CPU_FP32', 'CPU_FP16', 'GPU_FP32', 'GPU.0_FP32', 'GPU.1_FP32', 'GPU_FP16', "
+        LOGS_DEFAULT(ERROR) << "[ERROR] [OpenVINO] You have selcted wrong configuration value for the key 'device_type'. Provided:"
+                            << device_type << "\n "
+                            << "Select from 'CPU_FP32', 'CPU_FP16', 'GPU_FP32', 'GPU.0_FP32', 'GPU.1_FP32', 'GPU_FP16', "
                                "'GPU.0_FP16', 'GPU.1_FP16', 'NPU_FP16', 'NPU_U8' or from"
                                " HETERO/MULTI/AUTO options available. \n";
       }
