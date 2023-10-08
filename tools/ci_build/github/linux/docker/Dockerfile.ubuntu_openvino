@@ -22,7 +22,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN cd /opt && mkdir -p intel && cd intel && \
     wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.1/linux/l_openvino_toolkit_ubuntu20_2023.1.0.12185.47b736f63ed_x86_64.tgz && \
     tar xzf l_openvino_toolkit_ubuntu20_2023.1.0.12185.47b736f63ed_x86_64.tgz && rm -rf l_openvino_toolkit_ubuntu20_2023.1.0.12185.47b736f63ed_x86_64.tgz && \
-    mv l_openvino_toolkit_ubuntu20_2023.1.0.12185.47b736f63ed_x86_64.tgz openvino_2023.1.0 && \
+    mv l_openvino_toolkit_ubuntu20_2023.1.0.12185.47b736f63ed_x86_64 openvino_2023.1.0 && \
     cd $INTEL_OPENVINO_DIR/install_dependencies && ./install_openvino_dependencies.sh -y
 
 WORKDIR /root
