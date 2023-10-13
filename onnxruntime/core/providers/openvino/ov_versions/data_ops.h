@@ -70,6 +70,7 @@ class DataOps {
   }
 
   virtual std::vector<NodeIndex> GetUnsupportedNodeIndices(std::unordered_set<std::string>& ng_required_initializers);
+  virtual std::vector<NodeIndex> GetUnsupportedNodeIndices_queryNetwork(std::unordered_set<std::string>& ng_required_initializers);
   virtual bool IsOpSupportedOnlyInModel(std::string name);
   virtual bool SpecialConditionForClusterSizeOne(std::unordered_set<std::string>& ng_required_initializers, const Node* node);
   virtual bool DoNotOmitSubGraph(const std::string& name);

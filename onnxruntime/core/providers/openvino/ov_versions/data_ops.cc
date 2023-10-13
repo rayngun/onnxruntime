@@ -1,6 +1,7 @@
 // Copyright (C) 2019-2022 Intel Corporation
 // Licensed under the MIT License
 
+#include <chrono>
 #include <unordered_set>
 #include "core/providers/shared_library/provider_api.h"
 #include "../backend_utils.h"
@@ -10,6 +11,9 @@
 #include "data_ops.h"
 #include "capabilities.h"
 #include "utils.h"
+#include "../ov_interface.h"
+
+// #include "core/framework/execution_provider.h"
 
 #if defined(_MSC_VER)
 #pragma warning(disable : 4244 4245 5208)
@@ -1067,6 +1071,7 @@ bool DataOps::node_is_supported(const std::map<std::string, std::set<std::string
 
   // Check 3b
   const auto opset = op_map.find(domain);
+  // std::cout << " ngraph Opset = " << opset << std::endl;
   const auto op_fun = ops_supported_as_function.find(node->OpType());
   if (opset == op_map.end()) {
 #ifndef NDEBUG
@@ -1077,6 +1082,7 @@ bool DataOps::node_is_supported(const std::map<std::string, std::set<std::string
     return false;
   }
   if (opset->second.find(optype) == opset->second.end() && op_fun == ops_supported_as_function.end()) {
+    std::cout << "inside check for ngraph supported ops " << std::endl;
 #ifndef NDEBUG
     if (openvino_ep::backend_utils::IsDebugEnabled()) {
       std::cout << "The operator is not available in OpenVINO ngraph operators list nor the operator is a special ONNX function" << std::endl;
@@ -1089,8 +1095,19 @@ bool DataOps::node_is_supported(const std::map<std::string, std::set<std::string
 
 std::vector<NodeIndex> DataOps::GetUnsupportedNodeIndices(std::unordered_set<std::string>& ng_required_initializers) {
   const auto ng_supported_ops = GetNgSupportedOps(GetOnnxOpSet(graph_viewer_));
+  // std::cout << " Ngraph supported ops = " << std::endl;
 
+  // for (auto i = ng_supported_ops.begin(); i != ng_supported_ops.end(); i++){
+  //       std::cout << i->first << " = " ;
+  //       auto op_set = i->second;
+  //       std::cout << " Op set " << std::endl;
+  //       for (auto it = op_set.begin(); it != op_set.end(); ++it){
+  //         std::cout << ' ' << *it << std::endl;
+  //       }
+  // }
+  // exit(1);
   std::vector<NodeIndex> unsupported_nodes_idx;
+  auto ot_begin = std::chrono::high_resolution_clock::now();
 
   for (const auto& node_idx : graph_viewer_.GetNodesInTopologicalOrder()) {
     if (node_is_supported(ng_supported_ops, node_idx)) {
@@ -1103,6 +1120,100 @@ std::vector<NodeIndex> DataOps::GetUnsupportedNodeIndices(std::unordered_set<std
       unsupported_nodes_idx.push_back(node_idx);
     }
   }
+  auto ot_end = std::chrono::high_resolution_clock::now();
+  auto dur = ot_end - ot_begin;
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
+  std::cout << "Time taken at onnx graph traversal =  " <<ms << " ms"<< std::endl;
+
+  return unsupported_nodes_idx;
+}
+
+std::vector<NodeIndex> DataOps::GetUnsupportedNodeIndices_queryNetwork(std::unordered_set<std::string>& ng_required_initializers) {
+  std::vector<NodeIndex> unsupported_nodes_idx;
+  std::string plugin_device=device_id_.substr(0, device_id_.find("_"));
+  std::set<std::string> unsupported_ov_type;
+
+  std::cout << "Plugin device = " << plugin_device << std::endl;
+  #ifdef _WIN32
+  std::wstring onnx_path = graph_viewer_.ModelPath().ToPathString();
+  std::string onnx_model_path = std::string(onnx_path.begin(), onnx_path.end());
+  #else
+    std::string onnx_model_path = graph_viewer_.ModelPath().ToPathString();
+  #endif
+  ov::Core oe;
+	ov::frontend::FrontEndManager mngr;
+	auto front = mngr.load_by_framework("onnx");
+  auto cp_begin = std::chrono::high_resolution_clock::now();
+	auto loaded = front->load(onnx_model_path);
+	auto ov_partial_network = front->convert_partially(loaded);
+  auto cp_end = std::chrono::high_resolution_clock::now();
+  auto cp_dur = cp_end - cp_begin;
+  auto cp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(cp_dur).count();
+  std::cout << "Time taken at convert partially =  " <<cp_ms << " ms"<< std::endl;
+
+#ifndef NDEBUG
+#if defined(OPENVINO_2022_3) || (OPENVINO_2023_0) || (OPENVINO_2023_1)
+      std::string name = ov_partial_network->get_friendly_name()+"squeezenet_before_query";
+      ov::pass::Serialize serializer(name + ".xml", name + ".bin");
+      serializer.run_on_model(ov_partial_network);
+#endif
+#endif
+  auto qm_begin = std::chrono::high_resolution_clock::now();
+  auto supported_ops = oe.query_model(ov_partial_network, plugin_device);
+  auto qm_end = std::chrono::high_resolution_clock::now();
+  auto qm_dur = qm_end - qm_begin;
+  auto qm_ms = std::chrono::duration_cast<std::chrono::milliseconds>(qm_dur).count();
+  std::cout << "Time taken at query model =  " <<qm_ms << " ms"<< std::endl;
+#ifndef NDEBUG
+#if defined(OPENVINO_2022_3) || (OPENVINO_2023_0) || (OPENVINO_2023_1)
+      std::string name_after = ov_partial_network->get_friendly_name()+"squeezenet_after_query";
+      ov::pass::Serialize serializer_after(name_after + ".xml", name_after + ".bin");
+      serializer_after.run_on_model(ov_partial_network);
+#endif
+#endif
+
+  auto traverse_begin = std::chrono::high_resolution_clock::now();
+  auto ops = ov_partial_network->get_ordered_ops();
+  for (auto it = ops.begin(); it != ops.end(); ++it) {
+    const std::string node_name = (*it)->get_friendly_name();
+    const std::string node_type = (*it)->get_type_name();
+    if(supported_ops.find(node_name)==supported_ops.end()){
+#ifndef NDEBUG
+      if (openvino_ep::backend_utils::IsDebugEnabled()) {
+        std::cout << "Unsupported at query_model : " << (*it)->get_type_name() << std::endl;
+      }
+#endif
+      unsupported_ov_type.insert(node_type);
+    }
+	}
+  auto traverse_end = std::chrono::high_resolution_clock::now();
+  auto traverse_dur = traverse_end - traverse_begin;
+  auto traverse_ms = std::chrono::duration_cast<std::chrono::milliseconds>(traverse_dur).count();
+  std::cout << "Time taken at ov graph traversal =  " <<traverse_ms << " ms"<< std::endl;
+
+  auto ot_begin = std::chrono::high_resolution_clock::now();
+  for (const auto& node_idx : graph_viewer_.GetNodesInTopologicalOrder()) {
+    const auto& node = graph_viewer_.GetNode(node_idx);
+    const auto& optype = node->OpType();
+    if (unsupported_ov_type.find(optype)==unsupported_ov_type.end()) {
+      // Collect inputs that are initializers
+      graph_viewer_.GetNode(node_idx)->ForEachDef([&ng_required_initializers, this](const NodeArg& node_arg, bool is_input) {
+            if(is_input && this->graph_viewer_.GetAllInitializedTensors().count(node_arg.Name())) {
+                ng_required_initializers.insert(node_arg.Name());
+              } }, true);
+    } else {
+#ifndef NDEBUG
+      if (openvino_ep::backend_utils::IsDebugEnabled()) {
+        std::cout << "Not supported at OV = " << node->Name() << " : " << optype << std::endl;
+      }
+#endif
+      unsupported_nodes_idx.push_back(node_idx);
+    }
+  }
+  auto ot_end = std::chrono::high_resolution_clock::now();
+  auto ot_dur = ot_end - ot_begin;
+  auto ot_ms = std::chrono::duration_cast<std::chrono::milliseconds>(ot_dur).count();
+  std::cout << "Time taken at onnx graph traversal =  " <<ot_ms << " ms"<< std::endl;
   return unsupported_nodes_idx;
 }
 

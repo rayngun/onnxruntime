@@ -9,6 +9,7 @@
 #define OV_API_20
 #include "openvino/openvino.hpp"
 #include "openvino/pass/convert_fp32_to_fp16.hpp"
+#include "openvino/frontend/manager.hpp"
 #else
 #include <inference_engine.hpp>
 #endif
