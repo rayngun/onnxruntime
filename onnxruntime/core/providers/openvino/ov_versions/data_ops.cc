@@ -404,6 +404,7 @@ void DataOps::populate_op_mode_supported() {
   no_dimension_supported_.push_back({"Max", V_2023_0, {"NPU"}});
   no_dimension_supported_.push_back({"Min", V_2020_4, {"All"}});
   no_dimension_supported_.push_back({"Mul", V_2020_4, {"All"}});
+  no_dimension_supported_.push_back({"Pow", V_2023_0, {"NPU"}});
   no_dimension_supported_.push_back({"QuantizeLinear", V_2021_4, {"All"}});
   no_dimension_supported_.push_back({"Range", V_2021_2, {"All"}});
   no_dimension_supported_.push_back({"ReduceMax", V_2021_4, {"All"}});
