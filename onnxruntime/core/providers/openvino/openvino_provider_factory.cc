@@ -104,17 +104,17 @@ struct OpenVINO_Provider : Provider {
       num_of_threads = std::stoi(provider_options_map.at("num_of_threads"));
       if (num_of_threads <= 0) {
         num_of_threads = 1;
-	    LOGS_DEFAULT(WARNING) << "[OpenVINO-EP] The value for the key 'num_of_threads' should be in the positive range.\n "
-                         << "Executing with num_of_threads=1";
+        LOGS_DEFAULT(WARNING) << "[OpenVINO-EP] The value for the key 'num_of_threads' should be in the positive range.\n "
+                              << "Executing with num_of_threads=1";
       }
     }
 
     if (provider_options_map.find("num_streams") != provider_options_map.end()) {
       num_streams = std::stoi(provider_options_map.at("num_streams"));
-      if (num_streams <= 0 ) {
-		num_streams = 1;
+      if (num_streams <= 0) {
+        num_streams = 1;
         LOGS_DEFAULT(WARNING) << "[OpenVINO-EP] The value for the key 'num_streams' should be in the positive range.\n "
-                         << "Executing with num_streams=1";
+                              << "Executing with num_streams=1";
       }
     }
     std::string bool_flag = "";
