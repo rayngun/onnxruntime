@@ -67,7 +67,7 @@ struct OpenVINO_Provider : Provider {
     bool enable_npu_fast_compile = false;   // [enable_npu_fast_compile]: Fast-compile may be optionally enabled to
                                             // speeds up the model's compilation to NPU device specific format.
     const char* device_id = "";             // [device_id]: Selects a particular hardware device for inference.
-    int num_of_threads = 8;                 // [num_of_threads]: Overrides the accelerator default value of number of
+    int num_of_threads = 1;                 // [num_of_threads]: Overrides the accelerator default value of number of
                                             //  threads with this value at runtime.
     const char* cache_dir = "";             // [cache_dir]: specify the path to
                                             // dump and load the blobs for the model caching/kernel caching (GPU)
@@ -86,7 +86,7 @@ struct OpenVINO_Provider : Provider {
 
       std::set<std::string> ov_supported_device_types = {"CPU_FP32", "CPU_FP16", "GPU_FP32",
                                                          "GPU.0_FP32", "GPU.1_FP32", "GPU_FP16",
-                                                         "GPU.0_FP16", "GPU.1_FP16"};
+                                                         "GPU.0_FP16", "GPU.1_FP16", "NPU_FP16", "NPU_U8"};
       if (!((ov_supported_device_types.find(device_type) != ov_supported_device_types.end()) ||
             (device_type.find("HETERO:") == 0) ||
             (device_type.find("MULTI:") == 0) ||
@@ -94,7 +94,7 @@ struct OpenVINO_Provider : Provider {
         ORT_THROW(
             "[ERROR] [OpenVINO] You have selcted wrong configuration value for the key 'device_type'. "
             "Select from 'CPU_FP32', 'CPU_FP16', 'GPU_FP32', 'GPU.0_FP32', 'GPU.1_FP32', 'GPU_FP16', "
-            "'GPU.0_FP16', 'GPU.1_FP16' or from"
+            "'GPU.0_FP16', 'GPU.1_FP16', 'NPU_FP16', 'NPU_U8' or from"
             " HETERO/MULTI/AUTO options available. \n");
       }
     }
