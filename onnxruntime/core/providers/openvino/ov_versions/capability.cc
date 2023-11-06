@@ -50,8 +50,14 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
 
   // This is a list of initializers that nGraph considers as constants. Example weights, reshape shape etc.
   std::unordered_set<std::string> ng_required_initializers;
-
-  const auto unsupported_nodes = data_ops_->GetUnsupportedNodeIndices_queryNetwork(ng_required_initializers);
+  const std::string env_name = onnxruntime::GetEnvironmentVar("ENABLE_OPENVINO_QUERYMODEL");
+  std::vector<NodeIndex> unsupported_nodes;
+  if (!env_name.empty()) {
+    LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model is Partitioned using OV Query_model API";
+    unsupported_nodes = data_ops_->GetUnsupportedNodeIndices_queryNetwork(ng_required_initializers);
+  } else {
+    unsupported_nodes = data_ops_->GetUnsupportedNodeIndices(ng_required_initializers);
+  }
 #ifndef NDEBUG
   if (openvino_ep::backend_utils::IsDebugEnabled()) {
     std::cout << "No of unsupported nodes " << unsupported_nodes.size() << std::endl;
