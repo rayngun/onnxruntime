@@ -22,6 +22,7 @@ BackendFactory::MakeBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
       type.find("AUTO") != std::string::npos) {
     std::shared_ptr<IBackend> concrete_backend_;
     try {
+        std::cout << "Creating basic backend " << std::endl;
       concrete_backend_ = std::make_shared<BasicBackend>(model_proto, global_context, subgraph_context);
     } catch (std::string const& msg) {
       throw msg;

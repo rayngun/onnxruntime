@@ -21,6 +21,7 @@ const std::string log_tag = "[OpenVINO-EP] ";
 std::shared_ptr<OVNetwork> OVCore::ReadModel(const std::string& model) const {
   try {
     OVTensor weights;
+    std::cout << "Attempting to read model on the NPU" << std::endl;
     return oe.read_model(model, weights);
   } catch (const Exception& e) {
     throw std::string(log_tag + "[OpenVINO-EP] Exception while Reading network: " + std::string(e.what()));
@@ -35,7 +36,9 @@ OVExeNetwork OVCore::LoadNetwork(std::shared_ptr<OVNetwork>& ie_cnn_network,
                                  std::string name) {
   ov::CompiledModel obj;
   try {
+    std::cout << "Attempting to compile model on the NPU" << std::endl;
     obj = oe.compile_model(ie_cnn_network, hw_target, device_config);
+    std::cout << "Compilation successful " << std::endl;
     OVExeNetwork exe(obj);
     return exe;
   } catch (const Exception& e) {

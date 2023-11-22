@@ -29,6 +29,8 @@ namespace openvino_ep {
 namespace backend_utils {
 const std::string log_tag = "[OpenVINO-EP] ";
 
+std::set<std::string> GetSkipSubgraphNames();
+
 #ifndef NDEBUG
 bool IsDebugEnabled();
 #endif

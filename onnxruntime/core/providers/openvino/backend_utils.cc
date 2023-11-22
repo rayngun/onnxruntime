@@ -22,6 +22,24 @@ namespace onnxruntime {
 namespace openvino_ep {
 namespace backend_utils {
 
+std::set<std::string> GetSkipSubgraphNames() {
+  const std::string env = onnxruntime::GetEnvironmentVar("ORT_OPENVINO_SKIP_SUBGRAPHS");
+  std::set<std::string> skip_subgraphs;
+  
+  if (!env.empty()) {
+
+    std::stringstream ss(env);
+ 
+    while (ss.good()) {
+        std::string substr;
+        getline(ss, substr, ',');
+        skip_subgraphs.insert(substr);
+    }
+ 
+  }
+  return skip_subgraphs;
+}
+
 #ifndef NDEBUG
 bool IsDebugEnabled() {
   const std::string env_name = onnxruntime::GetEnvironmentVar("ORT_OPENVINO_ENABLE_DEBUG");

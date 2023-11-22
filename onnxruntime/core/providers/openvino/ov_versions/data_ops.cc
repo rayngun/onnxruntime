@@ -204,6 +204,7 @@ std::vector<SupportedOp> supported_op_mode = {
     {"Log", V_2023_0, {"NPU"}},
     {"LogSoftMax", V_2022_1, {"CPU", "GPU"}},
     {"Loop", V_2021_4, {"CPU", "GPU"}},
+    {"LayerNormalization", V_2023_0, {"CPU", "GPU", "NPU"}},
     {"LpNormalization", V_2023_1, {"CPU", "GPU", "NPU"}},
     {"LpPool", V_2023_1, {"CPU", "GPU", "NPU"}},
     {"LRN", V_2020_4, {"CPU", "GPU"}},

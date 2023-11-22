@@ -71,10 +71,10 @@ BackendManager::BackendManager(const onnxruntime::Node& fused_node,
 
   if (ModelHasSymbolicInputDims(subgraph)) {
     subgraph_context_.has_dynamic_input_shape = true;
-    LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model has symbolic input dims";
+    std::cout << "[OpenVINO-EP] Model has symbolic input dims";
     if (GetGlobalContext().device_type.find("CPU") != std::string::npos ||
         GetGlobalContext().device_type.find("GPU") != std::string::npos) {
-      LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Starting backend initialization. "
+      std::cout << "[OpenVINO-EP] Starting backend initialization. "
                          << "Creating backend Dynamic Shapes";
       try {
         concrete_backend_ = BackendFactory::MakeBackend(*model_proto_,
@@ -83,11 +83,11 @@ BackendManager::BackendManager(const onnxruntime::Node& fused_node,
       } catch (std::string const& msg) {
         throw msg;
       }
-      LOGS_DEFAULT(INFO) << "[OpenVINO-EP] "
+      std::cout << "[OpenVINO-EP] "
                          << "Backend created for graph " << subgraph_context_.subgraph_name;
     }
   } else {
-    LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model has concrete input dims. "
+    std::cout << "[OpenVINO-EP] Model has concrete input dims. "
                        << "Initializing backend for graph "
                        << subgraph_context_.subgraph_name;
 
@@ -272,11 +272,12 @@ void BackendManager::Compute(OrtKernelContext* context) {
     std::shared_ptr<IBackend> dynamic_backend;
     auto search = backend_map_.find(key);
     if (search == backend_map_.end()) {
-      LOGS_DEFAULT(INFO) << "[OpenVINO-EP] "
+      std::cout << "[OpenVINO-EP] "
                          << "Creating concrete backend for key: " << key;
-      LOGS_DEFAULT(INFO) << "[OpenVINO-EP] "
+      std::cout << "[OpenVINO-EP] "
                          << "Backend created for graph " << subgraph_context_.subgraph_name;
       auto modelproto_with_concrete_shapes = ReWriteInputShapeInfo(*model_proto_, tensor_shapes);
+      std::cout << "Rewrote input shape info " << std::endl;
       try {
         dynamic_backend = BackendFactory::MakeBackend(*modelproto_with_concrete_shapes,
                                                       GetGlobalContext(),

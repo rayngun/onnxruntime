@@ -44,8 +44,13 @@ GetCapability::GetCapability(const GraphViewer& graph_viewer_param, std::string 
 std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
   std::vector<std::unique_ptr<ComputeCapability>> result;
 
+  std::set<std::string> skip_subgraphs = onnxruntime::openvino_ep::backend_utils::GetSkipSubgraphNames();
   // Check if it is a subgraph
-  if (graph_viewer_.IsSubgraph() && graph_viewer_.Name() == "tf2onnx") {
+  if (graph_viewer_.IsSubgraph() && graph_viewer_.Name() == "tf2onnx")
+    return result;
+
+  if (skip_subgraphs.find(graph_viewer_.Name()) != skip_subgraphs.end()) {
+    std::cout << "Skipping Subgraph: " << graph_viewer_.Name() << std::endl;
     return result;
   }
 
