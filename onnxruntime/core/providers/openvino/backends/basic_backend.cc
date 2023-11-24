@@ -70,7 +70,7 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
         LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
       }
 #else
-      if (global_context_.disable_dynamic_shapes && dev_prec != "CPU_FP16") {
+  if (global_context_.disable_dynamic_shapes && dev_prec != "CPU_FP16") {
         const std::string model = model_proto.SerializeAsString();
         exe_network_ = global_context_.ie_core.LoadNetwork(
             model, hw_target, device_config, subgraph_context_.subgraph_name);
