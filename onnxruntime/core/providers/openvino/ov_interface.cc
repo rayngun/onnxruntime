@@ -8,12 +8,7 @@
 #include "core/providers/shared_library/provider_api.h"
 #include "backend_utils.h"
 
-#if defined(OV_API_20)
 using Exception = ov::Exception;
-#else
-using Exception = InferenceEngine::details::InferenceEngineException;
-using WaitMode = InferenceEngine::IInferRequest::WaitMode;
-#endif
 
 namespace onnxruntime {
 namespace openvino_ep {
@@ -87,13 +82,13 @@ OVExeNetwork OVCore::LoadNetwork(std::shared_ptr<OVNetwork>& ie_cnn_network,
   }
 }
 
-OVExeNetwork OVCore::LoadNetwork(const std::string& model,
+OVExeNetwork OVCore::LoadNetwork(const std::string onnx_model_path,
                                  std::string& hw_target,
                                  ov::AnyMap& device_config,
                                  std::string name) {
   ov::CompiledModel obj;
   try {
-    obj = oe.compile_model(model, ov::Tensor(), hw_target, device_config);
+    obj = oe.compile_model(onnx_model_path, hw_target, device_config);
     OVExeNetwork exe(obj);
     return exe;
   } catch (const Exception& e) {
