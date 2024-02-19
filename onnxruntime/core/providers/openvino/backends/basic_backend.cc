@@ -174,6 +174,7 @@ void BasicBackend::SetNumThreads(ov::AnyMap& device_config) {
 // an Infer Request indexed by infer_req_idx
 void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferRequestPtr infer_request) {
   try {
+    auto sai_time_begin = std::chrono::high_resolution_clock::now();
     auto graph_input_info = exe_network_.Get().inputs();
     int input_idx = 0;
     for (auto input_info_iter = graph_input_info.begin();
@@ -241,6 +242,11 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
     }
     // Start Async inference
     infer_request->StartAsync();
+    auto sai_time_elapsed = std::chrono::high_resolution_clock::now() - sai_time_begin;
+    long long sai_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        sai_time_elapsed).count();
+    std::cout << " OVEP StartAsyncInference total time = " << sai_create_time << "milliseconds" << std::endl;
+
   } catch (const char* msg) {
     throw(msg);
   }
@@ -250,6 +256,12 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
 // Wait for Remote Aynchronous inference completion
 void BasicBackend::StartRemoteAsyncInference(Ort::KernelContext& context, OVInferRequestPtr infer_request) {
   try {
+    auto srai_time_begin = std::chrono::high_resolution_clock::now();
+    auto srai_time_elapsed = std::chrono::high_resolution_clock::now() - srai_time_begin;
+    long long srai_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        srai_time_elapsed).count();
+    std::cout << " OVEP StartRemoteAsyncInference total time = " << srai_create_time << "milliseconds" << std::endl;
+
     auto graph_input_info = exe_network_.Get().inputs();
     int input_idx = 0;
     for (auto input_info_iter = graph_input_info.begin();
@@ -345,6 +357,11 @@ void BasicBackend::StartRemoteAsyncInference(Ort::KernelContext& context, OVInfe
 
     // Start Async inference
     infer_request->StartAsync();
+    auto srai_time_elapsed = std::chrono::high_resolution_clock::now() - srai_time_begin;
+    long long srai_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        srai_time_elapsed).count();
+    std::cout << " OVEP StartRemoteAsyncInference total time = " << srai_create_time << "milliseconds" << std::endl;
+
   } catch (const char* msg) {
     throw(msg);
   }
@@ -356,6 +373,7 @@ void BasicBackend::StartRemoteAsyncInference(Ort::KernelContext& context, OVInfe
 void BasicBackend::CompleteAsyncInference(Ort::KernelContext& context, OVInferRequestPtr infer_request) {
   // Wait for Async inference completion
   try {
+    auto cai_time_begin = std::chrono::high_resolution_clock::now();
     infer_request->WaitRequest();
     auto graph_output_info = exe_network_.Get().outputs();
     for (auto output_info_iter = graph_output_info.begin();
@@ -413,6 +431,11 @@ void BasicBackend::CompleteAsyncInference(Ort::KernelContext& context, OVInferRe
         }
       }
     }
+    auto cai_time_elapsed = std::chrono::high_resolution_clock::now() - cai_time_begin;
+    long long cai_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        cai_time_elapsed).count();
+    std::cout << " OVEP completeAsyncInference total time = " << cai_create_time << "milliseconds" << std::endl;
+
   } catch (const char* msg) {
     throw(msg);
   }

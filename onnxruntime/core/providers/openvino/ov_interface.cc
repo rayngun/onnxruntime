@@ -88,8 +88,13 @@ OVExeNetwork OVCore::LoadNetwork(const std::string onnx_model_path,
                                  std::string name) {
   ov::CompiledModel obj;
   try {
+    auto cm_time_begin = std::chrono::high_resolution_clock::now();
     obj = oe.compile_model(onnx_model_path, hw_target, device_config);
     OVExeNetwork exe(obj);
+    auto cm_time_elapsed = std::chrono::high_resolution_clock::now() - cm_time_begin;
+    long long cm_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        cm_time_elapsed).count();
+    std::cout << " OV core compile_model total time = " << cm_create_time << "milliseconds" << std::endl;
     return exe;
   } catch (const Exception& e) {
     ORT_THROW(log_tag + " Exception while Loading Network for graph: " + name + e.what());
@@ -116,7 +121,12 @@ OVExeNetwork OVCore::LoadNetwork(std::shared_ptr<OVNetwork>& model, OVRemoteCont
 #endif
 
 std::vector<std::string> OVCore::GetAvailableDevices() {
+  auto gad_time_begin = std::chrono::high_resolution_clock::now();
   auto available_devices = oe.get_available_devices();
+  auto gad_time_elapsed = std::chrono::high_resolution_clock::now() - gad_time_begin;
+  long long gad_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+      gad_time_elapsed).count();
+  std::cout << " OV core GetAvailableDevices() total time = " << gad_create_time << "milliseconds" << std::endl;
   return available_devices;
 }
 
@@ -126,8 +136,13 @@ void OVCore::SetStreams(const std::string& device_type, int num_streams) {
 
 OVInferRequest OVExeNetwork::CreateInferRequest() {
   try {
+    auto cir_time_begin = std::chrono::high_resolution_clock::now();
     auto infReq = obj.create_infer_request();
     OVInferRequest inf_obj(infReq);
+    auto cir_time_elapsed = std::chrono::high_resolution_clock::now() - cir_time_begin;
+    long long cir_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        cir_time_elapsed).count();
+    std::cout << " OV core CreateInferRequest() total time = " << cir_create_time << "milliseconds" << std::endl;
     return inf_obj;
   } catch (const Exception& e) {
     throw std::string(log_tag + "Exception while creating InferRequest object: " + e.what());
@@ -160,7 +175,12 @@ void OVInferRequest::SetTensor(const std::string& name, OVTensorPtr& blob) {
 
 void OVInferRequest::StartAsync() {
   try {
+    auto sa_time_begin = std::chrono::high_resolution_clock::now();
     ovInfReq.start_async();
+    auto sa_time_elapsed = std::chrono::high_resolution_clock::now() - sa_time_begin;
+    long long sa_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        sa_time_elapsed).count();
+    std::cout << " OV core StartAsync() total time = " << sa_create_time << "milliseconds" << std::endl;
   } catch (const Exception& e) {
     throw std::string(log_tag + " Couldn't start Inference: " + e.what());
   } catch (...) {
@@ -170,7 +190,12 @@ void OVInferRequest::StartAsync() {
 
 void OVInferRequest::Infer() {
   try {
+    auto in_time_begin = std::chrono::high_resolution_clock::now();
     ovInfReq.infer();
+    auto in_time_elapsed = std::chrono::high_resolution_clock::now() - in_time_begin;
+    long long in_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        in_time_elapsed).count();
+    std::cout << " OV core Infer() total time = " << in_create_time << "milliseconds" << std::endl;
   } catch (const Exception& e) {
     throw std::string(log_tag + " Couldn't start Inference: " + e.what());
   } catch (...) {

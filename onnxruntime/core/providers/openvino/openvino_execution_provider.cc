@@ -98,6 +98,7 @@ OpenVINOExecutionProvider::OpenVINOExecutionProvider(const OpenVINOExecutionProv
 std::vector<std::unique_ptr<ComputeCapability>>
 OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
                                          const IKernelLookup& /*kernel_lookup*/) const {
+  auto gc_time_begin = std::chrono::high_resolution_clock::now();
   std::vector<std::unique_ptr<ComputeCapability>> result;
   // Enable CI Logs
   if (!(GetEnvironmentVar("ORT_OPENVINO_ENABLE_CI_LOG").empty())) {
@@ -122,12 +123,17 @@ OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
 
   global_context_->is_wholly_supported_graph = obj.IsWhollySupportedGraph();
 
+  auto gc_time_elapsed = std::chrono::high_resolution_clock::now() - gc_time_begin;
+  long long gc_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+      gc_time_elapsed).count();
+  std::cout << " OVEP Get Capability total time = " << gc_create_time << "milliseconds" << std::endl;
   return result;
 }
 
 common::Status OpenVINOExecutionProvider::Compile(
     const std::vector<FusedNodeAndGraph>& fused_nodes,
     std::vector<NodeComputeInfo>& node_compute_funcs) {
+  auto compile_time_begin = std::chrono::high_resolution_clock::now();
   for (const auto& fused_node_graph : fused_nodes) {
     const GraphViewer& graph_body_viewer = fused_node_graph.filtered_graph;
     const Node& fused_node = fused_node_graph.fused_node;
@@ -136,8 +142,13 @@ common::Status OpenVINOExecutionProvider::Compile(
 
     global_context_->use_api_2 = true;
 
+    auto bm_time_begin = std::chrono::high_resolution_clock::now();
     std::shared_ptr<openvino_ep::BackendManager> backend_manager =
         std::make_shared<openvino_ep::BackendManager>(*global_context_, fused_node, graph_body_viewer, *GetLogger());
+    auto bm_time_elapsed = std::chrono::high_resolution_clock::now() - bm_time_begin;
+    long long bm_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        bm_time_elapsed).count();
+    std::cout << " OVEP Backend manager in Compile() total time = " << bm_create_time << "milliseconds" << std::endl;
 
     compute_info.create_state_func =
         [backend_manager](ComputeContext* context, FunctionState* state) {
@@ -152,7 +163,12 @@ common::Status OpenVINOExecutionProvider::Compile(
     compute_info.compute_func = [](FunctionState state, const OrtApi* /* api */, OrtKernelContext* context) {
       auto function_state = static_cast<OpenVINOEPFunctionState*>(state);
       try {
+        auto compute_time_begin = std::chrono::high_resolution_clock::now();
         function_state->backend_manager->Compute(context);
+        auto compute_time_elapsed = std::chrono::high_resolution_clock::now() - compute_time_begin;
+        long long compute_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+            compute_time_elapsed).count();
+        std::cout << " OVEP Compute in compile() total time = " << compute_create_time << "milliseconds" << std::endl;
       } catch (const std::exception& ex) {
         return common::Status(common::ONNXRUNTIME, common::FAIL, ex.what());
       }
@@ -168,7 +184,10 @@ common::Status OpenVINOExecutionProvider::Compile(
         };
     node_compute_funcs.push_back(compute_info);
   }
-
+  auto compile_time_elapsed = std::chrono::high_resolution_clock::now() - compile_time_begin;
+  long long compile_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+      compile_time_elapsed).count();
+  std::cout << " OVEP Compile() total time = " << compile_create_time << "milliseconds" << std::endl;
   return Status::OK();
 }
 

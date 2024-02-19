@@ -307,7 +307,13 @@ OnnxRuntimeTestSession::OnnxRuntimeTestSession(Ort::Env& env, std::random_device
         ORT_THROW("[ERROR] [OpenVINO] wrong key type entered. Choose from the following runtime key options that are available for OpenVINO. ['device_type', 'device_id', 'enable_npu_fast_compile', 'num_of_threads', 'cache_dir', 'num_streams', 'enable_opencl_throttling', 'disable_dynamic_shapes'] \n");
       }
     }
+    auto so_time_begin = std::chrono::high_resolution_clock::now();
     session_options.AppendExecutionProvider_OpenVINO_V2(ov_options);
+    auto so_time_elapsed = std::chrono::high_resolution_clock::now() - so_time_begin;
+    long long so_create_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        so_time_elapsed).count();
+    std::cout << " session options creation time = " << so_create_time << "milliseconds" << std::endl;
+
 #else
     ORT_THROW("OpenVINO is not supported in this build\n");
 #endif
