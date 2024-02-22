@@ -1555,6 +1555,7 @@ OrtCUDAProviderOptionsV2 OrtCUDAProviderOptionsToOrtCUDAProviderOptionsV2(const 
   cuda_options_converted.cudnn_conv1d_pad_to_nc1d = 0;
   cuda_options_converted.enable_skip_layer_norm_strict_mode = 0;
   cuda_options_converted.use_ep_level_unified_stream = 0;
+  cuda_options_converted.use_tf32 = 1;
 
   return cuda_options_converted;
 }
@@ -1681,7 +1682,11 @@ ProviderOptions OrtOpenVINOProviderOptionsToOrtOpenVINOProviderOptionsV2(const O
   if (legacy_ov_options->device_type != nullptr)
     ov_options_converted_map["device_type"] = legacy_ov_options->device_type;
 
-  ov_options_converted_map["enable_npu_fast_compile"] = legacy_ov_options->enable_npu_fast_compile;
+  if (legacy_ov_options->enable_npu_fast_compile) {
+    ov_options_converted_map["enable_npu_fast_compile"] = "false";
+  } else {
+    ov_options_converted_map["enable_npu_fast_compile"] = "true";
+  }
 
   if (legacy_ov_options->device_id != nullptr)
     ov_options_converted_map["device_id"] = legacy_ov_options->device_id;
@@ -1700,14 +1705,12 @@ ProviderOptions OrtOpenVINOProviderOptionsToOrtOpenVINOProviderOptionsV2(const O
 
   ov_options_converted_map["enable_opencl_throttling"] = legacy_ov_options->enable_opencl_throttling;
 
-  if (legacy_ov_options->enable_dynamic_shapes != '\0') {
-    std::string enable_dynamic_shapes = reinterpret_cast<const char*>(legacy_ov_options->enable_dynamic_shapes);
-    if (enable_dynamic_shapes == "true" || enable_dynamic_shapes == "True") {
-      ov_options_converted_map["disable_dynamic_shapes"] = "false";
-    } else if (enable_dynamic_shapes == "false" || enable_dynamic_shapes == "False") {
-      ov_options_converted_map["disable_dynamic_shapes"] = "true";
-    }
+  if (legacy_ov_options->enable_dynamic_shapes) {
+    ov_options_converted_map["disable_dynamic_shapes"] = "false";
+  } else {
+    ov_options_converted_map["disable_dynamic_shapes"] = "true";
   }
+
   // Add new provider option below
   ov_options_converted_map["num_streams"] = "1";
   return ov_options_converted_map;
