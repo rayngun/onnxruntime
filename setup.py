@@ -340,11 +340,15 @@ if is_manylinux:
             "libopenvino_intel_gpu_plugin.so",
             "libopenvino_auto_plugin.so",
             "libopenvino_hetero_plugin.so",
-            "libtbb.so.2",
+            "libtbb.so.12",
+            "libtbb.so.12.2",
             "libtbbmalloc.so.2",
             "libopenvino.so",
+            "libopenvino.so.2330",
             "libopenvino_c.so",
+            "libopenvino_c.so.2330",
             "libopenvino_onnx_frontend.so",
+            "libopenvino_onnx_frontend.so.2330",
         ]
         for x in ov_libs:
             y = "onnxruntime/capi/" + x
