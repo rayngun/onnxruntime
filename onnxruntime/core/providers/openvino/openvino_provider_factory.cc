@@ -10,10 +10,12 @@ namespace onnxruntime {
 struct OpenVINOProviderFactory : IExecutionProviderFactory {
   OpenVINOProviderFactory(const char* device_type, bool enable_npu_fast_compile,
                           const char* device_id, size_t num_of_threads,
-                          const char* cache_dir, int num_streams, void* context,
-                          bool enable_opencl_throttling, bool disable_dynamic_shapes)
+                          const char* cache_dir, const char* model_priority,
+                          int num_streams, void* context, bool enable_opencl_throttling,
+                          bool disable_dynamic_shapes)
       : enable_npu_fast_compile_(enable_npu_fast_compile),
         num_of_threads_(num_of_threads),
+        model_priority_(model_priority),
         num_streams_(num_streams),
         context_(context),
         enable_opencl_throttling_(enable_opencl_throttling),
@@ -33,6 +35,7 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
   std::string device_id_;
   size_t num_of_threads_;
   std::string cache_dir_;
+  std::string model_priority_;
   int num_streams_;
   void* context_;
   bool enable_opencl_throttling_;
@@ -41,8 +44,8 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
 
 std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
   OpenVINOExecutionProviderInfo info(device_type_, enable_npu_fast_compile_, device_id_, num_of_threads_,
-                                     cache_dir_, num_streams_, context_, enable_opencl_throttling_,
-                                     disable_dynamic_shapes_);
+                                     cache_dir_, model_priority_, num_streams_, context_,
+                                     enable_opencl_throttling_, disable_dynamic_shapes_);
   return std::make_unique<OpenVINOExecutionProvider>(info);
 }
 
@@ -62,22 +65,24 @@ struct OpenVINO_Provider : Provider {
   std::shared_ptr<IExecutionProviderFactory> CreateExecutionProviderFactory(const void* void_params) override {
     auto& provider_options_map = *reinterpret_cast<const ProviderOptions*>(void_params);
 
-    std::string device_type = "";           // [device_type]: Overrides the accelerator hardware type and precision
-                                            //   with these values at runtime.
-    bool enable_npu_fast_compile = false;   // [enable_npu_fast_compile]: Fast-compile may be optionally enabled to
-                                            // speeds up the model's compilation to NPU device specific format.
-    const char* device_id = "";             // [device_id]: Selects a particular hardware device for inference.
-    int num_of_threads = 0;                 // [num_of_threads]: Overrides the accelerator default value of number of
-                                            //  threads with this value at runtime.
-    const char* cache_dir = "";             // [cache_dir]: specify the path to
-                                            // dump and load the blobs for the model caching/kernel caching (GPU)
-                                            // feature. If blob files are already present, it will be directly loaded.
-    int num_streams = 1;                    // [num_streams]: Option that specifies the number of parallel inference
-                                            // requests to be processed on a given `device_type`. Overrides the
-                                            // accelerator default value of number of streams
-                                            // with this value at runtime.
-    bool enable_opencl_throttling = false;  // [enable_opencl_throttling]: Enables OpenCL queue throttling for GPU
-                                            // device (Reduces CPU Utilization when using GPU)
+    std::string device_type = "";            // [device_type]: Overrides the accelerator hardware type and precision
+                                             //   with these values at runtime.
+    bool enable_npu_fast_compile = false;    // [enable_npu_fast_compile]: Fast-compile may be optionally enabled to
+                                             // speeds up the model's compilation to NPU device specific format.
+    const char* device_id = "";              // [device_id]: Selects a particular hardware device for inference.
+    int num_of_threads = 0;                  // [num_of_threads]: Overrides the accelerator default value of number of
+                                             //  threads with this value at runtime.
+    const char* cache_dir = "";              // [cache_dir]: specify the path to
+                                             // dump and load the blobs for the model caching/kernel caching (GPU)
+                                             // feature. If blob files are already present, it will be directly loaded.
+    const char* model_priority = "DEFAULT";  // High-level OpenVINO model priority hint
+                                             // Defines what model should be provided with more performant bounded resource first
+    int num_streams = 1;                     // [num_streams]: Option that specifies the number of parallel inference
+                                             // requests to be processed on a given `device_type`. Overrides the
+                                             // accelerator default value of number of streams
+                                             // with this value at runtime.
+    bool enable_opencl_throttling = false;   // [enable_opencl_throttling]: Enables OpenCL queue throttling for GPU
+                                             // device (Reduces CPU Utilization when using GPU)
     void* context = nullptr;
 
     if (provider_options_map.find("device_type") != provider_options_map.end()) {
@@ -116,6 +121,18 @@ struct OpenVINO_Provider : Provider {
         num_of_threads = 1;
         LOGS_DEFAULT(WARNING) << "[OpenVINO-EP] The value for the key 'num_threads' should be in the positive range.\n "
                               << "Executing with num_threads=1";
+      }
+    }
+
+    if (provider_options_map.find("model_priority") != provider_options_map.end()) {
+      model_priority = provider_options_map.at("model_priority").c_str();
+      std::vector<std::string> supported_priorities({"LOW", "MEDIUM", "HIGH", "DEFAULT"});
+      if (std::find(supported_priorities.begin(), supported_priorities.end(),
+                    model_priority) == supported_priorities.end()) {
+        model_priority = "DEFAULT";
+        LOGS_DEFAULT(WARNING) << "[OpenVINO-EP] The value for the key 'model_priority' "
+                              << "is not one of LOW, MEDIUM, HIGH, DEFAULT. "
+                              << "Executing with model_priorty=DEFAULT";
       }
     }
 
@@ -170,6 +187,7 @@ struct OpenVINO_Provider : Provider {
                                                      device_id,
                                                      num_of_threads,
                                                      cache_dir,
+                                                     model_priority,
                                                      num_streams,
                                                      context,
                                                      enable_opencl_throttling,
