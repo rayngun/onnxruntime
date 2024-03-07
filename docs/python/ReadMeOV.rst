@@ -14,8 +14,8 @@ Installation
 Requirements
 ^^^^^^^^^^^^
 
-- Ubuntu 18.04, 20.04, RHEL(CPU only) or Windows 10 - 64 bit
-- Python 3.8 or 3.9 or 3.10 for Linux and only Python3.10 for Windows
+- Ubuntu 20.06, or Windows 10 - 64 bit
+- Python 3.9,3.10,3.11 for Linux and only Python3.10 and Python 3.11 for Windows
 
 This package supports:
  - Intel® CPUs
@@ -27,7 +27,7 @@ This package supports:
 Please install OpenVINO™ PyPi Package separately for Windows.
 For installation instructions on Windows please refer to  `OpenVINO™ Execution Provider for ONNX Runtime for Windows <https://github.com/intel/onnxruntime/releases/>`_.
 
-**OpenVINO™ Execution Provider for ONNX Runtime** Linux Wheels comes with pre-built libraries of OpenVINO™ version 2023.0.0 eliminating the need to install OpenVINO™ separately. The OpenVINO™ libraries are prebuilt with CXX11_ABI flag set to 0.
+**OpenVINO™ Execution Provider for ONNX Runtime** Linux Wheels comes with pre-built libraries of OpenVINO™ version 2023.3.0 eliminating the need to install OpenVINO™ separately. The OpenVINO™ libraries are prebuilt with CXX11_ABI flag set to 0.
 
 For more details on build and installation please refer to `Build <https://onnxruntime.ai/docs/build/eps.html#openvino>`_.
 
