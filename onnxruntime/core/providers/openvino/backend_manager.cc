@@ -103,7 +103,7 @@ BackendManager::BackendManager(const GlobalContext& global_context,
       } else {
         ORT_THROW(ex.what());
       }
-    } 
+    }
   }
 }
 
