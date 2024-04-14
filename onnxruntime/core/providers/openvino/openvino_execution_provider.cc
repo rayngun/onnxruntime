@@ -1,10 +1,12 @@
 // Copyright (C) Intel Corporation
 // Licensed under the MIT License
+#include <filesystem>
 
 #include "core/providers/shared_library/provider_api.h"
 #include "openvino_execution_provider.h"
 #include "contexts.h"
 #include "backend_manager.h"
+#include "onnx_ctx_model_helper.h"
 #include "ov_versions/capability.h"
 #include "openvino/core/version.hpp"
 
@@ -27,6 +29,7 @@ OpenVINOExecutionProvider::OpenVINOExecutionProvider(const OpenVINOExecutionProv
   global_context_->disable_dynamic_shapes = info.disable_dynamic_shapes_;
   global_context_->num_of_threads = info.num_of_threads_;
   global_context_->OpenVINO_Version = {OPENVINO_VERSION_MAJOR, OPENVINO_VERSION_MINOR};
+  global_context_->export_ep_ctx_blob = info.export_ep_ctx_blob_;
 
   // to check if target device is available
   // using ie_core capability GetAvailableDevices to fetch list of devices plugged in
@@ -98,11 +101,19 @@ std::vector<std::unique_ptr<ComputeCapability>>
 OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
                                          const IKernelLookup& /*kernel_lookup*/) const {
   std::vector<std::unique_ptr<ComputeCapability>> result;
+
+  std::string openvino_sdk_version = std::to_string(global_context_->OpenVINO_Version.at(0)) + "." +
+                                     std::to_string(global_context_->OpenVINO_Version.at(1));
+
+  // Check for valid ctx node and maintain state for validity
+  if (ep_ctx_handle_.CheckForOVEPCtxNode(graph_viewer, openvino_sdk_version))
+    ORT_ENFORCE(graph_viewer.NumberOfNodes() == 1,
+                "[Invalid Graph] EPContext Model with OpenVINO compiled blob should not have more than one node.");
+
   // Enable CI Logs
   if (!(GetEnvironmentVar("ORT_OPENVINO_ENABLE_CI_LOG").empty())) {
     std::cout << "In the OpenVINO EP" << std::endl;
   }
-  global_context_->onnx_model_name = graph_viewer.Name();
 #ifdef _WIN32
   std::wstring onnx_path = graph_viewer.ModelPath().ToPathString();
   global_context_->onnx_model_path_name =
@@ -111,6 +122,8 @@ OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
   global_context_->onnx_model_path_name =
       graph_viewer.ModelPath().ToPathString();
 #endif
+  std::filesystem::path onnx_model_wd = graph_viewer.ModelPath().GetComponents().back();
+  global_context_->onnx_model_name = onnx_model_wd.replace_extension();
   global_context_->onnx_opset_version =
       graph_viewer.DomainToVersionMap().at(kOnnxDomain);
 
@@ -135,8 +148,21 @@ common::Status OpenVINOExecutionProvider::Compile(
 
     global_context_->use_api_2 = true;
 
+    // During backend creation, we check if user wants to use precompiled blob onnx model or the original model
+    // For precompiled blob, directly load the model instead of compiling the model
+    // For original model, check if the user wants to export a model with pre-compiled blob
+
     std::shared_ptr<openvino_ep::BackendManager> backend_manager =
-        std::make_shared<openvino_ep::BackendManager>(*global_context_, fused_node, graph_body_viewer, *GetLogger());
+        std::make_shared<openvino_ep::BackendManager>(*global_context_,
+                                                      fused_node,
+                                                      graph_body_viewer,
+                                                      *GetLogger(),
+                                                      ep_ctx_handle_);
+
+    if (global_context_->export_ep_ctx_blob && !ep_ctx_handle_.IsValidOVEPCtxGraph()) {
+      ORT_RETURN_IF_ERROR(backend_manager->ExportCompiledBlobAsEPCtxNode(graph_body_viewer,
+                                                                         *GetLogger()));
+    }
 
     compute_info.create_state_func =
         [backend_manager](ComputeContext* context, FunctionState* state) {
