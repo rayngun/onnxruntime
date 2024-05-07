@@ -42,7 +42,7 @@ export CMAKE_ARGS="-DONNX_GEN_PB_TYPE_STUBS=OFF -DONNX_WERROR=OFF"
 
 for PYTHON_EXE in "${PYTHON_EXES[@]}"
 do
-  ${PYTHON_EXE} -m pip install -r "${0/%install_deps\.sh/requirements\.txt}"
+  ${PYTHON_EXE} -m pip install -r "${LOCAL_DIR}/requirements.txt"
 done
 
 cd /
