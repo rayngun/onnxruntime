@@ -26,11 +26,13 @@ struct DefaultTolerance<double> {
   // Allow to have different default absolute tolerance for different providers.
   static float get_absolute(const std::string& provider_type /*provider_type*/) {
 
-    #ifdef onnxruntime_USE_OPENVINO_NPU
     if (provider_type == kOpenVINOExecutionProvider) {
+      #ifdef onnxruntime_USE_OPENVINO_NPU
       return 1e-3f;
+      #else
+      return absolute;
+      #endif
     }
-    #endif
 
     return absolute;
   }
@@ -48,11 +50,13 @@ struct DefaultTolerance<float> {
 
   static float get_absolute(const std::string& provider_type /*provider_type*/) {
 
-    #ifdef onnxruntime_USE_OPENVINO_NPU
     if (provider_type == kOpenVINOExecutionProvider) {
+      #ifdef onnxruntime_USE_OPENVINO_NPU
       return 1e-3f;
+      #else
+      return absolute;
+      #endif
     }
-    #endif
 
     return absolute;
   }
