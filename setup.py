@@ -234,15 +234,6 @@ try:
 
                 cann_dependencies = ["libascendcl.so", "libacl_op_compiler.so", "libfmk_onnx_parser.so"]
 
-                dest = "onnxruntime/capi/libonnxruntime_providers_openvino.so"
-                if path.isfile(dest):
-                    subprocess.run(
-                        ["patchelf", "--set-rpath", "$ORIGIN", dest, "--force-rpath"],
-                        check=True,
-                        stdout=subprocess.PIPE,
-                        text=True,
-                    )
-
                 self._rewrite_ld_preload(to_preload)
                 self._rewrite_ld_preload_cuda(to_preload_cuda)
                 self._rewrite_ld_preload_tensorrt(to_preload_tensorrt)
@@ -351,29 +342,7 @@ else:
 
 if is_manylinux:
     if is_openvino:
-        ov_libs = [
-            "libopenvino_intel_cpu_plugin.so",
-            "libopenvino_intel_gpu_plugin.so",
-            "libopenvino_auto_plugin.so",
-            "libopenvino_hetero_plugin.so",
-            "libtbb.so.2",
-            "libtbbmalloc.so.2",
-            "libopenvino.so",
-            "libopenvino_c.so",
-            "libopenvino_onnx_frontend.so",
-        ]
-        for x in ov_libs:
-            y = "onnxruntime/capi/" + x
-            subprocess.run(
-                ["patchelf", "--set-rpath", "$ORIGIN", y, "--force-rpath"],
-                check=True,
-                stdout=subprocess.PIPE,
-                text=True,
-            )
-            dl_libs.append(x)
         dl_libs.append(providers_openvino)
-        dl_libs.append("plugins.xml")
-        dl_libs.append("usb-ma2x8x.mvcmd")
     data = ["capi/libonnxruntime_pywrapper.so"] if nightly_build else []
     data += [path.join("capi", x) for x in dl_libs if path.isfile(path.join("onnxruntime", "capi", x))]
     ext_modules = [
