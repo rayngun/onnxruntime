@@ -79,7 +79,7 @@ struct OpenVINOExecutionProviderInfo {
                                          size_t num_of_threads, std::string cache_dir, std::string model_priority,
                                          int num_streams, void* context, bool enable_opencl_throttling,
                                          bool disable_dynamic_shapes, bool export_ep_ctx_blob)
-      : precision_(precision),
+      : precision_(std::move(precision)),
         enable_npu_fast_compile_(enable_npu_fast_compile),
         num_of_threads_(num_of_threads),
         cache_dir_(std::move(cache_dir)),
@@ -119,7 +119,7 @@ struct OpenVINOExecutionProviderInfo {
       }
 #endif
     } else if (ov_supported_device_types.find(dev_type) != ov_supported_device_types.end()) {
-      device_type_ = dev_type;
+      device_type_ = std::move(dev_type);
     } else if (dev_type.find("HETERO") == 0 || dev_type.find("MULTI") == 0 || dev_type.find("AUTO") == 0) {
       std::vector<std::string> devices = parseDevices(dev_type);
       device_type_ = dev_type;
