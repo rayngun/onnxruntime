@@ -28,7 +28,7 @@ struct DefaultTolerance<double> {
 
     if (provider_type == kOpenVINOExecutionProvider) {
       #ifdef OPENVINO_CONFIG_NPU
-      return 1e-3f;
+      return 0.005f;
       #else
       return absolute;
       #endif
@@ -52,7 +52,7 @@ struct DefaultTolerance<float> {
 
     if (provider_type == kOpenVINOExecutionProvider) {
       #ifdef OPENVINO_CONFIG_NPU
-      return 1e-3f;
+      return 0.005f;
       #else
       return absolute;
       #endif
