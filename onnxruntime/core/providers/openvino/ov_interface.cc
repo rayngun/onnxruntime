@@ -72,9 +72,18 @@ std::shared_ptr<OVNetwork> OVCore::ReadModel(const std::string& model, const std
 OVExeNetwork OVCore::CompileModel(std::shared_ptr<const OVNetwork>& ie_cnn_network,
                                   std::string& hw_target,
                                   ov::AnyMap& device_config,
-                                  std::string name) {
+                                  std::string name,
+                                  std::string cache_dir,
+                                  std::string precision) {
   ov::CompiledModel obj;
   try {
+    if (hw_target == "AUTO:GPU,CPU") {
+      obj = oe.compile_model(ie_cnn_network,
+                             "AUTO",
+                             ov::device::priorities("GPU", "CPU"),
+                             ov::device::properties("GPU", {ov::cache_dir(cache_dir),
+                                                            ov::hint::inference_precision(precision)}));
+    }
     obj = oe.compile_model(ie_cnn_network, hw_target, device_config);
 #ifndef NDEBUG
     printDebugInfo(obj);
@@ -135,10 +144,8 @@ OVExeNetwork OVCore::ImportModel(std::shared_ptr<std::istringstream> model_strea
   }
 }
 
-void OVCore::SetCache(std::string cache_dir_path, std::string device_type) {
-  if (device_type != "AUTO:GPU,CPU") {
+void OVCore::SetCache(std::string cache_dir_path) {
     oe.set_property(ov::cache_dir(cache_dir_path));
-  }
 }
 
 #ifdef IO_BUFFER_ENABLED

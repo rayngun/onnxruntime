@@ -43,7 +43,9 @@ class OVCore {
   OVExeNetwork CompileModel(std::shared_ptr<const OVNetwork>& ie_cnn_network,
                             std::string& hw_target,
                             ov::AnyMap& device_config,
-                            std::string name);
+                            std::string name,
+                            std::string cache_dir,
+                            std::string precision);
   OVExeNetwork CompileModel(const std::string onnx_model_path,
                             std::string& hw_target,
                             std::string precision,
@@ -59,7 +61,7 @@ class OVCore {
   OVExeNetwork ImportModel(std::shared_ptr<std::istringstream> model_stream, OVRemoteContextPtr context, std::string& name);
 #endif
   std::vector<std::string> GetAvailableDevices();
-  void SetCache(std::string cache_dir_path, std::string device_type);
+  void SetCache(std::string cache_dir_path);
   ov::Core& Get() { return oe; }
   void SetStreams(const std::string& device_type, int num_streams);
 };

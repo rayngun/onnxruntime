@@ -58,7 +58,7 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
 
   try {
     std::string dev_prec = global_context.device_type + "_" + global_context_.precision_str;
-
+    std::string prec_str = (global_context_.precision_str != "ACCURACY") ? global_context_.precision_str : global_context_.model_precision;
     if (global_context.is_wholly_supported_graph) {  // Full graph is supported
 #if defined(IO_BUFFER_ENABLED)
       if (is_ep_ctx_graph_) {
@@ -74,12 +74,14 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
         remote_context_ = new ov::intel_gpu::ocl::ClContext(global_context_.ie_core.Get(), ctx);
         ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
         exe_network_ = global_context_.ie_core.CompileModel(
-            ie_cnn_network_, remote_context_, subgraph_context_.subgraph_name);
+            ie_cnn_network_, remote_context_, subgraph_context_.subgraph_name,
+            global_context_.cache_dir, prec_str);
         ie_cnn_network_ = exe_network_.Get().get_runtime_model();
       } else {
         ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
         exe_network_ = global_context_.ie_core.CompileModel(
-            ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
+            ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name,
+            global_context_.cache_dir, prec_str);
       }
 #else  // !IO_BUFFER_ENABLED
       if (is_ep_ctx_graph_) {
@@ -93,7 +95,6 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
       } else if (!subgraph_context_.has_dynamic_input_shape &&
                  global_context_.onnx_model_path_name.find(".onnx") != std::string ::npos) {
         // Inputs with static dimenstions
-        std::string prec_str = (global_context_.precision_str != "ACCURACY") ? global_context_.precision_str : global_context_.model_precision;
         exe_network_ = global_context_.ie_core.CompileModel(global_context_.onnx_model_path_name,
                                                             hw_target,
                                                             prec_str,
@@ -104,13 +105,15 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
       } else {  // Inputs with dynamic dimensions
         ie_cnn_network_ = CreateOVModel(model_proto, global_context_, const_outputs_map_);
         exe_network_ = global_context_.ie_core.CompileModel(
-            ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
+            ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name,
+            global_context_.cache_dir, prec_str);
       }
 #endif
     } else {  // Full graph is not supported
       ie_cnn_network_ = CreateOVModel(model_proto, global_context_, const_outputs_map_);
       exe_network_ = global_context_.ie_core.CompileModel(
-          ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
+          ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name,
+          global_context_.cache_dir, prec_str);
     }
     LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
   } catch (const char* msg) {
@@ -179,7 +182,8 @@ void BasicBackend::EnableCaching() {
 
   if (!global_context_.cache_dir.empty()) {
     LOGS_DEFAULT(INFO) << log_tag << "Enables Caching";
-    global_context_.ie_core.SetCache(global_context_.cache_dir, global_context_.device_type);
+    if(global_context_.device_type!= "AUTO:GPU,CPU")
+      global_context_.ie_core.SetCache(global_context_.cache_dir);
   }
 }
 
