@@ -96,7 +96,7 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
         const std::string model = model_proto.SerializeAsString();
         exe_network_ = global_context_.ie_core.CompileModel(model,
                                                             hw_target,
-                                                            prec_str,
+                                                            std::move(prec_str),
                                                             global_context_.cache_dir,
                                                             device_config,
                                                             subgraph_context_.subgraph_name);

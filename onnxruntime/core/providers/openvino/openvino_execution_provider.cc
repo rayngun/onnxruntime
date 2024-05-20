@@ -155,7 +155,7 @@ common::Status OpenVINOExecutionProvider::Compile(
     }
 
     compute_info.create_state_func =
-        [backend_manager](ComputeContext* context, FunctionState* state) {
+        [std::move(backend_manager)](ComputeContext* context, FunctionState* state) {
           OpenVINOEPFunctionState* p = new OpenVINOEPFunctionState();
           p->allocate_func = context->allocate_func;
           p->destroy_func = context->release_func;

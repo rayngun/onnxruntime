@@ -220,7 +220,7 @@ void FillOutputBlob(OVTensorPtr outputBlob, Ort::UnownedValue& output_tensor,
 }
 
 void printPerformanceCounts(const std::vector<OVProfilingInfo>& performanceMap,
-                            std::ostream& stream, std::string deviceName) {
+                            std::ostream& stream, std::string std::move(deviceName)) {
   int64_t totalTime = 0;
   // Print performance counts
   stream << std::endl

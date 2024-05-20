@@ -274,7 +274,7 @@ static bool CheckDQRuleSet(const NodeUnit& node_unit,
                            const onnxruntime::GraphViewer& src_graph,
                            SkipReason& reason) {
   const auto& target_node = node_unit.GetNode();
-  auto op_type = node_unit.OpType();
+  const auto& op_type = node_unit.OpType();
 
   // #1 Reverse DQ duplication
   if (dq_node->Name().find(DuplicateDQ) != std::string::npos) {
@@ -328,7 +328,7 @@ static bool CheckQRuleSet(const NodeUnit& node_unit,
   // This Q should also be uint8
 
   const auto& target_node = node_unit.GetNode();
-  auto op_type = node_unit.OpType();
+  const auto& op_type = node_unit.OpType();
 
   // If UInt16 Q, don't keep it
   if (GetQDQDataType(q_node) == ONNX_NAMESPACE::TensorProto_DataType_UINT16) {
@@ -527,7 +527,7 @@ static void AddQDQNodeUnit(onnxruntime::Graph& dst_graph,
 
   // Add Node args for inputs
   for (const auto& node_unit_input : node_unit_inputs) {
-    auto node_arg_name = node_unit_input.node_arg.Name();
+    const auto& node_arg_name = node_unit_input.node_arg.Name();
     if (auto dq_node_arg = dq_node_args_to_keep.find(node_arg_name); dq_node_arg != dq_node_args_to_keep.end()) {
       // Add supported DQ as an input arg for the target node
       input_args.push_back(dq_node_arg->second);

@@ -80,11 +80,11 @@ struct OpenVINOExecutionProviderInfo {
                                          size_t num_of_threads, std::string cache_dir, std::string model_priority,
                                          int num_streams, void* context, bool enable_opencl_throttling,
                                          bool disable_dynamic_shapes, bool export_ep_ctx_blob, bool enable_qdq_optimizer)
-      : precision_(precision),
+      : precision_(std::move(precision)),
         enable_npu_fast_compile_(enable_npu_fast_compile),
         num_of_threads_(num_of_threads),
         cache_dir_(std::move(cache_dir)),
-        model_priority_(model_priority),
+        model_priority_(std::move(model_priority)),
         num_streams_(num_streams),
         context_(context),
         enable_opencl_throttling_(enable_opencl_throttling),
