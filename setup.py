@@ -355,6 +355,7 @@ if is_manylinux:
             "libopenvino_intel_cpu_plugin.so",
             "libopenvino_intel_gpu_plugin.so",
             "libopenvino_auto_plugin.so",
+            "libopenvino_intel_npu_plugin.so",
             "libopenvino_hetero_plugin.so",
             "libtbb.so.2",
             "libtbbmalloc.so.2",
