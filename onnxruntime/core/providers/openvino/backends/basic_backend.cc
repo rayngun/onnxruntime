@@ -82,17 +82,18 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
             ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
       }
 #else  // !IO_BUFFER_ENABLED
+      std::string prec_str = (global_context_.precision_str != "ACCURACY") ? global_context_.precision_str : global_context_.model_precision;
       if (is_ep_ctx_graph_) {
         // If the blob is held in an EPContext node, then skip FE+Compile
         // and directly move on to creating a backend with the executable blob
         exe_network_ = global_context_.ie_core.ImportModel(ep_ctx_handle.GetModelBlobStream(),
-                                                           hw_target,
-                                                           device_config,
-                                                           subgraph_context_.subgraph_name);
+                                                          hw_target,
+                                                          device_config,
+                                                          global_context_.ep_context_embed_mode,
+                                                          subgraph_context_.subgraph_name);
         ie_cnn_network_ = exe_network_.Get().get_runtime_model();
       } else if (!subgraph_context_.has_dynamic_input_shape) {
         // Inputs with static dimenstions
-        std::string prec_str = (global_context_.precision_str != "ACCURACY") ? global_context_.precision_str : global_context_.model_precision;
         const std::string model = model_proto.SerializeAsString();
         exe_network_ = global_context_.ie_core.CompileModel(model,
                                                             hw_target,
@@ -100,7 +101,6 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
                                                             global_context_.cache_dir,
                                                             device_config,
                                                             subgraph_context_.subgraph_name);
-        ie_cnn_network_ = exe_network_.Get().get_runtime_model();
       } else {  // Inputs with dynamic dimensions
         ie_cnn_network_ = CreateOVModel(model_proto, global_context_, const_outputs_map_);
         exe_network_ = global_context_.ie_core.CompileModel(
@@ -114,6 +114,7 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
     }
     LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
   } catch (const char* msg) {
+    std::cout << " Exception at basic backend msg = " << msg << std::endl;
     ORT_THROW(msg);
   }
 
@@ -177,7 +178,7 @@ void BasicBackend::EnableCaching() {
   // cache_dir argument has no effect when working with an embed-mode EPContext Graph
   if (is_ep_ctx_graph_) return;
 
-  if (!global_context_.cache_dir.empty()) {
+  if (!global_context_.cache_dir.empty() && !global_context_.export_ep_ctx_blob) {
     LOGS_DEFAULT(INFO) << log_tag << "Enables Caching";
     global_context_.ie_core.SetCache(global_context_.cache_dir, global_context_.device_type);
   }
