@@ -112,6 +112,15 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
       exe_network_ = global_context_.ie_core.CompileModel(
           ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
     }
+
+    is_model_loaded_from_cache_ = exe_network_.Get().get_property(ov::loaded_from_cache);
+    // Logging the cache status
+    if (is_model_loaded_from_cache_) {
+        LOGS_DEFAULT(INFO) << log_tag << "Model is loaded from cache during backend creation.";
+      } else {
+        LOGS_DEFAULT(INFO) << log_tag << "Model is not loaded from cache during backend creation.";
+      }
+
     LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
   } catch (const char* msg) {
     ORT_THROW(msg);
@@ -483,6 +492,13 @@ void BasicBackend::Infer(OrtKernelContext* ctx) {
 
   LOGS_DEFAULT(INFO) << log_tag << "Running graph " << subgraph_context_.subgraph_name;
   LOGS_DEFAULT(INFO) << log_tag << "In Infer";
+
+  // Logging the cache status
+  if (is_model_loaded_from_cache_) {
+    LOGS_DEFAULT(INFO) << log_tag << "Model is loaded from cache during inference.";
+  } else {
+    LOGS_DEFAULT(INFO) << log_tag << "Model is not loaded from cache during inference.";
+  }
 
   if (subgraph_context_.is_constant) {
     for (const auto& item : const_outputs_map_) {

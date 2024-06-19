@@ -110,6 +110,13 @@ OVExeNetwork OVCore::CompileModel(const std::string& onnx_model,
     }
 #ifndef NDEBUG
     printDebugInfo(obj);
+    bool is_model_loaded_from_cache = obj.get_property(ov::loaded_from_cache);
+    // Logging the cache status
+    if (is_model_loaded_from_cache) {
+      LOGS_DEFAULT(INFO) << log_tag << "Model is loaded from cache from OpenVINO interface.";
+    } else {
+      LOGS_DEFAULT(INFO) << log_tag << "Model is not loaded from cache from OpenVINO interface.";
+    }
 #endif
     OVExeNetwork exe(obj);
     return exe;
@@ -138,7 +145,7 @@ OVExeNetwork OVCore::ImportModel(std::shared_ptr<std::istringstream> model_strea
   }
 }
 
-void OVCore::SetCache(std::string cache_dir_path, std::string device_type) {
+void OVCore::SetCache(const std::string& cache_dir_path, const std::string& device_type) {
   if (device_type != "AUTO:GPU,CPU") {
     oe.set_property(ov::cache_dir(cache_dir_path));
   }

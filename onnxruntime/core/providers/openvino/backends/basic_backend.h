@@ -57,6 +57,7 @@ class BasicBackend : public IBackend {
   std::map<std::string, std::shared_ptr<ov::Node>> const_outputs_map_;
   std::unique_ptr<InferRequestsQueue> inferRequestsQueue_;
   bool is_ep_ctx_graph_{false};
+  bool is_model_loaded_from_cache_{false};
 #if defined IO_BUFFER_ENABLED
   OVRemoteContextPtr remote_context_;
 #endif

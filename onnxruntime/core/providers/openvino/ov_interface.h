@@ -64,7 +64,7 @@ class OVCore {
                            std::string name);
 #endif
   std::vector<std::string> GetAvailableDevices();
-  void SetCache(std::string cache_dir_path, std::string device_type);
+  void SetCache(const std::string& cache_dir_path, const std::string& device_type);
   ov::Core& Get() { return oe; }
   void SetStreams(const std::string& device_type, int num_streams);
 };
