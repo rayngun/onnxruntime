@@ -21,8 +21,26 @@ void GraphViewerToProto(const GraphViewer& graph_view,
     *(graph_proto.mutable_output()->Add()) = output_arg->ToProto();
   }
 
-  for (const auto* value_info : graph_view.GetValueInfo()) {
-    *(graph_proto.mutable_value_info()->Add()) = value_info->ToProto();
+  std::unordered_set<const onnxruntime::NodeArg *> value_info = graph_view.GetValueInfo();
+
+  // Reserve memory for the vector to avoid reallocations
+  std::vector<const NodeArg*> value_info_sorted;
+  value_info_sorted.reserve(value_info.size());
+
+  // Copy elements from the unordered_set to the vector
+  value_info_sorted.assign(value_info.begin(), value_info.end());
+
+  // Define the sorting predicate
+  auto sort_predicate = [](const NodeArg* v1, const NodeArg* v2) {
+    return v1->Name() < v2->Name();
+  };
+
+  // Sort the vector
+  std::sort(value_info_sorted.begin(), value_info_sorted.end(), sort_predicate);
+
+  // Use the sorted vector
+  for (const auto* value_info : value_info_sorted) {
+      *(graph_proto.mutable_value_info()->Add()) = value_info->ToProto();
   }
 
   if (include_outer_scope_args) {
