@@ -82,15 +82,17 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
             ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
       }
 #else  // !IO_BUFFER_ENABLED
-      std::string prec_str = (global_context_.precision_str != "ACCURACY") ? global_context_.precision_str : global_context_.model_precision;
+      std::string prec_str = (global_context_.precision_str != "ACCURACY") ?
+                              global_context_.precision_str :
+                              global_context_.model_precision;
       if (is_ep_ctx_graph_) {
         // If the blob is held in an EPContext node, then skip FE+Compile
         // and directly move on to creating a backend with the executable blob
         exe_network_ = global_context_.ie_core.ImportModel(ep_ctx_handle.GetModelBlobStream(),
-                                                          hw_target,
-                                                          device_config,
-                                                          global_context_.ep_context_embed_mode,
-                                                          subgraph_context_.subgraph_name);
+                                                           hw_target,
+                                                           device_config,
+                                                           global_context_.ep_context_embed_mode,
+                                                           subgraph_context_.subgraph_name);
         ie_cnn_network_ = exe_network_.Get().get_runtime_model();
       } else if (!subgraph_context_.has_dynamic_input_shape) {
         // Inputs with static dimenstions
@@ -114,7 +116,6 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
     }
     LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
   } catch (const char* msg) {
-    std::cout << " Exception at basic backend msg = " << msg << std::endl;
     ORT_THROW(msg);
   }
 

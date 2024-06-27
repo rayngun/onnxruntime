@@ -58,8 +58,12 @@ std::shared_ptr<OVNetwork> OVCore::ReadModel(const std::string& model, const std
     ov::AnyVector params{&modelStream, model_path};
 
     FE = manager.load_by_model(params);
-    inputModel = FE->load(params);
-    return FE->convert(inputModel);
+    if(FE) {
+      inputModel = FE->load(params);
+      return FE->convert(inputModel);
+    } else {
+      ORT_THROW(log_tag + "[OpenVINO-EP] Unknown exception while Reading network");
+    }
   } catch (const Exception& e) {
     ORT_THROW(log_tag + "[OpenVINO-EP] Exception while Reading network: " + std::string(e.what()));
   } catch (...) {
@@ -109,7 +113,6 @@ OVExeNetwork OVCore::CompileModel(const std::string& onnx_model,
     OVExeNetwork exe(obj);
     return exe;
   } catch (const Exception& e) {
-    std::cout << " Exception from OV compile model " << e.what() << std::endl;
     ORT_THROW(log_tag + " Exception while Loading Network for graph: " + name + e.what());
   } catch (...) {
     ORT_THROW(log_tag + " Exception while Loading Network for graph " + name);
@@ -123,9 +126,9 @@ OVExeNetwork OVCore::ImportModel(std::shared_ptr<std::istringstream> model_strea
                                  std::string name) {
   try {
     ov::CompiledModel obj;
-    if(embed_mode)
+    if (embed_mode) {
       obj = oe.import_model(*model_stream, hw_target, device_config);
-    else{
+    } else {
       std::string blob_file_path = (*model_stream).str();
       std::ifstream modelStream(blob_file_path, std::ios_base::binary | std::ios_base::in);
       obj = oe.import_model(modelStream,

@@ -4,7 +4,6 @@
 #include <string>
 #include <fstream>
 #include <vector>
-#include <iostream>
 
 #include "core/providers/openvino/onnx_ctx_model_helper.h"
 

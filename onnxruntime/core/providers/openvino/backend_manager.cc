@@ -148,8 +148,8 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
   std::string model_blob_str;
   auto compiled_model = concrete_backend_->GetOVCompiledModel();
   std::string graph_name = "";
-  //Epctx from SO is mapped to cache_dir variable for OVEP
-  if(global_context_.cache_dir != "")
+  // Epctx from SO is mapped to cache_dir variable for OVEP
+  if (global_context_.cache_dir != "")
     graph_name = global_context_.cache_dir;
   else
     graph_name = global_context_.onnx_model_path_name;

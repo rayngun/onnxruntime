@@ -1834,25 +1834,25 @@ void ORTSessionOptionsToOrtOpenVINOProviderOptions(ProviderOptions& ov_options,
 
   //values from session options will override the providerOptions Value
   bool so_epctx_enable = session_options->config_options.GetConfigOrDefault(
-                                kOrtSessionOptionEpContextEnable, "0")=="1";
-  if(so_epctx_enable)
-    ov_options["so_export_ep_ctx_blob"] ="true";
+                             kOrtSessionOptionEpContextEnable, "0") == "1";
+  if (so_epctx_enable)
+    ov_options["so_export_ep_ctx_blob"] = "true";
 
   std::string so_cache_path = session_options->config_options.GetConfigOrDefault(kOrtSessionOptionEpContextFilePath, "").c_str();
   ov_options["so_epctx_path"] = so_cache_path;
 
   // Default embedMode is 1. Saving the compiled model contents as a Epctx node attribute
   bool so_epctx_embed_mode = session_options->config_options.GetConfigOrDefault(
-                                kOrtSessionOptionEpContextEmbedMode, "1") == "0";
-  if(so_epctx_embed_mode){
-    //defaults to true
+                                 kOrtSessionOptionEpContextEmbedMode, "1") == "0";
+  if (so_epctx_embed_mode) {
+    // defaults to true
     ov_options["so_epctx_embed_mode"] = "false";
   }
 }
 
 std::shared_ptr<IExecutionProviderFactory> OpenVINOProviderFactoryCreator::Create(ProviderOptions* provider_options_map,
                                                                                   const SessionOptions* session_options) {
-  //Append session options applicable for EP to EP Provider options.
+  // Append session options applicable for EP to EP Provider options.
   if (session_options) {
     onnxruntime::ORTSessionOptionsToOrtOpenVINOProviderOptions(*provider_options_map, session_options);
   }

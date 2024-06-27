@@ -289,7 +289,7 @@ struct OpenVINO_Provider : Provider {
     if (provider_options_map.find("so_epctx_path") != provider_options_map.end()) {
       // The path to dump epctx model is valid only when epctx is enabled.
       // Overrides the cache_dir option to dump model cache files from OV.
-      if(export_ep_ctx_blob){
+      if (export_ep_ctx_blob) {
         cache_dir = provider_options_map.at("so_epctx_path").c_str();
       }
     }
