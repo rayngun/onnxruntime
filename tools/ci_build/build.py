@@ -547,6 +547,8 @@ def parse_arguments():
         type=_openvino_verify_device_type,
         help="Build with OpenVINO for specific hardware.",
     )
+    parser.add_argument("--use_openvino_static_libs", action="store_true",
+                        help="Build with OpenVINO built as Static Library.")
     parser.add_argument(
         "--dnnl_aarch64_runtime", action="store", default="", type=str.lower, help="e.g. --dnnl_aarch64_runtime acl"
     )
@@ -1227,9 +1229,10 @@ def generate_build_tree(
 
     if args.winml_root_namespace_override:
         cmake_args += ["-Donnxruntime_WINML_NAMESPACE_OVERRIDE=" + args.winml_root_namespace_override]
-    if args.use_openvino:
+    if args.use_openvino or args.use_openvino_static_libs:
         cmake_args += [
             "-Donnxruntime_USE_OPENVINO=ON",
+            "-Donnxruntime_USE_OPENVINO_STATIC_LIBS=" + ("ON" if args.use_openvino_static_libs else "OFF"),
             "-Donnxruntime_NPU_NO_FALLBACK=" + ("ON" if args.use_openvino == "NPU_NO_CPU_FALLBACK" else "OFF"),
             "-Donnxruntime_USE_OPENVINO_GPU=" + ("ON" if args.use_openvino == "GPU" else "OFF"),
             "-Donnxruntime_USE_OPENVINO_CPU=" + ("ON" if args.use_openvino == "CPU" else "OFF"),
@@ -1244,7 +1247,7 @@ def generate_build_tree(
         ]
 
     # VitisAI and OpenVINO providers currently only support full_protobuf option.
-    if args.use_full_protobuf or args.use_openvino or args.use_vitisai or args.gen_doc:
+    if args.use_full_protobuf or args.use_openvino or args.use_openvino_static_libs or args.use_vitisai or args.gen_doc:
         cmake_args += ["-Donnxruntime_USE_FULL_PROTOBUF=ON", "-DProtobuf_USE_STATIC_LIBS=ON"]
 
     if args.use_tvm and args.llvm_path is not None:
