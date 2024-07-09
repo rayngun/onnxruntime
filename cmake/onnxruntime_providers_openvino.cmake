@@ -18,11 +18,11 @@
   # Header paths
   find_package(OpenVINO REQUIRED COMPONENTS Runtime ONNX)
   if(OpenVINO_VERSION VERSION_LESS 2023.0)
-  message(FATAL_ERROR "OpenVINO 2023.0 and newer are supported. Please, latest OpenVINO release")
+    message(FATAL_ERROR "OpenVINO 2023.0 and newer are supported. Please, latest OpenVINO release")
   endif()
 
   if (WIN32)
-  unset(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO)
+    unset(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO)
   endif()
 
   if(onnxruntime_USE_OPENVINO_STATIC_LIBS)
@@ -50,10 +50,38 @@
       # Use GLOB_RECURSE to find all static library files in the specified directory based on the OS
       file(GLOB_RECURSE OPENVINO_POSSIBLE_LIBS "${OPENVINO_STATIC_LIB_DIR}/${OPENVINO_STATIC_LIB_EXT}")
 
-      # Iterate over each possible library and check if it exists before appending
-      foreach(lib ${OPENVINO_POSSIBLE_LIBS})
+      # Copy all libraries to OPENVINO_COMMON_LIBS
+      set(OPENVINO_COMMON_LIBS ${OPENVINO_POSSIBLE_LIBS})
+
+      # Define the patterns for device-specific libraries
+      set(OPENVINO_DEVICE_PATTERNS "cpu" "gpu" "npu")
+
+      # Filter out device-specific libraries from OPENVINO_COMMON_LIBS
+      foreach(device_pattern IN LISTS OPENVINO_DEVICE_PATTERNS)
+        foreach(lib IN LISTS OPENVINO_COMMON_LIBS)
+          string(FIND "${lib}" "${device_pattern}" device_pos)
+          if(NOT device_pos EQUAL -1)
+            list(REMOVE_ITEM OPENVINO_COMMON_LIBS "${lib}")
+          endif()
+        endforeach()
+      endforeach()
+
+      # Iterate over each possible common library and check if it exists before appending
+      foreach(lib ${OPENVINO_COMMON_LIBS})
         if(EXISTS "${lib}")
           list(APPEND OPENVINO_FOUND_STATIC_LIBS "${lib}")
+        endif()
+      endforeach()
+
+      # Iterate over each possible library for the specified device and check if it exists before appending
+      foreach(lib ${OPENVINO_POSSIBLE_LIBS})
+        if(EXISTS "${lib}")
+          # Check device-specific variables and append only the required libraries
+          if((DEFINED onnxruntime_USE_OPENVINO_CPU_DEVICE AND onnxruntime_USE_OPENVINO_CPU_DEVICE AND lib MATCHES ".*cpu.*") OR
+            (DEFINED onnxruntime_USE_OPENVINO_GPU_DEVICE AND onnxruntime_USE_OPENVINO_GPU_DEVICE AND lib MATCHES ".*gpu.*") OR
+            (DEFINED onnxruntime_USE_OPENVINO_NPU_DEVICE AND onnxruntime_USE_OPENVINO_NPU_DEVICE AND lib MATCHES ".*npu.*"))
+            list(APPEND OPENVINO_FOUND_STATIC_LIBS "${lib}")
+          endif()
         endif()
       endforeach()
 
