@@ -238,7 +238,8 @@ OnnxRuntimeTestSession::OnnxRuntimeTestSession(Ort::Env& env, std::random_device
       }
       auto pos = token.find("|");
       if (pos == std::string::npos || pos == 0 || pos == token.length()) {
-        ORT_THROW("[ERROR] [OpenVINO] Use a '|' to separate the key and value for the run-time option you are trying to use.\n");
+        ORT_THROW("[ERROR] [OpenVINO] Use a '|' to separate the key and value for the run-time option"
+          " you are trying to use.\n");
       }
 
       auto key = token.substr(0, pos);
@@ -250,6 +251,10 @@ OnnxRuntimeTestSession::OnnxRuntimeTestSession(Ort::Env& env, std::random_device
         std::set<std::string> deprecated_device_types = {"CPU_FP32", "GPU_FP32",
                                                          "GPU.0_FP32", "GPU.1_FP32", "GPU_FP16",
                                                          "GPU.0_FP16", "GPU.1_FP16"};
+        size_t num_gpus = 10;
+        for (size_t i = 0; i <= num_gpus; i++) {
+        ov_supported_device_types.emplace("GPU." + std::to_string(i));
+        }
         if (ov_supported_device_types.find(value) != ov_supported_device_types.end()) {
           ov_options[key] = value;
         } else if (deprecated_device_types.find(value) != deprecated_device_types.end()) {
@@ -262,8 +267,8 @@ OnnxRuntimeTestSession::OnnxRuntimeTestSession(Ort::Env& env, std::random_device
           ov_options[key] = value;
         } else {
           ORT_THROW(
-              "[ERROR] [OpenVINO] You have selcted wrong configuration value for the key 'device_type'. "
-              "Select from 'CPU', 'GPU', 'GPU.0', 'GPU.1', 'NPU' or from"
+              "[ERROR] [OpenVINO] You have selected wrong configuration value for the key 'device_type'. "
+              "Select from 'CPU', 'GPU', 'NPU', 'GPU.x' where x = 0,1,2 and so on or from"
               " HETERO/MULTI/AUTO options available. \n");
         }
       } else if (key == "device_id") {
@@ -306,14 +311,16 @@ OnnxRuntimeTestSession::OnnxRuntimeTestSession(Ort::Env& env, std::random_device
             value == "false" || value == "False") {
           ov_options[key] = value;
         } else {
-          ORT_THROW("[ERROR] [OpenVINO] The value for the key 'enable_npu_fast_compile' should be a boolean i.e. true or false. Default value is false.\n");
+          ORT_THROW("[ERROR] [OpenVINO] The value for the key 'enable_npu_fast_compile' should be a boolean"
+            " i.e. true or false. Default value is false.\n");
         }
       } else if (key == "enable_opencl_throttling") {
         if (value == "true" || value == "True" ||
             value == "false" || value == "False") {
           ov_options[key] = value;
         } else {
-          ORT_THROW("[ERROR] [OpenVINO] The value for the key 'enable_opencl_throttling' should be a boolean i.e. true or false. Default value is false.\n");
+          ORT_THROW("[ERROR] [OpenVINO] The value for the key 'enable_opencl_throttling' should be a boolean"
+            " i.e. true or false. Default value is false.\n");
         }
       } else if (key == "disable_dynamic_shapes") {
         if (value == "true" || value == "True" ||
@@ -352,7 +359,10 @@ OnnxRuntimeTestSession::OnnxRuntimeTestSession(Ort::Env& env, std::random_device
               "should be a boolean i.e. true or false. Default value is false.\n");
         }
       } else {
-        ORT_THROW("[ERROR] [OpenVINO] wrong key type entered. Choose from the following runtime key options that are available for OpenVINO. ['device_type', 'device_id', 'enable_npu_fast_compile', 'num_of_threads', 'cache_dir', 'num_streams', 'enable_opencl_throttling', 'disable_dynamic_shapes'] \n");
+        ORT_THROW("[ERROR] [OpenVINO] wrong key type entered."
+          " Choose from the following runtime key options that are available for OpenVINO."
+          " ['device_type', 'device_id', 'enable_npu_fast_compile', 'num_of_threads', 'cache_dir',"
+          " 'num_streams', 'enable_opencl_throttling', 'disable_dynamic_shapes'] \n");
       }
     }
     session_options.AppendExecutionProvider_OpenVINO_V2(ov_options);
