@@ -32,18 +32,16 @@ GetCapability::GetCapability(const GraphViewer& graph_viewer_param,
   if (device_type_.find("NPU") != std::string::npos) {
     device_type_ = "CPU";
   }
-#if OPENVINO_VERSION_MAJOR == 2023 && OPENVINO_VERSION_MINOR == 1
-  data_ops_ = new DataOps(graph_viewer_, V_2023_1, device_type_);
-#elif OPENVINO_VERSION_MAJOR == 2023 && OPENVINO_VERSION_MINOR == 2
-  data_ops_ = new DataOps(graph_viewer_, V_2023_2, device_type_);
-#elif OPENVINO_VERSION_MAJOR == 2023 && OPENVINO_VERSION_MINOR == 3
+#if OPENVINO_VERSION_MAJOR == 2023 && OPENVINO_VERSION_MINOR == 3
   data_ops_ = new DataOps(graph_viewer_, V_2023_3, device_type_);
 #elif OPENVINO_VERSION_MAJOR == 2024 && OPENVINO_VERSION_MINOR == 0
   data_ops_ = new DataOps(graph_viewer_, V_2024_0, device_type_);
 #elif OPENVINO_VERSION_MAJOR == 2024 && OPENVINO_VERSION_MINOR == 1
   data_ops_ = new DataOps(graph_viewer_, V_2024_1, device_type_);
+#elif OPENVINO_VERSION_MAJOR == 2024 && OPENVINO_VERSION_MINOR == 2
+  data_ops_ = new DataOps(graph_viewer_, V_2024_2, device_type_);
 #else
-  data_ops_ = new DataOps(graph_viewer_, V_2024_1, device_type_);
+  data_ops_ = new DataOps(graph_viewer_, V_2024_2, device_type_);
 #endif
 }
 
