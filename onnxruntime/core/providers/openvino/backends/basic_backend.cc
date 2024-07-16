@@ -37,7 +37,7 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
   PopulateConfigValue(device_config);
 
   // Enable caching
-  EnableCaching();
+  EnableCaching(device_config);
 
   // Setting OpenCL queue throttling for GPU
   EnableGPUThrottling(device_config);
@@ -90,18 +90,15 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
                                                            device_config,
                                                            subgraph_context_.subgraph_name);
         ie_cnn_network_ = exe_network_.Get().get_runtime_model();
-      } else if (!subgraph_context_.has_dynamic_input_shape &&
-                 global_context_.onnx_model_path_name.find(".onnx") != std::string ::npos) {
-        // Inputs with static dimenstions
-        std::string prec_str = (global_context_.precision_str != "ACCURACY") ? global_context_.precision_str : global_context_.model_precision;
-        exe_network_ = global_context_.ie_core.CompileModel(global_context_.onnx_model_path_name,
-                                                            hw_target,
-                                                            prec_str,
-                                                            global_context_.cache_dir,
-                                                            device_config,
-                                                            subgraph_context_.subgraph_name);
-        ie_cnn_network_ = exe_network_.Get().get_runtime_model();
-      } else {  // Inputs with dynamic dimensions
+      } else if ((hw_target=="GPU") || ((hw_target.find("AUTO:GPU") != std::string::npos) &&
+                 (global_context_.OpenVINO_Version.at(0) >= 2024 && global_context_.OpenVINO_Version.at(1) > 2)))
+      {
+            // Use ONNX Model Path with GPU and with AUTO:GPU only when version is more than 2024.2
+            exe_network_ = global_context_.ie_core.CompileModel(global_context.onnx_model_path_name,
+                                                                hw_target,
+                                                                device_config,
+                                                                subgraph_context_.subgraph_name);
+      } else {  //For all other types use ov::Model Type
         ie_cnn_network_ = CreateOVModel(model_proto, global_context_, const_outputs_map_);
         exe_network_ = global_context_.ie_core.CompileModel(
             ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
@@ -172,13 +169,19 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
   }
 }
 
-void BasicBackend::EnableCaching() {
+void BasicBackend::EnableCaching(ov::AnyMap& device_config) {
   // cache_dir argument has no effect when working with an embed-mode EPContext Graph
   if (is_ep_ctx_graph_) return;
 
   if (!global_context_.cache_dir.empty()) {
     LOGS_DEFAULT(INFO) << log_tag << "Enables Caching";
-    global_context_.ie_core.SetCache(global_context_.cache_dir, global_context_.device_type);
+    if (global_context_.device_type.find("AUTO:GPU") != std::string::npos) {
+      std::pair<std::string, ov::Any> device_property;
+      device_property = std::make_pair("CACHE_DIR", global_context_.cache_dir);
+      device_config.emplace(ov::device::properties("GPU", device_property));
+    } else {
+      global_context_.ie_core.SetCache(global_context_.cache_dir);
+    }
   }
 }
 
