@@ -39,27 +39,29 @@ class OVCore {
   ov::Core oe;
 
  public:
+  // OV Interface For Reading Model
   std::shared_ptr<OVNetwork> ReadModel(const std::string& model_stream, const std::string& model_path) const;
+  // OV Interface for Compiling OV Model Type
   OVExeNetwork CompileModel(std::shared_ptr<const OVNetwork>& ie_cnn_network,
                             std::string& hw_target,
                             ov::AnyMap& device_config,
-                            std::string name);
-  OVExeNetwork CompileModel(const std::string onnx_model_path,
+                            const std::string& name);
+  // OV Interface for Fast Compile
+  OVExeNetwork CompileModel(const std::string& onnx_model_path,
                             std::string& hw_target,
-                            std::string precision,
-                            std::string cache_dir,
                             ov::AnyMap& device_config,
-                            std::string name);
+                            const std::string& name);
+  // OV Interface for Import model Stream
   OVExeNetwork ImportModel(std::shared_ptr<std::istringstream> model_stream,
                            std::string& hw_target,
                            ov::AnyMap& device_config,
-                           std::string name);
+                           const std::string& name);
 #ifdef IO_BUFFER_ENABLED
   OVExeNetwork CompileModel(std::shared_ptr<const OVNetwork>& model, OVRemoteContextPtr context, std::string& name);
   OVExeNetwork ImportModel(std::shared_ptr<std::istringstream> model_stream, OVRemoteContextPtr context, std::string& name);
 #endif
   std::vector<std::string> GetAvailableDevices();
-  void SetCache(std::string cache_dir_path, std::string device_type);
+  void SetCache(const std::string& cache_dir_path);
   ov::Core& Get() { return oe; }
   void SetStreams(const std::string& device_type, int num_streams);
 };
