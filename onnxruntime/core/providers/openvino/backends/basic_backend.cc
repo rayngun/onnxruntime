@@ -90,15 +90,16 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
                                                            device_config,
                                                            subgraph_context_.subgraph_name);
         ie_cnn_network_ = exe_network_.Get().get_runtime_model();
-      } else if ((hw_target=="GPU") || ((hw_target.find("AUTO:GPU") != std::string::npos) &&
-                 (global_context_.OpenVINO_Version.at(0) >= 2024 && global_context_.OpenVINO_Version.at(1) > 2)))
-      {
-            // Use ONNX Model Path with GPU and with AUTO:GPU only when version is more than 2024.2
-            exe_network_ = global_context_.ie_core.CompileModel(global_context.onnx_model_path_name,
+      } else if ((global_context_.onnx_model_path_name.find(".onnx") != std::string::npos) && 
+                 ((hw_target.find("AUTO") == std::string::npos) || 
+                  (global_context_.OpenVINO_Version.at(0) >= 2024 && global_context_.OpenVINO_Version.at(1) > 2))) {
+             // Use ONNX Model Path when Model Path is specified but not with AUTO for version 2024.2 and lower
+             exe_network_ = global_context_.ie_core.CompileModel(global_context.onnx_model_path_name,
                                                                 hw_target,
                                                                 device_config,
                                                                 subgraph_context_.subgraph_name);
-      } else {  //For all other types use ov::Model Type
+             ie_cnn_network_ = exe_network_.Get().get_runtime_model();
+      } else {  // For all other types use ov::Model Type
         ie_cnn_network_ = CreateOVModel(model_proto, global_context_, const_outputs_map_);
         exe_network_ = global_context_.ie_core.CompileModel(
             ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
