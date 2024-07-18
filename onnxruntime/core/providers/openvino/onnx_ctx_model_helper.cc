@@ -77,7 +77,7 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
   model_proto->set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
 
   // Finally, dump the model
-  std::ofstream dump(graph_name + "-ov_" + device_type + "_blob.onnx",
+  std::ofstream dump(graph_name,
                      std::ios::out | std::ios::trunc | std::ios::binary);
   model_proto->SerializeToOstream(dump);
 

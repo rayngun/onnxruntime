@@ -28,9 +28,8 @@ BackendManager::BackendManager(const GlobalContext& global_context,
                                const onnxruntime::Node& fused_node,
                                const onnxruntime::GraphViewer& subgraph,
                                const logging::Logger& logger,
-                               EPCtxHandler& ctx_handle) {
+                               EPCtxHandler& ep_ctx_handle_) {
   global_context_ = global_context;
-  ep_ctx_handle_ = ctx_handle;
 
   openvino_sdk_version_ = std::to_string(global_context_.OpenVINO_Version.at(0)) + "." +
                           std::to_string(global_context_.OpenVINO_Version.at(1));
@@ -148,18 +147,19 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
   std::string model_blob_str;
   auto compiled_model = concrete_backend_->GetOVCompiledModel();
   std::string graph_name = "";
-  // Epctx from SO is mapped to cache_dir variable for OVEP
+  // Epctx file path from SO is mapped to cache_dir variable for OVEP for readability
   if (global_context_.cache_dir != "")
     graph_name = global_context_.cache_dir;
-  else
+  else {
     graph_name = global_context_.onnx_model_path_name;
-  // Remove extension so we can append suffix to form the complete name of output graph
-  graph_name = [&]() -> const std::string{
-    size_t dot = graph_name.find_last_of(".");
-    if (dot == std::string::npos) return graph_name;
-    return graph_name.substr(0, dot);
-  }();
-
+    // Remove extension so we can append suffix to form the complete name of output graph
+    graph_name = [&]() {
+      size_t dot = graph_name.find_last_of(".");
+      if (dot == std::string::npos) return graph_name;
+      return graph_name.substr(0, dot);
+    }();
+    graph_name = graph_name + "-ov_" + GetGlobalContext().device_type + "_blob.onnx";
+  }
   // If embed_mode, then pass on the serialized blob
   // If not embed_mode, dump the blob here and only pass on the path to the blob
   if (global_context_.ep_context_embed_mode) {
