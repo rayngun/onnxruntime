@@ -90,9 +90,7 @@ Status EPCtxHandler::ImportBlobFromEPCtxModel(const GraphViewer& graph_viewer) {
   auto node = graph_viewer.GetNode(0);
   auto& attrs = node->GetAttributes();
   ORT_ENFORCE(attrs.count(EP_CACHE_CONTEXT) > 0);
-
   model_stream_ = std::make_shared<std::istringstream>(attrs.at(EP_CACHE_CONTEXT).s());
-
   LOGS_DEFAULT(VERBOSE) << "[OpenVINO EP] Read blob from EPContext Node";
 
   is_valid_ep_ctx_graph_ = true;
