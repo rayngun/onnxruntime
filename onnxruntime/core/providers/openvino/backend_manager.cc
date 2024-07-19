@@ -148,9 +148,9 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
   auto compiled_model = concrete_backend_->GetOVCompiledModel();
   std::string graph_name = "";
   // Epctx file path from SO is mapped to cache_dir variable for OVEP for readability
-  if (global_context_.cache_dir != "")
+  if (global_context_.cache_dir != "") {
     graph_name = global_context_.cache_dir;
-  else {
+  } else {
     graph_name = global_context_.onnx_model_path_name;
     // Remove extension so we can append suffix to form the complete name of output graph
     graph_name = [&]() {
@@ -174,8 +174,12 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
       if (dot == std::string::npos) return graph_name;
       return graph_name.substr(0, dot);
     }();
-    std::ofstream f(blob_name + ".blob", std::ios::out | std::ios::trunc | std::ios::binary);
-    compiled_model.export_model(f);
+    std::ofstream blob_file(blob_name + ".blob",
+                            std::ios::out | std::ios::trunc | std::ios::binary);
+    if (!blob_file) {
+      ORT_THROW("Unable to open file for epctx model dump.");
+    }
+    compiled_model.export_model(blob_file);
     model_blob_str = blob_name + ".blob";
   }
 
@@ -260,7 +264,7 @@ static void DumpOpenVINOEPModel(std::string onnx_model_path_name,
                                 ONNX_NAMESPACE::ModelProto* model_proto,
                                 const onnxruntime::Node& fused_node) {
   if (openvino_ep::backend_utils::IsDebugEnabled()) {
-    auto model_name = onnx_model_path_name.empty() ? "unknown.onnx" : std::move(onnx_model_path_name) ;
+    auto model_name = onnx_model_path_name.empty() ? "unknown.onnx" : std::move(onnx_model_path_name);
 #ifdef _WIN32
     size_t slash = model_name.find_last_of("\\");
 #else
