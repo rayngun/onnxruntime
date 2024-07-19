@@ -338,7 +338,7 @@ static bool CheckDQRuleSet(const NodeUnit& node_unit,
 }
 
 static bool CheckQFeedsIntoQuantizedOutput(const NodeUnit& node_unit,
-                          const std::unordered_map<std::string, std::string> graph_op_data_type) {
+                                           const std::unordered_map<std::string, std::string> graph_op_data_type) {
   auto op_of_quantized_layer = node_unit.Outputs();
   for (auto &itr : op_of_quantized_layer) {
     auto it = graph_op_data_type.find(itr.node_arg.Name());
