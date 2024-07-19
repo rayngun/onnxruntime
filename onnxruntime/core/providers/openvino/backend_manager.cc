@@ -168,9 +168,15 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
     model_blob_str = model_blob_stream.str();
     ORT_ENFORCE(model_blob_str.size() != 0);
   } else {
-    std::ofstream f(graph_name + ".blob", std::ios::out | std::ios::trunc | std::ios::binary);
+    // Remove extension so we can append suffix to form the complete name of output graph
+    auto blob_name = [&]() {
+      size_t dot = graph_name.find_last_of(".");
+      if (dot == std::string::npos) return graph_name;
+      return graph_name.substr(0, dot);
+    }();
+    std::ofstream f(blob_name + ".blob", std::ios::out | std::ios::trunc | std::ios::binary);
     compiled_model.export_model(f);
-    model_blob_str = graph_name + ".blob";
+    model_blob_str = blob_name + ".blob";
   }
 
   ORT_RETURN_IF_ERROR(ep_ctx_handle_.ExportEPCtxModel(graph_body_viewer,
