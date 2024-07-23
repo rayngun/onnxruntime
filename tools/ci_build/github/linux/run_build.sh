@@ -61,6 +61,6 @@ else
             --cudnn_home /usr/lib/x86_64-linux-gnu/ $BUILD_EXTR_PAR
     else #cpu and openvino
         python3 $SCRIPT_DIR/../../build.py --build_dir /build \
-            --config Release $COMMON_BUILD_ARGS $BUILD_EXTR_PAR
+            --config Debug $COMMON_BUILD_ARGS $BUILD_EXTR_PAR
     fi
 fi
