@@ -86,7 +86,7 @@ class OVInferRequest {
   void Infer();
   void WaitRequest();
   void QueryStatus();
-  explicit OVInferRequest(ov::InferRequest obj) : ovInfReq(obj) {}
+  explicit OVInferRequest(ov::InferRequest obj) : ovInfReq(std::move(obj)) {}
   OVInferRequest() : ovInfReq(ov::InferRequest()) {}
   ov::InferRequest& GetNewObj() {
     return ovInfReq;

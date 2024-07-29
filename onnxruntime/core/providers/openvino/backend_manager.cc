@@ -137,7 +137,7 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
   auto compiled_model = concrete_backend_->GetOVCompiledModel();
   auto graph_name = global_context_.onnx_model_path_name;
   // Remove extension so we can append suffix to form the complete name of output graph
-  graph_name = [&]() {
+  graph_name = [&]() -> const std::string {
     size_t dot = graph_name.find_last_of(".");
     if (dot == std::string::npos) return graph_name;
     return graph_name.substr(0, dot);
