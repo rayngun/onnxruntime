@@ -90,8 +90,8 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
                                                            device_config,
                                                            subgraph_context_.subgraph_name);
         ie_cnn_network_ = exe_network_.Get().get_runtime_model();
-      } else if ((global_context_.onnx_model_path_name.find(".onnx") != std::string::npos) && 
-                 ((hw_target.find("AUTO") == std::string::npos) || 
+      } else if ((global_context_.onnx_model_path_name.find(".onnx") != std::string::npos) &&
+                 ((hw_target.find("AUTO") == std::string::npos) ||
                   (global_context_.OpenVINO_Version.at(0) >= 2024 && global_context_.OpenVINO_Version.at(1) > 2))) {
              // Use ONNX Model Path when Model Path is specified but not with AUTO for version 2024.2 and lower
              exe_network_ = global_context_.ie_core.CompileModel(global_context.onnx_model_path_name,
@@ -243,7 +243,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
       }
       // using the input name retrieved from ONNX original to match with the input names returned by OV tensors
       if (input_names.find(onnx_input_name) != input_names.end()) {
-        input_name = onnx_input_name;
+        input_name = std::move(onnx_input_name);
       } else {
         ORT_THROW(log_tag +
                   "Input names mismatch between OpenVINO and ONNX. " + onnx_input_name +
@@ -277,7 +277,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
         }
 
         try {
-          infer_request->SetTensor(input_name, tensor_ptr);
+          infer_request->SetTensor(std::move(input_name), tensor_ptr);
         } catch (const char* msg) {
           ORT_THROW(msg);
         }
@@ -288,7 +288,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
         } catch (const char* msg) {
           ORT_THROW(msg);
         }
-        FillInputBlob(graph_input_blob, batch_slice_idx, input_name, context, subgraph_context_);
+        FillInputBlob(std::move(graph_input_blob), batch_slice_idx, std::move(input_name), context, subgraph_context_);
       }
       input_idx++;
     }
@@ -443,27 +443,27 @@ void BasicBackend::CompleteAsyncInference(Ort::KernelContext& context, OVInferRe
         ORT_THROW(msg);
       }
       size_t batch_size = 1;
-      auto output_tensor =
-          GetOutputTensor(context, batch_size, infer_request, output_name, subgraph_context_.output_names);
+      Ort::UnownedValue output_tensor =
+          GetOutputTensor(context, batch_size, infer_request, std::move(output_name), subgraph_context_.output_names);
       auto mem_info = output_tensor.GetTensorMemoryInfo();
       if (mem_info.GetAllocatorName() == OpenVINO_GPU) {
         return;
       } else {
         size_t batch_slice = 0;
-        FillOutputBlob(graph_output_blob, output_tensor, batch_slice);
+        FillOutputBlob(std::move(graph_output_blob), output_tensor, batch_slice);
       }
     }
 
     if (!const_outputs_map_.empty()) {
-      for (auto item : const_outputs_map_) {
-        auto out_name = item.first;
+      for (const auto& item : const_outputs_map_) {
+        const auto& out_name = item.first;
         auto node = item.second;
-        auto output_tensor = GetOutputTensor(context, out_name, subgraph_context_.output_names, node);
+        Ort::UnownedValue output_tensor = GetOutputTensor(context, std::move(out_name), subgraph_context_.output_names, node);
         auto mem_info = output_tensor.GetTensorMemoryInfo();
         if (mem_info.GetAllocatorName() == OpenVINO_GPU) {
           ORT_THROW(log_tag + "IO Buffering is not supported for constant subgraphs");
         } else {
-          FillOutputsWithConstantData(node, output_tensor);
+          FillOutputsWithConstantData(std::move(node), output_tensor);
         }
       }
     }
@@ -481,12 +481,14 @@ void BasicBackend::Infer(OrtKernelContext* ctx) {
   LOGS_DEFAULT(INFO) << log_tag << "In Infer";
 
   if (subgraph_context_.is_constant) {
-    for (auto item : const_outputs_map_) {
-      auto out_name = item.first;
-      auto node = item.second;
+    for (const auto& item : const_outputs_map_) {
+      std::string out_name = item.first;
+      std::shared_ptr<ov::Node> node = item.second;
       try {
-        auto output_tensor = GetOutputTensor(context, out_name, subgraph_context_.output_names, node);
-        FillOutputsWithConstantData(node, output_tensor);
+        Ort::UnownedValue output_tensor =
+        GetOutputTensor(context, std::move(out_name),
+        subgraph_context_.output_names, node);
+        FillOutputsWithConstantData(std::move(node), output_tensor);
       } catch (std::string const& msg) {
         ORT_THROW(msg);
       }
@@ -539,7 +541,7 @@ void BasicBackend::Infer(OrtKernelContext* ctx) {
     }
 
     // Once the inference is completed, the infer_request becomes free and is placed back into pool of infer_requests_
-    inferRequestsQueue_->putIdleRequest(infer_request);
+    inferRequestsQueue_->putIdleRequest(std::move(infer_request));
 #ifndef NDEBUG
 #ifndef IO_BUFFER_ENABLED  // Printing performance counts is disabled when IO_BUFFER_ENABLED
     if (openvino_ep::backend_utils::IsDebugEnabled()) {
