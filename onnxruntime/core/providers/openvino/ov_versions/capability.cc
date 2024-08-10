@@ -113,6 +113,8 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
                   [&outputs](const NodeArg* node_arg) { outputs.push_back(node_arg->Name()); });
 
     // Create and add this graph to result.
+    std::cout << "in capability before AppendClusterToSubGraph " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+
     AppendClusterToSubGraph(graph_viewer_.GetNodesInTopologicalOrder(), inputs, outputs, result);
 
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model is fully supported by OpenVINO";

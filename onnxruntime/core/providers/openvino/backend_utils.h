@@ -61,7 +61,7 @@ void FillOutputBlob(OVTensorPtr outputBlob, Ort::UnownedValue& output_tensor,
                     size_t batch_slice_idx);
 
 std::shared_ptr<OVNetwork>
-CreateOVModel(const ONNX_NAMESPACE::ModelProto& model_proto,
+CreateOVModel(const std::string& model,
               const GlobalContext& global_context,
               std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map);
 
@@ -69,6 +69,8 @@ void printPerformanceCounts(const std::vector<OVProfilingInfo>& performanceMap,
                             std::ostream& stream, std::string deviceName);
 
 void printPerformanceCounts(OVInferRequestPtr request, std::ostream& stream, std::string deviceName);
+
+size_t GetPeakWorkingSetSize();
 
 }  // namespace backend_utils
 }  // namespace openvino_ep

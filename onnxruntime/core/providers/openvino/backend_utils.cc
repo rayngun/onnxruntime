@@ -5,6 +5,8 @@
 #include <sstream>
 #include <fstream>
 #include <utility>
+#include <Windows.h>
+#include <psapi.h>
 
 #include "openvino/pass/convert_fp32_to_fp16.hpp"
 #include "openvino/pass/constant_folding.hpp"
@@ -40,12 +42,12 @@ struct static_cast_int64 {
 };
 
 std::shared_ptr<OVNetwork>
-CreateOVModel(const ONNX_NAMESPACE::ModelProto& model_proto, const GlobalContext& global_context,
+CreateOVModel(const std::string& model, const GlobalContext& global_context,
               std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map) {
   if (IsCILogEnabled()) {
     std::cout << "CreateNgraphFunc" << std::endl;
   }
-  const std::string model = model_proto.SerializeAsString();
+  // const std::string model = model_proto.SerializeAsString();
   try {
     auto cnn_network = global_context.ie_core.ReadModel(model, global_context.onnx_model_path_name);
 
@@ -265,6 +267,14 @@ void printPerformanceCounts(const std::vector<OVProfilingInfo>& performanceMap,
 void printPerformanceCounts(OVInferRequestPtr request, std::ostream& stream, std::string deviceName) {
   auto performanceMap = request->GetNewObj().get_profiling_info();
   printPerformanceCounts(performanceMap, stream, std::move(deviceName));
+}
+
+size_t GetPeakWorkingSetSize() {
+  PROCESS_MEMORY_COUNTERS pmc;
+  if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+    return (pmc.PeakWorkingSetSize/1048576);
+  }
+  return 0;
 }
 
 }  // namespace backend_utils

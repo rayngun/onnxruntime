@@ -10,6 +10,7 @@
 #include "core/providers/openvino/onnx_ctx_model_helper.h"
 #include "core/providers/openvino/ov_versions/capability.h"
 #include "openvino/core/version.hpp"
+#include "core/providers/openvino/backend_utils.h"
 
 #define MEMCPY_S(dest, src, destsz, srcsz) memcpy(dest, src, std::min(destsz, srcsz))
 
@@ -78,6 +79,8 @@ std::vector<std::unique_ptr<ComputeCapability>>
 OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
                                          const IKernelLookup& /*kernel_lookup*/) const {
   std::vector<std::unique_ptr<ComputeCapability>> result;
+  size_t before_get_capability = onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize();
+  std::cout << " Before get capability peak memory = " << before_get_capability << std::endl;
 
   std::string openvino_sdk_version = std::to_string(global_context_->OpenVINO_Version.at(0)) + "." +
                                      std::to_string(global_context_->OpenVINO_Version.at(1));
@@ -121,6 +124,8 @@ OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
   result = obj.Execute();
 
   global_context_->is_wholly_supported_graph = obj.IsWhollySupportedGraph();
+  size_t after_get_capability = onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize();
+  std::cout << " After get capability peak memory = " << after_get_capability << std::endl;
 
   return result;
 }
@@ -131,10 +136,14 @@ common::Status OpenVINOExecutionProvider::Compile(
   for (const FusedNodeAndGraph& fused_node_graph : fused_nodes) {
     const GraphViewer& graph_body_viewer = fused_node_graph.filtered_graph;
     const Node& fused_node = fused_node_graph.fused_node;
+    // const auto& logger_ = *GetLogger();
 
     NodeComputeInfo compute_info;
 
     global_context_->use_api_2 = true;
+
+    size_t before_compile = onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize();
+    std::cout << " Peak memory Before compile model is called = " << before_compile << std::endl;
 
     // During backend creation, we check if user wants to use precompiled blob onnx model or the original model
     // For precompiled blob, directly load the model instead of compiling the model
@@ -147,6 +156,9 @@ common::Status OpenVINOExecutionProvider::Compile(
                                                       *GetLogger(),
                                                       ep_ctx_handle_);
 
+    size_t after_compile = onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize();
+    std::cout << " Peak memory After compile model is called = " << after_compile << std::endl;
+
     compute_info.create_state_func =
         [backend_manager](ComputeContext* context, FunctionState* state) {
           OpenVINOEPFunctionState* p = new OpenVINOEPFunctionState();
@@ -157,15 +169,24 @@ common::Status OpenVINOExecutionProvider::Compile(
           *state = static_cast<FunctionState>(p);
           return 0;
         };
-    compute_info.compute_func = [](FunctionState state, const OrtApi* /* api */, OrtKernelContext* context) {
-      auto function_state = static_cast<OpenVINOEPFunctionState*>(state);
-      try {
-        function_state->backend_manager->Compute(context);
-      } catch (const std::exception& ex) {
-        return common::Status(common::ONNXRUNTIME, common::FAIL, ex.what());
-      }
-      return Status::OK();
-    };
+    // compute_info.compute_func = [fused_node, graph_body_viewer, logger_]
+    //                             (FunctionState state,
+    //                              const OrtApi* /* api */, OrtKernelContext* context) {
+    //   auto function_state = static_cast<OpenVINOEPFunctionState*>(state);
+    //   try {
+    //     size_t before_compute = onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize();
+    //     function_state->backend_manager->Compute(context,
+    //                                              fused_node,
+    //                                              graph_body_viewer,
+    //                                              *GetLogger());
+    //     size_t after_compute = onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize();
+    //     std::cout << " Peak memory Before Compute is called = " << before_compute << std::endl;
+    //     std::cout << " Peak memory After Compute is called = " << after_compute << std::endl;
+    //   } catch (const std::exception& ex) {
+    //     return common::Status(common::ONNXRUNTIME, common::FAIL, ex.what());
+    //   }
+    //   return Status::OK();
+    // };
 
     compute_info.release_state_func =
         [](FunctionState state) {
