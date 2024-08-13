@@ -924,6 +924,7 @@ struct Model final {
   }
   static void operator delete(void* p) { g_host->Model__operator_delete(reinterpret_cast<Model*>(p)); }
   static Status Load(const PathString& file_path, /*out*/ ONNX_NAMESPACE::ModelProto& model_proto) { return g_host->Model__Load(file_path, model_proto); }
+  static Status Save(Model& model, const PathString& model_path) { return g_host->Model__Save(model, model_path); }
 
   Graph& MainGraph() { return g_host->Model__MainGraph(this); }
 

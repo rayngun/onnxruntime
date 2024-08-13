@@ -1175,6 +1175,7 @@ struct ProviderHostImpl : ProviderHost {
   std::unique_ptr<ONNX_NAMESPACE::ModelProto> Model__ToGraphProtoWithExternalInitializers(Model* p, const std::filesystem::path& external_file_name, const std::filesystem::path& file_path, size_t initializer_size_threshold) override { return std::make_unique<ONNX_NAMESPACE::ModelProto>(p->ToGraphProtoWithExternalInitializers(external_file_name, file_path, initializer_size_threshold)); };
   const ModelMetaData& Model__MetaData(const Model* p) const noexcept override { return p->MetaData(); };
   Status Model__Load(const PathString& file_path, /*out*/ ONNX_NAMESPACE::ModelProto& model_proto) override { return Model::Load(file_path, model_proto); }
+  Status Model__Save(Model& model, const PathString& model_path) override { return Model::Save(model, model_path); }
 
   // Graph (wrapped)
   std::unique_ptr<GraphViewer> Graph__CreateGraphViewer(const Graph* p) override { return std::make_unique<GraphViewer>(*p); }

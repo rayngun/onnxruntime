@@ -888,6 +888,7 @@ struct ProviderHost {
   virtual std::unique_ptr<ONNX_NAMESPACE::ModelProto> Model__ToGraphProtoWithExternalInitializers(Model* p, const std::filesystem::path& external_file_name, const std::filesystem::path& file_path, size_t initializer_size_threshold) = 0;
   virtual const ModelMetaData& Model__MetaData(const Model* p) const noexcept = 0;
   virtual Status Model__Load(const PathString& file_path, /*out*/ ONNX_NAMESPACE::ModelProto& model_proto) = 0;
+  virtual Status Model__Save(Model& model, const PathString& model_path) = 0;
 
   // Graph
   virtual std::unique_ptr<GraphViewer> Graph__CreateGraphViewer(const Graph* p) = 0;
