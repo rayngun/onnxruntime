@@ -11,7 +11,7 @@ namespace onnxruntime {
 namespace openvino_ep {
 
 std::shared_ptr<IBackend>
-BackendFactory::MakeBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
+BackendFactory::MakeBackend(const std::string& model,
                             GlobalContext& global_context,
                             const SubGraphContext& subgraph_context,
                             EPCtxHandler& ep_ctx_handle) {
@@ -23,7 +23,7 @@ BackendFactory::MakeBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
       type.find("AUTO") != std::string::npos) {
     std::shared_ptr<IBackend> concrete_backend_;
     try {
-      concrete_backend_ = std::make_shared<BasicBackend>(model_proto, global_context, subgraph_context, ep_ctx_handle);
+      concrete_backend_ = std::make_shared<BasicBackend>(model, global_context, subgraph_context, ep_ctx_handle);
     } catch (std::string const& msg) {
       ORT_THROW(msg);
     }

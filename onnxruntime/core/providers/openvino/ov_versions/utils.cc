@@ -3,6 +3,7 @@
 
 #include "core/providers/shared_library/provider_api.h"
 #include "utils.h"
+#include "core/providers/openvino/backend_utils.h"
 
 #if defined(_MSC_VER)
 #pragma warning(disable : 4244 4245 5208)
@@ -80,6 +81,8 @@ void AppendClusterToSubGraph(const std::vector<NodeIndex>& nodes,
   sub_graph->Nodes() = nodes;
   sub_graph->SetMetaDef(std::move(meta_def));
   result.push_back(ComputeCapability::Create(std::move(sub_graph)));
+  std::cout << "in capability After AppendClusterToSubGraph = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+
 }
 
 int GetOnnxOpSet(const GraphViewer& graph_viewer) {
