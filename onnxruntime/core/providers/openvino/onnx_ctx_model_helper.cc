@@ -35,6 +35,8 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
   }
 
   // Create EP context node attributes
+  auto node_attributes = ONNX_NAMESPACE::NodeAttributes::Create();
+  {
   auto attr_0 = ONNX_NAMESPACE::AttributeProto::Create();
   auto attr_1 = ONNX_NAMESPACE::AttributeProto::Create();
   auto attr_2 = ONNX_NAMESPACE::AttributeProto::Create();
@@ -57,13 +59,13 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
   attr_3->set_type(onnx::AttributeProto_AttributeType_STRING);
   attr_3->set_s(kOpenVINOExecutionProvider);
 
-  auto node_attributes = ONNX_NAMESPACE::NodeAttributes::Create();
+  
   node_attributes->reserve(4);
   node_attributes->emplace(EMBED_MODE, *attr_0);
   node_attributes->emplace(EP_CACHE_CONTEXT, *attr_1);
   node_attributes->emplace(EP_SDK_VER, *attr_2);
   node_attributes->emplace(SOURCE, *attr_3);
-
+  }
   // Create EP context node
   graph_build.AddNode(graph_name, EPCONTEXT_OP, "", inputs, outputs, node_attributes.get(), kMSDomain);
   ORT_ENFORCE(graph_build.Resolve().IsOK());
