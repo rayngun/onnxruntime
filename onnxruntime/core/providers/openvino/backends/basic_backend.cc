@@ -20,7 +20,7 @@ namespace openvino_ep {
 
 using namespace backend_utils;
 
-BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
+BasicBackend::BasicBackend(const std::string& model,
                            GlobalContext& global_context,
                            const SubGraphContext& subgraph_context,
                            EPCtxHandler& ep_ctx_handle)
@@ -48,14 +48,6 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
   // Set the inference_num_threads property of the CPU
   SetNumThreads(device_config);
 
-#ifndef NDEBUG
-  if (IsDebugEnabled()) {
-    std::string file_name = subgraph_context.subgraph_name + "_static.onnx";
-    std::fstream outfile(file_name, std::ios::out | std::ios::trunc | std::ios::binary);
-    model_proto.SerializeToOstream(outfile);
-  }
-#endif
-
   try {
     std::string dev_prec = global_context.device_type + "_" + global_context_.precision_str;
 
@@ -72,12 +64,12 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
         LOGS_DEFAULT(INFO) << log_tag << "IO Buffering Enabled";
         cl_context ctx = static_cast<cl_context>(global_context_.context);
         remote_context_ = new ov::intel_gpu::ocl::ClContext(global_context_.ie_core.Get(), ctx);
-        ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
+        ie_cnn_network_ = CreateOVModel(model, global_context_, subgraph_context_, const_outputs_map_);
         exe_network_ = global_context_.ie_core.CompileModel(
             ie_cnn_network_, remote_context_, subgraph_context_.subgraph_name);
         ie_cnn_network_ = exe_network_.Get().get_runtime_model();
       } else {
-        ie_cnn_network_ = CreateOVModel(model_proto, global_context_, subgraph_context_, const_outputs_map_);
+        ie_cnn_network_ = CreateOVModel(model, global_context_, subgraph_context_, const_outputs_map_);
         exe_network_ = global_context_.ie_core.CompileModel(
             ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
       }
@@ -97,20 +89,19 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
                   (global_context_.OpenVINO_Version.at(0) >= 2024 && global_context_.OpenVINO_Version.at(1) > 2))) {
         // Optimized OV compile_model API is supported with AUTO from version 2024.3 and above
         // Inputs with static dimenstions
-        const std::string model = model_proto.SerializeAsString();
         exe_network_ = global_context_.ie_core.CompileModel(model,
                                                             hw_target,
                                                             device_config,
                                                             subgraph_context_.subgraph_name);
         ie_cnn_network_ = exe_network_.Get().get_runtime_model();
       } else {  // For all other types use ov::Model Type
-        ie_cnn_network_ = CreateOVModel(model_proto, global_context_, const_outputs_map_);
+        ie_cnn_network_ = CreateOVModel(model, global_context_, const_outputs_map_);
         exe_network_ = global_context_.ie_core.CompileModel(
             ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
       }
 #endif
     } else {  // Full graph is not supported
-      ie_cnn_network_ = CreateOVModel(model_proto, global_context_, const_outputs_map_);
+      ie_cnn_network_ = CreateOVModel(model, global_context_, const_outputs_map_);
       exe_network_ = global_context_.ie_core.CompileModel(
           ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
     }
