@@ -76,34 +76,33 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
   graph_build.AddNode(graph_name, EPCONTEXT_OP, "", inputs, outputs, node_attributes.get(), kMSDomain);
   ORT_ENFORCE(graph_build.Resolve().IsOK());
 
-  // Serialize modelproto to string
-  auto new_graph_viewer = graph_build.CreateGraphViewer();
-  std::cout << "Peak working set - After create graph_viewer  in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
-  std::cout << "Current working set - After create graph_viewer in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+  {
+    // Serialize modelproto to string
+    auto new_graph_viewer = graph_build.CreateGraphViewer();
+    std::cout << "Peak working set - After create graph_viewer  in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - After create graph_viewer in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
-  auto model = new_graph_viewer->CreateModel(logger);
+    auto model = new_graph_viewer->CreateModel(logger);
+    std::cout << "Peak working set - After create model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - After create model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
-  std::cout << "Peak working set - After create model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
-  std::cout << "Current working set - After create model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+    auto model_proto = model->ToProto();
+    new_graph_viewer->ToProto(*model_proto->mutable_graph(), true, true);
+    model_proto->set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
+    std::cout << "Peak working set - After create modelProto in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - After create modelProto in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
-  auto model_proto = model->ToProto();
-  new_graph_viewer->ToProto(*model_proto->mutable_graph(), true, true);
-  model_proto->set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
+    // Finally, dump the model
+    std::ofstream epctx_onnx_model(graph_name,
+                                  std::ios::out | std::ios::trunc | std::ios::binary);
+    if (!epctx_onnx_model) {
+      ORT_THROW("Unable to create epctx onnx model file ");
+    }
+    model_proto->SerializeToOstream(epctx_onnx_model);
+    std::cout << "Peak working set - After dump model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - After dump model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
-  std::cout << "Peak working set - After create modelProto in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
-  std::cout << "Current working set - After create modelProto in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
-
-  // Finally, dump the model
-  std::ofstream epctx_onnx_model(graph_name,
-                                 std::ios::out | std::ios::trunc | std::ios::binary);
-  if (!epctx_onnx_model) {
-    ORT_THROW("Unable to create epctx onnx model file ");
   }
-  model_proto->SerializeToOstream(epctx_onnx_model);
-
-  std::cout << "Peak working set - After dump model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
-  std::cout << "Current working set - After dump model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
-
   LOGS_DEFAULT(VERBOSE) << "[OpenVINO EP] Export blob as EPContext Node";
 
   return Status::OK();
