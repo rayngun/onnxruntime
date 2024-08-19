@@ -170,7 +170,7 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
   // If embed_mode, then pass on the serialized blob
   // If not embed_mode, dump the blob here and only pass on the path to the blob
   if (global_context_.ep_context_embed_mode) {
-    std::ostringstream model_blob_stream;
+    std::ostringstream model_blob_stream(model_blob_str);
     compiled_model.export_model(model_blob_stream);
     model_blob_str = model_blob_stream.str();
     ORT_ENFORCE(model_blob_str.size() != 0);
@@ -194,7 +194,7 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
                                                       graph_name,
                                                       logger,
                                                       global_context_.ep_context_embed_mode,
-                                                      model_blob_str,
+                                                      std::move(model_blob_str),
                                                       openvino_sdk_version_));
 
   return Status::OK();
