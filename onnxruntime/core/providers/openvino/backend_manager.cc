@@ -170,9 +170,9 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
   // If embed_mode, then pass on the serialized blob
   // If not embed_mode, dump the blob here and only pass on the path to the blob
   if (global_context_.ep_context_embed_mode) {
-    std::ostringstream model_blob_stream(model_blob_str);
+    std::ostringstream model_blob_stream;
     compiled_model.export_model(model_blob_stream);
-    model_blob_str = model_blob_stream.str();
+    model_blob_str = std::move(model_blob_stream).str();
     ORT_ENFORCE(model_blob_str.size() != 0);
   } else {
     // Remove extension so we can append suffix to form the complete name of output graph

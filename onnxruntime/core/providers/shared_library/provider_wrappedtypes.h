@@ -114,6 +114,7 @@ struct AttributeProto final {
   float f() const { return g_host->AttributeProto__f(this); }
   const ONNX_NAMESPACE::TensorProto& t() const { return g_host->AttributeProto__t(this); }
   void set_s(const ::std::string& value) { return g_host->AttributeProto__set_s(this, value); }
+  void set_s(::std::string&& value) { return g_host->AttributeProto__set_s(this, ::std::move(value)); }
   void set_f(const float& value) { return g_host->AttributeProto__set_f(this, value); }
   void set_i(int64_t value) { return g_host->AttributeProto__set_i(this, value); }
   void set_t(const TensorProto& value) { return g_host->AttributeProto__set_t(this, value); }
