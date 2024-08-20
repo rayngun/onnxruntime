@@ -97,16 +97,33 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
                   (global_context_.OpenVINO_Version.at(0) >= 2024 && global_context_.OpenVINO_Version.at(1) > 2))) {
         // Optimized OV compile_model API is supported with AUTO from version 2024.3 and above
         // Inputs with static dimenstions
+
         const std::string model = model_proto.SerializeAsString();
+        std::cout << "Peak working set - After ModelProtoSerialize = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+        std::cout << "Current working set - After ModelProtoSerialize = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
         exe_network_ = global_context_.ie_core.CompileModel(model,
                                                             hw_target,
                                                             device_config,
                                                             subgraph_context_.subgraph_name);
+        std::cout << "Peak working set - After OV CompileModel = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+        std::cout << "Current working set - After OV CompileModel = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
         ie_cnn_network_ = exe_network_.Get().get_runtime_model();
       } else {  // For all other types use ov::Model Type
+        std::cout << "Peak working set - Before OV ReadModel = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+        std::cout << "Current working set - Before OV ReadModel = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
         ie_cnn_network_ = CreateOVModel(model_proto, global_context_, const_outputs_map_);
+        std::cout << "Peak working set - After OV ReadModel = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+        std::cout << "Current working set - After OV ReadModel = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
         exe_network_ = global_context_.ie_core.CompileModel(
             ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
+
+        std::cout << "Peak working set - After OV CompileModel = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+        std::cout << "Current working set - After OV CompileModel = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
       }
 #endif
     } else {  // Full graph is not supported

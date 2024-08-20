@@ -12,6 +12,11 @@
 #include "core/providers/openvino/backend_utils.h"
 #include "core/providers/openvino/ov_interface.h"
 
+#if defined(_WIN32) || defined(WIN32) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__BORLANDC__)
+#include <Windows.h>
+#include <psapi.h>
+#endif
+
 using Exception = ov::Exception;
 
 namespace onnxruntime {
@@ -266,6 +271,24 @@ void printPerformanceCounts(OVInferRequestPtr request, std::ostream& stream, std
   auto performanceMap = request->GetNewObj().get_profiling_info();
   printPerformanceCounts(performanceMap, stream, std::move(deviceName));
 }
+
+#if defined(_WIN32) || defined(WIN32) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__BORLANDC__)
+size_t GetPeakWorkingSetSize() {
+  PROCESS_MEMORY_COUNTERS pmc;
+  if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+    return (pmc.PeakWorkingSetSize/1048576);
+  }
+  return 0;
+}
+
+size_t GetWorkingSetSize() {
+  PROCESS_MEMORY_COUNTERS pmc;
+  if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+    return (pmc.WorkingSetSize/1048576);
+  }
+  return 0;
+}
+#endif
 
 }  // namespace backend_utils
 }  // namespace openvino_ep

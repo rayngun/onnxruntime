@@ -70,6 +70,9 @@ void printPerformanceCounts(const std::vector<OVProfilingInfo>& performanceMap,
 
 void printPerformanceCounts(OVInferRequestPtr request, std::ostream& stream, std::string deviceName);
 
+size_t GetPeakWorkingSetSize();
+size_t GetWorkingSetSize();
+
 }  // namespace backend_utils
 }  // namespace openvino_ep
 }  // namespace onnxruntime
