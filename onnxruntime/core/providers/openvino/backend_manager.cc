@@ -16,6 +16,7 @@
 #include "core/providers/openvino/ibackend.h"
 #include "core/providers/openvino/backend_utils.h"
 #include "core/providers/openvino/qdq_transformations/qdq_stripping.h"
+#include "core/providers/openvino/backend_utils.h"
 
 namespace onnxruntime {
 namespace openvino_ep {
@@ -64,7 +65,14 @@ BackendManager::BackendManager(const GlobalContext& global_context,
     i++;
   }
   subgraph_context_.subgraph_name = fused_node.Name();
+  std::cout << "Peak working set - Before GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+  std::cout << "Current working set - Before GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
   model_proto_ = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
+
+  std::cout << "Peak working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+  std::cout << "Current working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
   std::string device_type = openvino_ep::BackendManager::GetGlobalContext().device_type;
 
   if (ModelHasSymbolicInputDims(subgraph)) {
@@ -129,8 +137,15 @@ BackendManager::BackendManager(const GlobalContext& global_context,
     }
   }
   if (global_context_.export_ep_ctx_blob && !ep_ctx_handle_.IsValidOVEPCtxGraph()) {
+    std::cout << "Peak working set - Before ExportEpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - Before ExportEpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
     auto status = onnxruntime::openvino_ep::BackendManager::ExportCompiledBlobAsEPCtxNode(subgraph,
                                                                                           logger);
+
+    std::cout << "Peak working set - After ExportEpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - After ExportEpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
     if ((!status.IsOK())) {
       ORT_THROW(status);
     }
@@ -153,6 +168,9 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
 
   std::string model_blob_str;
   auto compiled_model = concrete_backend_->GetOVCompiledModel();
+  std::cout << "Peak working set - After Get Compiled model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+  std::cout << "Current working set - After Get Compiled model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
   std::string graph_name = "";
   // Epctx file path from SO is mapped to cache_dir variable for OVEP for readability
   if (global_context_.cache_dir != "") {
@@ -172,7 +190,14 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
   if (global_context_.ep_context_embed_mode) {
     std::ostringstream model_blob_stream;
     compiled_model.export_model(model_blob_stream);
+    std::cout << "Peak working set - After model blob stream in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - After model blob stream in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
     model_blob_str = model_blob_stream.str();
+
+    std::cout << "Peak working set - After model blob string in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - After model blob string in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
     ORT_ENFORCE(model_blob_str.size() != 0);
   } else {
     // Remove extension so we can append suffix to form the complete name of output graph

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "core/providers/openvino/onnx_ctx_model_helper.h"
+#include "core/providers/openvino/backend_utils.h"
 
 namespace onnxruntime {
 namespace openvino_ep {
@@ -22,6 +23,9 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
                                       const std::string& openvino_sdk_version) const {
   auto model_build = graph_viewer.CreateModel(logger);
   auto& graph_build = model_build->MainGraph();
+
+  std::cout << "Peak working set - Initialise graph build in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+  std::cout << "Current working set - Initialise graph build in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
   // Get graph inputs and outputs
   std::vector<onnxruntime::NodeArg*> inputs, outputs;
@@ -48,6 +52,10 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
   attr_1->set_name(EP_CACHE_CONTEXT);
   attr_1->set_type(onnx::AttributeProto_AttributeType_STRING);
   attr_1->set_s(model_blob_str);
+
+  std::cout << "Peak working set - After EP_CACHE_CONTEXT attr set in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+  std::cout << "Current working set - After EP_CACHE_CONTENT attr set in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
   // sdk version
   attr_2->set_name(EP_SDK_VER);
   attr_2->set_type(onnx::AttributeProto_AttributeType_STRING);
@@ -70,10 +78,20 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
 
   // Serialize modelproto to string
   auto new_graph_viewer = graph_build.CreateGraphViewer();
+  std::cout << "Peak working set - After create graph_viewer  in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+  std::cout << "Current working set - After create graph_viewer in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
   auto model = new_graph_viewer->CreateModel(logger);
+
+  std::cout << "Peak working set - After create model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+  std::cout << "Current working set - After create model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
   auto model_proto = model->ToProto();
   new_graph_viewer->ToProto(*model_proto->mutable_graph(), true, true);
   model_proto->set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
+
+  std::cout << "Peak working set - After create modelProto in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+  std::cout << "Current working set - After create modelProto in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
   // Finally, dump the model
   std::ofstream epctx_onnx_model(graph_name,
@@ -82,6 +100,9 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
     ORT_THROW("Unable to create epctx onnx model file ");
   }
   model_proto->SerializeToOstream(epctx_onnx_model);
+
+  std::cout << "Peak working set - After dump model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+  std::cout << "Current working set - After dump model in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
   LOGS_DEFAULT(VERBOSE) << "[OpenVINO EP] Export blob as EPContext Node";
 

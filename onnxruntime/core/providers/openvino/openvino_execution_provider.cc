@@ -10,6 +10,7 @@
 #include "core/providers/openvino/onnx_ctx_model_helper.h"
 #include "core/providers/openvino/ov_versions/capability.h"
 #include "openvino/core/version.hpp"
+#include "core/providers/openvino/backend_utils.h"
 
 #define MEMCPY_S(dest, src, destsz, srcsz) memcpy(dest, src, std::min(destsz, srcsz))
 
@@ -78,7 +79,8 @@ std::vector<std::unique_ptr<ComputeCapability>>
 OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
                                          const IKernelLookup& /*kernel_lookup*/) const {
   std::vector<std::unique_ptr<ComputeCapability>> result;
-
+  std::cout << "Peak working set - Before GetCapability = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+  std::cout << "Current working set - Before GetCapability = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
   std::string openvino_sdk_version = std::to_string(global_context_->OpenVINO_Version.at(0)) + "." +
                                      std::to_string(global_context_->OpenVINO_Version.at(1));
 
@@ -121,6 +123,8 @@ OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
   result = obj.Execute();
 
   global_context_->is_wholly_supported_graph = obj.IsWhollySupportedGraph();
+  std::cout << "Peak working set - After GetCapability = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+  std::cout << "Current working set - After GetCapability = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
   return result;
 }
@@ -139,6 +143,8 @@ common::Status OpenVINOExecutionProvider::Compile(
     // During backend creation, we check if user wants to use precompiled blob onnx model or the original model
     // For precompiled blob, directly load the model instead of compiling the model
     // For original model, check if the user wants to export a model with pre-compiled blob
+    std::cout << "Peak working set - Before compile = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - Before compile = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
     std::shared_ptr<openvino_ep::BackendManager> backend_manager =
         std::make_shared<openvino_ep::BackendManager>(*global_context_,
@@ -146,6 +152,9 @@ common::Status OpenVINOExecutionProvider::Compile(
                                                       graph_body_viewer,
                                                       *GetLogger(),
                                                       ep_ctx_handle_);
+
+    std::cout << "Peak working set - After compile = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - After compile = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
     compute_info.create_state_func =
         [backend_manager](ComputeContext* context, FunctionState* state) {
@@ -157,6 +166,9 @@ common::Status OpenVINOExecutionProvider::Compile(
           *state = static_cast<FunctionState>(p);
           return 0;
         };
+    std::cout << "Peak working set - Before Compute = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - Before Compute = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
     compute_info.compute_func = [](FunctionState state, const OrtApi* /* api */, OrtKernelContext* context) {
       auto function_state = static_cast<OpenVINOEPFunctionState*>(state);
       try {
@@ -166,6 +178,8 @@ common::Status OpenVINOExecutionProvider::Compile(
       }
       return Status::OK();
     };
+    std::cout << "Peak working set - After Compute = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - After Compute = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
     compute_info.release_state_func =
         [](FunctionState state) {
