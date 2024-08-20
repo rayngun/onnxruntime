@@ -68,10 +68,8 @@ BackendManager::BackendManager(const GlobalContext& global_context,
   std::cout << "Peak working set - Before GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
   std::cout << "Current working set - Before GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
-  model_proto_ = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
+  // model_proto_ = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
 
-  std::cout << "Peak working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
-  std::cout << "Current working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
   std::string device_type = openvino_ep::BackendManager::GetGlobalContext().device_type;
 
@@ -87,7 +85,12 @@ BackendManager::BackendManager(const GlobalContext& global_context,
         LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Starting backend initialization. "
                            << "Creating backend Dynamic Shapes";
         try {
-          concrete_backend_ = BackendFactory::MakeBackend(*model_proto_,
+
+          auto model_proto = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
+          std::cout << "Peak working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+          std::cout << "Current working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
+          concrete_backend_ = BackendFactory::MakeBackend(*model_proto,
                                                           GetGlobalContext(),
                                                           subgraph_context_,
                                                           ep_ctx_handle_);
@@ -97,6 +100,11 @@ BackendManager::BackendManager(const GlobalContext& global_context,
         LOGS_DEFAULT(INFO) << "[OpenVINO-EP] "
                            << "Backend created for graph " << subgraph_context_.subgraph_name;
       }
+    } else {
+      model_proto_ = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
+      std::cout << "Peak working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+      std::cout << "Current working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
     }
   } else {
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model has concrete input dims. "
@@ -107,10 +115,14 @@ BackendManager::BackendManager(const GlobalContext& global_context,
 
     // OV NPU plugin is supported with fallback to OV CPU upon compilation failures.
     try {
-      concrete_backend_ = BackendFactory::MakeBackend(*model_proto_,
-                                                      GetGlobalContext(),
-                                                      subgraph_context_,
-                                                      ep_ctx_handle_);
+      auto model_proto = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
+      std::cout << "Peak working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+      std::cout << "Current working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
+      concrete_backend_ = BackendFactory::MakeBackend(*model_proto,
+                                                  GetGlobalContext(),
+                                                  subgraph_context_,
+                                                  ep_ctx_handle_);
     } catch (const OnnxRuntimeException& ex) {
 #if defined(OPENVINO_DISABLE_NPU_FALLBACK)
       ORT_THROW(ex.what());
@@ -123,7 +135,11 @@ BackendManager::BackendManager(const GlobalContext& global_context,
         GetGlobalContext().device_type = "CPU";
         GetGlobalContext().precision_str = "FP32";
         try {
-          concrete_backend_ = BackendFactory::MakeBackend(*model_proto_,
+          auto model_proto = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
+          std::cout << "Peak working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+          std::cout << "Current working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
+          concrete_backend_ = BackendFactory::MakeBackend(*model_proto,
                                                           GetGlobalContext(),
                                                           subgraph_context_,
                                                           ep_ctx_handle_);
