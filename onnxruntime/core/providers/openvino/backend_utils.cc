@@ -50,10 +50,18 @@ CreateOVModel(const ONNX_NAMESPACE::ModelProto& model_proto, const GlobalContext
   if (IsCILogEnabled()) {
     std::cout << "CreateNgraphFunc" << std::endl;
   }
-  const std::string model = model_proto.SerializeAsString();
+  std::shared_ptr<ov::Model> cnn_network;
   try {
-    auto cnn_network = global_context.ie_core.ReadModel(model, global_context.onnx_model_path_name);
-
+    // if(!global_context.export_ep_ctx_blob){
+      const std::string model = model_proto.SerializeAsString();
+      cnn_network = global_context.ie_core.ReadModel(model, global_context.onnx_model_path_name);
+      std::cout << "Peak working set - After OV ReadModel with model serialised string = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+      std::cout << "Current working set - After OV ReadModel with model serialised string  = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+    // }else {
+    //   cnn_network = global_context.ie_core.ReadModel(model_proto);
+    //   std::cout << "Peak working set - After OV ReadModel with model_proto = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    //   std::cout << "Current working set - After OV ReadModel with model_proto = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+    // }
     // Check for Constant Folding
     if (!global_context.is_wholly_supported_graph) {
       ov::pass::ConstantFolding pass_const_obj;

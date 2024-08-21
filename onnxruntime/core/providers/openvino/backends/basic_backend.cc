@@ -92,7 +92,8 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
                                                            global_context_.ep_context_embed_mode,
                                                            subgraph_context_.subgraph_name);
         ie_cnn_network_ = exe_network_.Get().get_runtime_model();
-      } else if ((!subgraph_context_.has_dynamic_input_shape) &&
+      } else if (!global_context_.export_ep_ctx_blob &&
+                 !subgraph_context_.has_dynamic_input_shape &&
                  ((hw_target.find("AUTO") == std::string::npos) ||
                   (global_context_.OpenVINO_Version.at(0) >= 2024 && global_context_.OpenVINO_Version.at(1) > 2))) {
         // Optimized OV compile_model API is supported with AUTO from version 2024.3 and above

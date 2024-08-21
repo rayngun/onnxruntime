@@ -17,6 +17,7 @@
 #include "core/providers/openvino/backend_utils.h"
 #include "core/providers/openvino/qdq_transformations/qdq_stripping.h"
 #include "core/providers/openvino/backend_utils.h"
+#include "core/providers/openvino/ov_interface.h"
 
 namespace onnxruntime {
 namespace openvino_ep {
@@ -112,17 +113,52 @@ BackendManager::BackendManager(const GlobalContext& global_context,
                        << subgraph_context_.subgraph_name;
 
     subgraph_context_.has_dynamic_input_shape = false;
-
+    try{
     // OV NPU plugin is supported with fallback to OV CPU upon compilation failures.
-    try {
-      auto model_proto = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
-      std::cout << "Peak working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
-      std::cout << "Current working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+    if(global_context_.export_ep_ctx_blob) {
+      std::shared_ptr<const OVNetwork> ie_cnn_network_;
+      try{
+        std::shared_ptr<ONNX_NAMESPACE::ModelProto> model_proto = std::move(GetModelProtoFromFusedNode(fused_node, subgraph, logger));
+        std::cout << "Peak working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+        std::cout << "Current working set - After GetModelProto = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
+        ov::frontend::FrontEnd::Ptr FE;
+        ov::frontend::FrontEndManager manager;
+        ov::frontend::InputModel::Ptr inputModel;
+        FE = manager.load_by_framework("onnx");
+        if (FE) {
+          inputModel = FE->load(model_proto);
+          ie_cnn_network_ = FE->convert(inputModel);
+          std::cout << "Peak working set - After OV Read model with modelProto = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+          std::cout << "Current working set - After Read model with modelProto = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+        } else {
+          std::cout << " FE load_by_model failed " << std::endl;
+        }
+      } catch (const Exception& ex) {
+        ORT_THROW("[OpenVINO-EP] Exception while Reading network : ", ex.what());
+      }
+      std::cout << "Peak working set - outside scope of OV ReadModel = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+      std::cout << "Current working set -  outside scope of OV ReadModel = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
+      try{
+        ov::AnyMap device_config;
+        auto exe_network = global_context_.ie_core.CompileModel(
+            ie_cnn_network_, global_context_.device_type, device_config, subgraph_context_.subgraph_name);
+        std::cout << "Peak working set - After OV compile model = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+        std::cout << "Current working set -  After OV compile model = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
+      } catch (...) {
+        ORT_THROW(" Exception while Loading Network for graph " );
+      }
+      exit(1);
+    } else {
+      auto model_proto = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
       concrete_backend_ = BackendFactory::MakeBackend(*model_proto,
                                                   GetGlobalContext(),
                                                   subgraph_context_,
                                                   ep_ctx_handle_);
+
+    }
     } catch (const OnnxRuntimeException& ex) {
 #if defined(OPENVINO_DISABLE_NPU_FALLBACK)
       ORT_THROW(ex.what());

@@ -9,6 +9,7 @@
 #include <sstream>
 #include <utility>
 
+// #include "core/session/onnxruntime_cxx_api.h"
 #include "openvino/openvino.hpp"
 #include "openvino/pass/convert_fp32_to_fp16.hpp"
 #include "openvino/frontend/manager.hpp"
@@ -19,6 +20,7 @@
 
 #include <string>
 
+// namespace ONNX_NAMESPACE{
 namespace onnxruntime {
 namespace openvino_ep {
 class OVCore;
@@ -42,6 +44,10 @@ class OVCore {
  public:
   // OV Interface For Reading Model
   std::shared_ptr<OVNetwork> ReadModel(const std::string& model_stream, const std::string& model_path) const;
+
+  // using ONNX_NAMESPACE;
+  // std::shared_ptr<OVNetwork> OVCore::ReadModel(std::unique_ptr<ONNX_NAMESPACE ModelProto> model_proto);
+
   // OV Interface for Compiling OV Model Type
   OVExeNetwork CompileModel(std::shared_ptr<const OVNetwork>& ie_cnn_network,
                             std::string& hw_target,
@@ -100,3 +106,4 @@ class OVInferRequest {
 };
 }  // namespace openvino_ep
 }  // namespace onnxruntime
+// }  // namespace ONNX_NAMESPACE
