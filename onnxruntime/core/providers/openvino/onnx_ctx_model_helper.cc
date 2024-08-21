@@ -19,7 +19,7 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
                                       const std::string& graph_name,
                                       const logging::Logger& logger,
                                       const bool& ep_context_embed_mode,
-                                      const std::string& model_blob_str,
+                                      std::string&& model_blob_str,
                                       const std::string& openvino_sdk_version) const {
   auto model_build = graph_viewer.CreateModel(logger);
   auto& graph_build = model_build->MainGraph();
@@ -37,45 +37,50 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
     auto& n_output = graph_build.GetOrCreateNodeArg(output->Name(), output->TypeAsProto());
     outputs.push_back(&n_output);
   }
-
-  // Create EP context node attributes
-  auto attr_0 = ONNX_NAMESPACE::AttributeProto::Create();
-  auto attr_1 = ONNX_NAMESPACE::AttributeProto::Create();
-  auto attr_2 = ONNX_NAMESPACE::AttributeProto::Create();
-  auto attr_3 = ONNX_NAMESPACE::AttributeProto::Create();
-
-  // embed mode
-  attr_0->set_name(EMBED_MODE);
-  attr_0->set_type(onnx::AttributeProto_AttributeType_INT);
-  attr_0->set_i(ep_context_embed_mode);
-  // ep context
-  attr_1->set_name(EP_CACHE_CONTEXT);
-  attr_1->set_type(onnx::AttributeProto_AttributeType_STRING);
-  attr_1->set_s(model_blob_str);
-
-  std::cout << "Peak working set - After EP_CACHE_CONTEXT attr set in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
-  std::cout << "Current working set - After EP_CACHE_CONTENT attr set in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
-
-  // sdk version
-  attr_2->set_name(EP_SDK_VER);
-  attr_2->set_type(onnx::AttributeProto_AttributeType_STRING);
-  attr_2->set_s(openvino_sdk_version);
-  // source
-  attr_3->set_name(SOURCE);
-  attr_3->set_type(onnx::AttributeProto_AttributeType_STRING);
-  attr_3->set_s(kOpenVINOExecutionProvider);
-
+  {
   auto node_attributes = ONNX_NAMESPACE::NodeAttributes::Create();
-  node_attributes->reserve(4);
-  node_attributes->emplace(EMBED_MODE, *attr_0);
-  node_attributes->emplace(EP_CACHE_CONTEXT, *attr_1);
-  node_attributes->emplace(EP_SDK_VER, *attr_2);
-  node_attributes->emplace(SOURCE, *attr_3);
+  {
+    // Create EP context node attributes
+    auto attr_0 = ONNX_NAMESPACE::AttributeProto::Create();
+    auto attr_1 = ONNX_NAMESPACE::AttributeProto::Create();
+    auto attr_2 = ONNX_NAMESPACE::AttributeProto::Create();
+    auto attr_3 = ONNX_NAMESPACE::AttributeProto::Create();
+
+    // embed mode
+    attr_0->set_name(EMBED_MODE);
+    attr_0->set_type(onnx::AttributeProto_AttributeType_INT);
+    attr_0->set_i(ep_context_embed_mode);
+    // ep context
+    attr_1->set_name(EP_CACHE_CONTEXT);
+    attr_1->set_type(onnx::AttributeProto_AttributeType_STRING);
+    attr_1->set_s(std::move(model_blob_str));
+
+    std::cout << "Peak working set - After EP_CACHE_CONTEXT attr set in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+    std::cout << "Current working set - After EP_CACHE_CONTENT attr set in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
+    // sdk version
+    attr_2->set_name(EP_SDK_VER);
+    attr_2->set_type(onnx::AttributeProto_AttributeType_STRING);
+    attr_2->set_s(openvino_sdk_version);
+    // source
+    attr_3->set_name(SOURCE);
+    attr_3->set_type(onnx::AttributeProto_AttributeType_STRING);
+    attr_3->set_s(kOpenVINOExecutionProvider);
+
+
+    node_attributes->reserve(4);
+    node_attributes->emplace(EMBED_MODE, *attr_0);
+    node_attributes->emplace(EP_CACHE_CONTEXT, *attr_1);
+    node_attributes->emplace(EP_SDK_VER, *attr_2);
+    node_attributes->emplace(SOURCE, *attr_3);
+  }
+  std::cout << "Peak working set - After node attr scope in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+  std::cout << "Current working set - After node attr scope in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
   // Create EP context node
   graph_build.AddNode(graph_name, EPCONTEXT_OP, "", inputs, outputs, node_attributes.get(), kMSDomain);
   ORT_ENFORCE(graph_build.Resolve().IsOK());
-
+  }
   {
     // Serialize modelproto to string
     auto new_graph_viewer = graph_build.CreateGraphViewer();

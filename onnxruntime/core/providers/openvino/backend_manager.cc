@@ -211,7 +211,7 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
     std::cout << "Peak working set - After model blob stream in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
     std::cout << "Current working set - After model blob stream in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
-    model_blob_str = model_blob_stream.str();
+    model_blob_str = std::move(model_blob_stream).str();
 
     std::cout << "Peak working set - After model blob string in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
     std::cout << "Current working set - After model blob string in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
@@ -237,7 +237,7 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
                                                       graph_name,
                                                       logger,
                                                       global_context_.ep_context_embed_mode,
-                                                      model_blob_str,
+                                                      std::move(model_blob_str),
                                                       openvino_sdk_version_));
 
   return Status::OK();

@@ -20,7 +20,7 @@ namespace openvino_ep {
 
 using namespace backend_utils;
 
-BasicBackend::BasicBackend(const std::string& model,
+BasicBackend::BasicBackend(std::string model,
                            GlobalContext& global_context,
                            const SubGraphContext& subgraph_context,
                            EPCtxHandler& ep_ctx_handle)
@@ -84,7 +84,8 @@ BasicBackend::BasicBackend(const std::string& model,
                                                            global_context_.ep_context_embed_mode,
                                                            subgraph_context_.subgraph_name);
         ie_cnn_network_ = exe_network_.Get().get_runtime_model();
-      } else if ((!subgraph_context_.has_dynamic_input_shape) &&
+      } else if (!global_context_.export_ep_ctx_blob &&
+                 (!subgraph_context_.has_dynamic_input_shape) &&
                  ((hw_target.find("AUTO") == std::string::npos) ||
                   (global_context_.OpenVINO_Version.at(0) >= 2024 && global_context_.OpenVINO_Version.at(1) > 2))) {
         // Optimized OV compile_model API is supported with AUTO from version 2024.3 and above
@@ -101,6 +102,10 @@ BasicBackend::BasicBackend(const std::string& model,
         ie_cnn_network_ = CreateOVModel(model, global_context_, const_outputs_map_);
         std::cout << "Peak working set - After OV ReadModel = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
         std::cout << "Current working set - After OV ReadModel = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+        model.clear();
+        model.shrink_to_fit();
+        std::cout << "Peak working set - After OV string clear = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+        std::cout << "Current working set - After OV string clear = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
         exe_network_ = global_context_.ie_core.CompileModel(
             ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
