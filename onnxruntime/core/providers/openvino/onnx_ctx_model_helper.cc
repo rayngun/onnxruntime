@@ -19,7 +19,7 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
                                       const std::string& graph_name,
                                       const logging::Logger& logger,
                                       const bool& ep_context_embed_mode,
-                                      const std::string& model_blob_str,
+                                      std::string&& model_blob_str,
                                       const std::string& openvino_sdk_version) const {
   std::unique_ptr<onnxruntime::Model> model_build = graph_viewer.CreateModel(logger);
   onnxruntime::Graph& graph_build = model_build->MainGraph();
@@ -50,7 +50,7 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
     std::unique_ptr<ONNX_NAMESPACE::AttributeProto> ep_cache_context_attr = ONNX_NAMESPACE::AttributeProto::Create();
     ep_cache_context_attr->set_name(EP_CACHE_CONTEXT);
     ep_cache_context_attr->set_type(ONNX_NAMESPACE::AttributeProto_AttributeType_STRING);
-    ep_cache_context_attr->set_s(model_blob_str);
+    ep_cache_context_attr->set_s(std::move(model_blob_str));
     node_attributes->emplace(EP_CACHE_CONTEXT, std::move(*ep_cache_context_attr));
 
     std::unique_ptr<ONNX_NAMESPACE::AttributeProto> sdk_version_attr = ONNX_NAMESPACE::AttributeProto::Create();
@@ -67,7 +67,7 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
   }
 
   // Create EP context node
-  graph_build.AddNode(graph_name, EPCONTEXT_OP, "", inputs, outputs, std::move(node_attributes.get()), kMSDomain);
+  graph_build.AddNode(graph_name, EPCONTEXT_OP, "", inputs, outputs, std::move(*node_attributes), kMSDomain);
   ORT_ENFORCE(graph_build.Resolve().IsOK());
 
   {
