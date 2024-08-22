@@ -97,9 +97,9 @@ BasicBackend::BasicBackend(std::string model,
         std::cout << "Peak working set - After OV CompileModel = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
         std::cout << "Current working set - After OV CompileModel = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
-        ie_cnn_network_ = exe_network_.Get().get_runtime_model();
+        // ie_cnn_network_ = exe_network_.Get().get_runtime_model();
       } else {  // For all other types use ov::Model Type
-        ie_cnn_network_ = CreateOVModel(model, global_context_, const_outputs_map_);
+        std::shared_ptr<const onnxruntime::openvino_ep::OVNetwork> ie_cnn_network = CreateOVModel(model, global_context_, const_outputs_map_);
         std::cout << "Peak working set - After OV ReadModel = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
         std::cout << "Current working set - After OV ReadModel = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
         model.clear();
@@ -108,12 +108,16 @@ BasicBackend::BasicBackend(std::string model,
         std::cout << "Current working set - After OV string clear = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
         exe_network_ = global_context_.ie_core.CompileModel(
-            ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
+            ie_cnn_network, hw_target, device_config, subgraph_context_.subgraph_name);
 
         std::cout << "Peak working set - After OV CompileModel = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
         std::cout << "Current working set - After OV CompileModel = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
-
+        auto x=ie_cnn_network.release();
+        delete x;
       }
+      std::cout << "Peak working set - After OV CompileModel outside else = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
+      std::cout << "Current working set - After OV CompileModel outside else = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
+
 #endif
     } else {  // Full graph is not supported
       ie_cnn_network_ = CreateOVModel(model, global_context_, const_outputs_map_);
@@ -276,14 +280,15 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           input_tensor_shape[tensor_iter] = *i;
           tensor_iter += 1;
         }
-        auto input = ie_cnn_network_->get_parameters().at(input_idx);
+        // auto input = ie_cnn_network_->get_parameters().at(input_idx);
+        auto input = graph_input_info.at(input_idx);
         OVTensorPtr tensor_ptr;
         // avoid input copies on the CPU device
         if (global_context_.device_type.find("CPU") != std::string::npos) {
-          tensor_ptr = std::make_shared<ov::Tensor>(input->get_element_type(), input_tensor_shape,
+          tensor_ptr = std::make_shared<ov::Tensor>(input.get_element_type(), input_tensor_shape,
                                                     (void*)tensor_data);
         } else {
-          tensor_ptr = std::make_shared<ov::Tensor>(input->get_element_type(), input_tensor_shape);
+          tensor_ptr = std::make_shared<ov::Tensor>(input.get_element_type(), input_tensor_shape);
           FillInputBlob(tensor_ptr, batch_slice_idx, input_name, context, subgraph_context_);
         }
 
@@ -347,9 +352,10 @@ void BasicBackend::StartRemoteAsyncInference(Ort::KernelContext& context, OVInfe
         const void* tensor_data = tensor.GetTensorRawData();
         const cl::Buffer* shared_buffer_const = static_cast<const cl::Buffer*>(tensor_data);
         // Create an Input Remote Blob
-        auto input = ie_cnn_network_->get_parameters().at(0);
+        // auto input = ie_cnn_network_->get_parameters().at(0);
+        auto input = graph_input_info.at(0);
         auto remote_blob = remote_context_->create_tensor(
-            input->get_element_type(), input->get_shape(), *shared_buffer_const);
+            input.get_element_type(), input.get_shape(), *shared_buffer_const);
         ov::Tensor tensor_remote = static_cast<ov::Tensor>(remote_blob);
         OVTensorPtr tensor_ptr = std::make_shared<ov::Tensor>(tensor_remote);
         infer_request->SetTensor(input_name, tensor_ptr);
@@ -398,9 +404,10 @@ void BasicBackend::StartRemoteAsyncInference(Ort::KernelContext& context, OVInfe
         const void* tensor_data = tensor.GetTensorRawData();
         const cl::Buffer* shared_buffer_const = static_cast<const cl::Buffer*>(tensor_data);
         // Create a shared Blob, set the Infer Request Output Blob
-        auto output = ie_cnn_network_->get_results().at(0);
+        // auto output = ie_cnn_network_->get_results().at(0);
+        auto output = graph_output_info.at(0);
         auto remote_tensor =
-            remote_context_->create_tensor(output->get_element_type(), output->get_shape(), *shared_buffer_const);
+            remote_context_->create_tensor(output.get_element_type(), output.get_shape(), *shared_buffer_const);
         ov::Tensor tensor_t = static_cast<ov::Tensor>(remote_tensor);
         OVTensorPtr tensor_ptr = std::make_shared<ov::Tensor>(tensor_t);
         try {
