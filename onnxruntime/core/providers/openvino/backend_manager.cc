@@ -191,17 +191,14 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
 
   std::string graph_name = "";
   // Epctx file path from SO is mapped to cache_dir variable for OVEP for readability
-  if (global_context_.cache_dir != "") {
+  if (!global_context_.cache_dir.empty()) {
     graph_name = global_context_.cache_dir;
   } else {
     graph_name = global_context_.onnx_model_path_name;
     // Remove extension so we can append suffix to form the complete name of output graph
-    graph_name = [&]() {
-      size_t dot = graph_name.find_last_of(".");
-      if (dot == std::string::npos) return graph_name;
-      return graph_name.substr(0, dot);
-    }();
-    graph_name = graph_name + "_ctx.onnx";
+    size_t dot = graph_name.find_last_of(".");
+    if (dot != std::string::npos) graph_name = graph_name.substr(0, dot);
+    graph_name += "_ctx.onnx";
   }
   // If embed_mode, then pass on the serialized blob
   // If not embed_mode, dump the blob here and only pass on the path to the blob
@@ -216,14 +213,12 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
     std::cout << "Peak working set - After model blob string in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetPeakWorkingSetSize() << std::endl;
     std::cout << "Current working set - After model blob string in EpCtx = " << onnxruntime::openvino_ep::backend_utils::GetWorkingSetSize() << "\n" <<std::endl;
 
-    ORT_ENFORCE(model_blob_str.size() != 0);
+    if (model_blob_str.empty()) {
+      ORT_THROW("Model blob stream is empty after exporting the compiled model.");
+    }
   } else {
     // Remove extension so we can append suffix to form the complete name of output graph
-    auto blob_name = [&]() {
-      size_t dot = graph_name.find_last_of(".");
-      if (dot == std::string::npos) return graph_name;
-      return graph_name.substr(0, dot);
-    }();
+    auto blob_name = graph_name.substr(0, graph_name.find_last_of("."));
     std::ofstream blob_file(blob_name + ".blob",
                             std::ios::out | std::ios::trunc | std::ios::binary);
     if (!blob_file) {
