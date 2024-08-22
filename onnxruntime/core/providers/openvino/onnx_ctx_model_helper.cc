@@ -70,7 +70,7 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
     node_attributes->emplace(SOURCE, std::move(*source_attr));
   }
   // Create EP context node
-  graph_build.AddNode(graph_name, EPCONTEXT_OP, "", inputs, outputs, std::move(node_attributes.get()), kMSDomain);
+  graph_build.AddNode(graph_name, EPCONTEXT_OP, "", inputs, outputs, std::move(*node_attributes), kMSDomain);
   ORT_ENFORCE(graph_build.Resolve().IsOK());
 
   {
