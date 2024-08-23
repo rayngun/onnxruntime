@@ -14,11 +14,6 @@
 #include "core/providers/openvino/onnx_ctx_model_helper.h"
 #include "core/providers/openvino/backend_manager.h"
 
-#include <CL\cl_ext.h>
-#include <openvino/runtime/intel_gpu/ocl/ocl.hpp>
-
-#pragma comment(lib, "opencl")
-
 namespace onnxruntime {
 
 namespace openvino_ep {
@@ -267,6 +262,12 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
                   "Input names mismatch between OpenVINO and ONNX. " + onnx_input_name +
                   " doesn't exist in the list of OpenVINO input tensor names");
       }
+      auto ort_shape_to_ovshape = [](const std::vector<int64_t>& shape) {
+        ov::Shape ov_shape(shape.size());
+        std::copy(shape.begin(), shape.end(), ov_shape.begin());
+        return ov_shape;
+      };
+
       size_t batch_slice_idx = 0;
       if (subgraph_context_.has_dynamic_input_shape &&
           !global_context_.disable_dynamic_shapes &&
@@ -307,44 +308,19 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
         if (const auto& it = ort_ov_tensor_map.find(ort_tensor_key); it != ort_ov_tensor_map.end()) {
           ov_tensor_key = it->second;
         } else {
-          if (allocator_name == OpenVINO_RT) {
-            auto tensor_info = tensor.GetTensorTypeAndShapeInfo();
-            auto tensor_shape = tensor_info.GetShape();
-            auto tensor_size = tensor_shape.size();
-            ov::Shape input_tensor_shape = ov::Shape(tensor_size, 0);
-            const char* tensor_data = tensor.GetTensorData<char>();
-            std::map<ONNXTensorElementDataType, ov::element::Type> ov_type_convert{
-                {ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, ov::element::f32}};
-            auto ov_type = ov_type_convert[tensor_info.GetElementType()];
-            ov_tensor_key.tensor_ptr = std::make_shared<ov::Tensor>(ov_type, input_tensor_shape,
-                                                                    (void*)tensor_data);
+          // Does this make sense for both types of allocators?
+          auto input = ie_cnn_network_->get_parameters().at(input_idx);
+          ov_tensor_key.tensor_ptr = std::make_shared<ov::Tensor>(input->get_element_type(), input->get_shape(),
+                                                                    (void*)tensor.GetTensorRawData());
+          if (allocator_name == OpenVINO_RT_NPU) {
+            // do we need this??
+            // auto tensor_info = tensor.GetTensorTypeAndShapeInfo();
+            // auto tensor_shape = tensor_info.GetShape();
+            // auto tensor_size = tensor_shape.size();
             ov_tensor_key.copy_needed = false;
-          } else if (allocator_name == WIN32_HANDLE) {
-            const void* tensor_data = tensor.GetTensorRawData();
-            auto remote_context_ = global_context_.ie_core.Get().get_default_context("GPU").as<ov::intel_gpu::ocl::ClContext>();
-            cl_context ctx = remote_context_.get();
-
-            cl_mem_properties extMemProperties[] = {CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR, (cl_mem_properties)tensor_data,
-                                                    0};
-            cl_int errcode = 0;
-            auto shape = input_info_iter->get_shape();
-            size_t elem_count = std::reduce(
-                shape.begin()++, shape.end(), *shape.begin(), std::multiplies<>());
-            auto elem_size = input_info_iter->get_element_type().bitwidth();
-            cl_mem extMemBuffer =
-                clCreateBufferWithProperties(remote_context_, extMemProperties, 0, elem_count * elem_size, nullptr, &errcode);
-            auto remote_tensor =
-                remote_context_.create_tensor(input_info_iter->get_element_type(), input_info_iter->get_shape(), extMemBuffer);
-            ov_tensor_key.tensor_ptr = std::make_shared<ov::Tensor>(remote_tensor);
-            ov_tensor_key.copy_needed = false;
-
           } else {
-            auto remote_context_ = global_context_.ie_core.Get().get_default_context("GPU").as<ov::intel_gpu::ocl::ClContext>();
-            auto remote_tensor = remote_context_.create_host_tensor(input_info_iter->get_element_type(), input_info_iter->get_shape());
-            ov_tensor_key.tensor_ptr = std::make_shared<ov::Tensor>(remote_tensor);
             ov_tensor_key.copy_needed = true;
           }
-
           ort_ov_tensor_map.emplace(ort_tensor_key, ov_tensor_key);
         }
 
@@ -366,6 +342,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
 
     // Set the output blob as remote blob
     auto graph_output_info = exe_network_.Get().outputs();
+    auto output_idx = 0;
     for (auto output_info_iter = graph_output_info.begin();
          output_info_iter != graph_output_info.end(); ++output_info_iter) {
       auto output_names = output_info_iter->get_names();
@@ -402,30 +379,12 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
       if (const auto& it = ort_ov_tensor_map.find(ort_tensor_key); it != ort_ov_tensor_map.end()) {
         ov_tensor_data = it->second;
       } else {
-        // Check if ORT Value wraps a device pointer
-        if (allocator_name == WIN32_HANDLE) {
-          const void* tensor_data = tensor.GetTensorRawData();
-          auto remote_context_ = global_context_.ie_core.Get().get_default_context("GPU").as<ov::intel_gpu::ocl::ClContext>();
-          cl_context ctx = remote_context_.get();
-
-          cl_mem_properties extMemProperties[] = {CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR, (cl_mem_properties)tensor_data,
-                                                  0};
-          cl_int errcode = 0;
-          auto shape = output_info_iter->get_shape();
-          size_t elem_count = std::reduce(
-              shape.begin()++, shape.end(), *shape.begin(), std::multiplies<>());
-          auto elem_size = output_info_iter->get_element_type().bitwidth();
-          cl_mem extMemBuffer =
-              clCreateBufferWithProperties(remote_context_, extMemProperties, 0, elem_count * elem_size, nullptr, &errcode);
-          auto remote_tensor =
-              remote_context_.create_tensor(output_info_iter->get_element_type(), output_info_iter->get_shape(), extMemBuffer);
-          ov::Tensor tensor_t = static_cast<ov::Tensor>(remote_tensor);
-          ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(tensor_t);
+        auto output = ie_cnn_network_->get_results().at(output_idx);
+        ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(output->get_element_type(), output->get_shape(),
+                                                                 (void*)tensor.GetTensorRawData());
+        if(allocator_name == OpenVINO_RT_NPU) {
           ov_tensor_data.copy_needed = false;
-        } else if (allocator_name == CPU) {
-          auto remote_context_ = global_context_.ie_core.Get().get_default_context("GPU").as<ov::intel_gpu::ocl::ClContext>();
-          auto remote_tensor = remote_context_.create_host_tensor(output_info_iter->get_element_type(), output_info_iter->get_shape());
-          ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(remote_tensor);
+        } else {
           ov_tensor_data.copy_needed = true;
         }
         ort_ov_tensor_map.emplace(ort_tensor_key, ov_tensor_data);
@@ -436,6 +395,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
       } catch (const char* msg) {
         ORT_THROW(msg);
       }
+      output_idx++;
     }
 
     // Start Async inference
