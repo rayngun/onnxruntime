@@ -25,10 +25,10 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
   auto& graph_build = model_build->MainGraph();
 
   // Get graph inputs and outputs
-  const auto &viewer_inputs = graph_viewer.GetInputs();
-  const auto &viewer_outputs = graph_viewer.GetOutputs();
+  const auto& viewer_inputs = graph_viewer.GetInputs();
+  const auto& viewer_outputs = graph_viewer.GetOutputs();
   std::vector<onnxruntime::NodeArg*> inputs(viewer_inputs.size()), outputs(viewer_outputs.size());
-  auto transform_f = [&](const onnxruntime::NodeArg *iter) { return &graph_build.GetOrCreateNodeArg(iter->Name(), iter->TypeAsProto()); };
+  auto transform_f = [&](const onnxruntime::NodeArg* iter) { return &graph_build.GetOrCreateNodeArg(iter->Name(), iter->TypeAsProto()); };
   auto fill_vectors = [transform_f](auto& src, auto& dst) {
     std::transform(src.begin(), src.end(), dst.begin(), transform_f);
   };
@@ -41,21 +41,21 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
   {
     // Create EP context node attributes
 
-  // embed mode
+    // embed mode
     auto embed_mode_attr = ONNX_NAMESPACE::AttributeProto::Create();
     embed_mode_attr->set_name(EMBED_MODE);
     embed_mode_attr->set_type(onnx::AttributeProto_AttributeType_INT);
     embed_mode_attr->set_i(ep_context_embed_mode);
     node_attributes->emplace(EMBED_MODE, std::move(*embed_mode_attr));
 
-  // ep context
+    // ep context
     auto ep_cache_context_attr = ONNX_NAMESPACE::AttributeProto::Create();
     ep_cache_context_attr->set_name(EP_CACHE_CONTEXT);
     ep_cache_context_attr->set_type(onnx::AttributeProto_AttributeType_STRING);
     ep_cache_context_attr->set_s(std::move(model_blob_str));
     node_attributes->emplace(EP_CACHE_CONTEXT, std::move(*ep_cache_context_attr));
 
-  // sdk version
+    // sdk version
     auto sdk_version_attr = ONNX_NAMESPACE::AttributeProto::Create();
     sdk_version_attr->set_name(EP_SDK_VER);
     sdk_version_attr->set_type(onnx::AttributeProto_AttributeType_STRING);
@@ -74,21 +74,21 @@ Status EPCtxHandler::ExportEPCtxModel(const GraphViewer& graph_viewer,
   ORT_ENFORCE(graph_build.Resolve().IsOK());
 
   {
-  // Serialize modelproto to string
+    // Serialize modelproto to string
     auto model_proto = model_build->ToProto();
-  model_proto->set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
+    model_proto->set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
 
-  // Finally, dump the model
-  std::ofstream epctx_onnx_model(graph_name,
-                                 std::ios::out | std::ios::trunc | std::ios::binary);
-  if (!epctx_onnx_model) {
+    // Finally, dump the model
+    std::ofstream epctx_onnx_model(graph_name,
+                                   std::ios::out | std::ios::trunc | std::ios::binary);
+    if (!epctx_onnx_model) {
       return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Unable to create epctx onnx model file");
     }
 
     if (!model_proto->SerializeToOstream(epctx_onnx_model)) {
       return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Failed to serialize model to file");
     }
-  model_proto->SerializeToOstream(epctx_onnx_model);
+    model_proto->SerializeToOstream(epctx_onnx_model);
   }
   LOGS_DEFAULT(VERBOSE) << "[OpenVINO EP] Export blob as EPContext Node";
 
