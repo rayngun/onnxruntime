@@ -64,7 +64,7 @@ BackendManager::BackendManager(const GlobalContext& global_context,
     i++;
   }
   subgraph_context_.subgraph_name = fused_node.Name();
-  model_proto_ = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
+
   std::string device_type = openvino_ep::BackendManager::GetGlobalContext().device_type;
 
   if (ModelHasSymbolicInputDims(subgraph)) {
@@ -79,7 +79,8 @@ BackendManager::BackendManager(const GlobalContext& global_context,
         LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Starting backend initialization. "
                            << "Creating backend Dynamic Shapes";
         try {
-          concrete_backend_ = BackendFactory::MakeBackend(*model_proto_,
+          auto model_proto = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
+          concrete_backend_ = BackendFactory::MakeBackend(model_proto,
                                                           GetGlobalContext(),
                                                           subgraph_context_,
                                                           ep_ctx_handle_);
@@ -89,6 +90,8 @@ BackendManager::BackendManager(const GlobalContext& global_context,
         LOGS_DEFAULT(INFO) << "[OpenVINO-EP] "
                            << "Backend created for graph " << subgraph_context_.subgraph_name;
       }
+    } else{
+      model_proto_ = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
     }
   } else {
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model has concrete input dims. "
@@ -99,7 +102,8 @@ BackendManager::BackendManager(const GlobalContext& global_context,
 
     // OV NPU plugin is supported with fallback to OV CPU upon compilation failures.
     try {
-      concrete_backend_ = BackendFactory::MakeBackend(*model_proto_,
+      auto model_proto = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
+      concrete_backend_ = BackendFactory::MakeBackend(model_proto,
                                                       GetGlobalContext(),
                                                       subgraph_context_,
                                                       ep_ctx_handle_);
@@ -115,7 +119,8 @@ BackendManager::BackendManager(const GlobalContext& global_context,
         GetGlobalContext().device_type = "CPU";
         GetGlobalContext().precision_str = "FP32";
         try {
-          concrete_backend_ = BackendFactory::MakeBackend(*model_proto_,
+          auto model_proto = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
+          concrete_backend_ = BackendFactory::MakeBackend(model_proto,
                                                           GetGlobalContext(),
                                                           subgraph_context_,
                                                           ep_ctx_handle_);
@@ -361,10 +366,10 @@ std::string MakeMapKeyString(const std::vector<std::vector<int64_t>>& shapes,
   return key;
 }
 
-std::shared_ptr<ONNX_NAMESPACE::ModelProto>
+std::unique_ptr<ONNX_NAMESPACE::ModelProto>
 BackendManager::ReWriteInputShapeInfo(const ONNX_NAMESPACE::ModelProto& model_proto,
                                       const std::vector<std::vector<int64_t>>& input_shapes) {
-  auto model_copy = std::shared_ptr<ONNX_NAMESPACE::ModelProto>(ONNX_NAMESPACE::ModelProto::Create());
+  auto model_copy = ONNX_NAMESPACE::ModelProto::Create();
   std::string proto_str;
   model_proto.SerializeToString(proto_str);
   model_copy->ParseFromString(proto_str);
@@ -386,7 +391,7 @@ BackendManager::ReWriteInputShapeInfo(const ONNX_NAMESPACE::ModelProto& model_pr
 
 std::shared_ptr<ONNX_NAMESPACE::ModelProto>
 BackendManager::ReWriteBatchDimWithOne(const ONNX_NAMESPACE::ModelProto& model_proto) {
-  auto model_copy = std::shared_ptr<ONNX_NAMESPACE::ModelProto>(ONNX_NAMESPACE::ModelProto::Create());
+  auto model_copy = ONNX_NAMESPACE::ModelProto::Create();
   std::string proto_str;
   model_proto.SerializeToString(proto_str);
   model_copy->ParseFromString(proto_str);
@@ -437,7 +442,7 @@ void BackendManager::Compute(OrtKernelContext* context) {
                          << "Backend created for graph " << subgraph_context_.subgraph_name;
       auto modelproto_with_concrete_shapes = ReWriteInputShapeInfo(*model_proto_, tensor_shapes);
       try {
-        dynamic_backend = BackendFactory::MakeBackend(*modelproto_with_concrete_shapes,
+        dynamic_backend = BackendFactory::MakeBackend(modelproto_with_concrete_shapes,
                                                       GetGlobalContext(),
                                                       subgraph_context_,
                                                       ep_ctx_handle_);
@@ -456,7 +461,7 @@ void BackendManager::Compute(OrtKernelContext* context) {
           GetGlobalContext().precision_str = "FP32";
           key = MakeMapKeyString(tensor_shapes, GetGlobalContext().device_type);
           try {
-            dynamic_backend = BackendFactory::MakeBackend(*modelproto_with_concrete_shapes,
+            dynamic_backend = BackendFactory::MakeBackend(modelproto_with_concrete_shapes,
                                                           GetGlobalContext(),
                                                           subgraph_context_,
                                                           ep_ctx_handle_);

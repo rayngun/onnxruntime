@@ -20,7 +20,7 @@ namespace openvino_ep {
 
 using namespace backend_utils;
 
-BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
+BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_proto,
                            GlobalContext& global_context,
                            const SubGraphContext& subgraph_context,
                            EPCtxHandler& ep_ctx_handle)
@@ -52,7 +52,7 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
   if (IsDebugEnabled()) {
     std::string file_name = subgraph_context.subgraph_name + "_static.onnx";
     std::fstream outfile(file_name, std::ios::out | std::ios::trunc | std::ios::binary);
-    model_proto.SerializeToOstream(outfile);
+    model_proto->SerializeToOstream(outfile);
   }
 #endif
 
@@ -94,7 +94,9 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
                  hw_target.find("NPU") != std::string::npos) {
         std::shared_ptr<ov::Model> ov_model;
         {
-          const std::string model = model_proto.SerializeAsString();
+          const std::string model = model_proto->SerializeAsString();
+          auto model_proto_ptr = model_proto.release();
+          delete model_proto_ptr;
           ov_model = global_context_.ie_core.Get().read_model(model, ov::Tensor());
         }
         exe_network_ = OVExeNetwork(global_context_.ie_core.Get().compile_model(ov_model, hw_target, device_config));
@@ -103,7 +105,9 @@ BasicBackend::BasicBackend(const ONNX_NAMESPACE::ModelProto& model_proto,
                   (global_context_.OpenVINO_Version.at(0) >= 2024 && global_context_.OpenVINO_Version.at(1) > 2))) {
         // Optimized OV compile_model API is supported with AUTO from version 2024.3 and above
         // Inputs with static dimenstions
-        const std::string model = model_proto.SerializeAsString();
+        const std::string model = model_proto->SerializeAsString();
+        auto model_proto_ptr = model_proto.release();
+        delete model_proto_ptr;
         exe_network_ = global_context_.ie_core.CompileModel(model,
                                                             hw_target,
                                                             device_config,
