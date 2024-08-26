@@ -322,6 +322,12 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
             ov_tensor_key.copy_needed = true;
           }
           ort_ov_tensor_map.emplace(ort_tensor_key, ov_tensor_key);
+
+          try {
+            infer_request->SetTensor(input_name, ov_tensor_key.tensor_ptr);
+          } catch (const char* msg) {
+            ORT_THROW(msg);
+          }
         }
 
         if (ov_tensor_key.copy_needed) {
@@ -329,12 +335,6 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           size_t tensor_data_size = ov_tensor_key.tensor_ptr->get_byte_size();
           auto ort_batch_memory_offset = ort_tensor_data + tensor_data_size * batch_slice_idx;
           std::memcpy(ov_tensor_key.tensor_ptr->data(), ort_batch_memory_offset, tensor_data_size);
-        }
-
-        try {
-          infer_request->SetTensor(input_name, ov_tensor_key.tensor_ptr);
-        } catch (const char* msg) {
-          ORT_THROW(msg);
         }
       }
       input_idx++;
@@ -388,13 +388,14 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           ov_tensor_data.copy_needed = true;
         }
         ort_ov_tensor_map.emplace(ort_tensor_key, ov_tensor_data);
+
+        try {
+          infer_request->SetTensor(output_name, ov_tensor_data.tensor_ptr);
+        } catch (const char* msg) {
+          ORT_THROW(msg);
+        }
       }
 
-      try {
-        infer_request->SetTensor(output_name, ov_tensor_data.tensor_ptr);
-      } catch (const char* msg) {
-        ORT_THROW(msg);
-      }
       output_idx++;
     }
 
