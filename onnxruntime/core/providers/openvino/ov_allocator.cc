@@ -27,9 +27,10 @@ OVRTAllocator::OVRTAllocator(ov::Core& core, OrtDevice::DeviceType device_type, 
 void* OVRTAllocator::Alloc(size_t size) {
   try {
     size_t alloc_size = align_up(size + sizeof(ov::Tensor*) + default_alignment, default_alignment);
-    ov::Tensor* tensor = new ov::Tensor(remote_ctx_.create_host_tensor(ov::element::Type_t::u8,
-                                                                       { alloc_size }));
-    uintptr_t data_ptr = reinterpret_cast<uintptr_t>(tensor->data());
+
+    ov::intel_npu::level_zero::ZeroContext npu_ctx = remote_ctx_.as<ov::intel_npu::level_zero::ZeroContext>();
+    auto tensor = new ov::intel_npu::level_zero::ZeroBufferTensor(npu_ctx.create_l0_host_tensor(ov::element::Type_t::u8, {alloc_size}, ov::intel_npu::TensorType::INPUT));
+    uintptr_t data_ptr = reinterpret_cast<uintptr_t>(tensor->get());
 
     ov::Tensor** ptr = reinterpret_cast<ov::Tensor**>(align_up(data_ptr + sizeof(ov::Tensor*), default_alignment));
     ptr[-1] = tensor;
