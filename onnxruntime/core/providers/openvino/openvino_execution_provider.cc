@@ -183,8 +183,8 @@ common::Status OpenVINOExecutionProvider::Compile(
 
 std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators() {
   AllocatorCreationInfo npu_allocator_info {
-    [](OrtDevice::DeviceId device_id) {
-      return std::make_unique<OVRTAllocator>(OrtDevice::NPU, device_id, OpenVINO_RT_NPU);
+    [this](OrtDevice::DeviceId device_id) {
+        return std::make_unique<OVRTAllocator>(global_context_->ie_core.Get(), OrtDevice::NPU, device_id, OpenVINO_RT_NPU);
     },
     0,
   };
