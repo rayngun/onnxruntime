@@ -34,10 +34,34 @@ std::chrono::duration<double> OnnxRuntimeTestSession::Run() {
   // Randomly pick one OrtValueArray from test_inputs_. (NOT ThreadSafe)
   const std::uniform_int_distribution<int>::param_type p(0, static_cast<int>(test_inputs_.size() - 1));
   const size_t id = static_cast<size_t>(dist_(rand_engine_, p));
+
+
+  std::vector<Ort::Value> outputs;
+  Ort::MemoryInfo memory_info = Ort::MemoryInfo("OpenVINO_RT_NPU", OrtArenaAllocator, 0, OrtMemTypeCPUOutput);
+  Ort::Allocator allocator(session_, memory_info);
+  for (size_t i = 0; i < output_names_raw_ptr.size(); i++) {
+    Ort::TypeInfo type_info = session_.GetOutputTypeInfo(i);
+    auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
+
+    std::vector<int64_t> output_shape = tensor_info.GetShape();
+
+    // free dimensions are treated as 1 if not overridden
+    for (int64_t& dim : output_shape) {
+      if (dim == -1) {
+        dim = 1;
+      }
+    }
+
+    outputs.push_back(Ort::Value::CreateTensor(allocator, (const int64_t*)output_shape.data(),
+                                                        output_shape.size(), tensor_info.GetElementType()));
+  }
+
   auto& input = test_inputs_.at(id);
   auto start = std::chrono::high_resolution_clock::now();
-  auto output_values = session_.Run(Ort::RunOptions{nullptr}, input_names_.data(), input.data(), input_names_.size(),
-                                    output_names_raw_ptr.data(), output_names_raw_ptr.size());
+
+  session_.Run(Ort::RunOptions{nullptr}, input_names_.data(), input.data(), input_names_.size(),
+                                    output_names_raw_ptr.data(), outputs.data(), output_names_raw_ptr.size());
+
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> duration_seconds = end - start;
   return duration_seconds;
