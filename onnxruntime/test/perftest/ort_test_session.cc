@@ -838,10 +838,7 @@ select from 'TF8', 'TF16', 'UINT8', 'FLOAT', 'ITENSOR'. \n)");
   }
   size_t output_count = session_.GetOutputCount();
   output_names_.resize(output_count);
-
-  Ort::MemoryInfo memory_info = Ort::MemoryInfo("OpenVINO_RT_NPU", OrtArenaAllocator, 0, OrtMemTypeCPUOutput);
-  Ort::Allocator a(session_, memory_info);
-
+  Ort::AllocatorWithDefaultOptions a;
   for (size_t i = 0; i != output_count; ++i) {
     auto output_name = session_.GetOutputNameAllocated(i, a);
     assert(output_name != nullptr);
