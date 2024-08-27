@@ -96,6 +96,17 @@ OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
   global_context_->onnx_opset_version =
       graph_viewer.DomainToVersionMap().at(kOnnxDomain);
 
+  const InitializedTensorSet& initialized_tensors = graph_viewer.GetAllInitializedTensors();
+
+  for (const auto& tensor_pair : initialized_tensors) {
+    const ONNX_NAMESPACE::TensorProto* tensor_proto = tensor_pair.second;
+    // Check if the tensor exists and if it has an external data location
+    if (tensor_proto && tensor_proto->has_data_location() && tensor_proto->data_location() != 0) {
+      global_context_->has_external_weight = true;
+      break;
+    }
+  }
+
   global_context_->model_precision = [&](const GraphViewer& graph_viewer) {
     // return empty if graph has no inputs or if types are not one of FP32/FP16
     // else assume the type of the first input
