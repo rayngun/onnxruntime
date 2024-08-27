@@ -35,32 +35,11 @@ std::chrono::duration<double> OnnxRuntimeTestSession::Run() {
   const std::uniform_int_distribution<int>::param_type p(0, static_cast<int>(test_inputs_.size() - 1));
   const size_t id = static_cast<size_t>(dist_(rand_engine_, p));
 
-
-  std::vector<Ort::Value> outputs;
-  Ort::MemoryInfo memory_info = Ort::MemoryInfo("OpenVINO_RT_NPU", OrtArenaAllocator, 0, OrtMemTypeCPUOutput);
-  Ort::Allocator allocator(session_, memory_info);
-  for (size_t i = 0; i < output_names_raw_ptr.size(); i++) {
-    Ort::TypeInfo type_info = session_.GetOutputTypeInfo(i);
-    auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
-
-    std::vector<int64_t> output_shape = tensor_info.GetShape();
-
-    // free dimensions are treated as 1 if not overridden
-    for (int64_t& dim : output_shape) {
-      if (dim == -1) {
-        dim = 1;
-      }
-    }
-
-    outputs.push_back(Ort::Value::CreateTensor(allocator, (const int64_t*)output_shape.data(),
-                                                        output_shape.size(), tensor_info.GetElementType()));
-  }
-
   auto& input = test_inputs_.at(id);
   auto start = std::chrono::high_resolution_clock::now();
 
   session_.Run(Ort::RunOptions{nullptr}, input_names_.data(), input.data(), input_names_.size(),
-                                    output_names_raw_ptr.data(), outputs.data(), output_names_raw_ptr.size());
+                                    output_names_raw_ptr.data(), outputs_.data(), output_names_raw_ptr.size());
 
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> duration_seconds = end - start;
@@ -878,6 +857,25 @@ select from 'TF8', 'TF16', 'UINT8', 'FLOAT', 'ITENSOR'. \n)");
     input_names_str_[i] = m.GetInputName(i);
     input_names_[i] = input_names_str_[i].c_str();
   }
+
+  Ort::MemoryInfo memory_info = Ort::MemoryInfo("OpenVINO_RT_NPU", OrtArenaAllocator, 0, OrtMemTypeCPUOutput);
+  custom_allocator_ = std::make_unique<Ort::Allocator>(session_, memory_info);
+  for (size_t i = 0; i < output_names_raw_ptr.size(); i++) {
+    Ort::TypeInfo type_info = session_.GetOutputTypeInfo(i);
+    auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
+
+    std::vector<int64_t> output_shape = tensor_info.GetShape();
+
+    // free dimensions are treated as 1 if not overridden
+    for (int64_t& dim : output_shape) {
+      if (dim == -1) {
+        dim = 1;
+      }
+    }
+
+      outputs_.push_back(Ort::Value::CreateTensor(*custom_allocator_, (const int64_t*)output_shape.data(),
+                                                  output_shape.size(), tensor_info.GetElementType()));
+  }
 }
 
 template <typename T>
@@ -964,7 +962,6 @@ bool OnnxRuntimeTestSession::PopulateGeneratedInputTestData(int32_t seed) {
   // iterate over all input nodes
   for (size_t i = 0; i < static_cast<size_t>(input_length_); i++) {
     Ort::TypeInfo type_info = session_.GetInputTypeInfo(i);
-    Ort::MemoryInfo memory_info = Ort::MemoryInfo("OpenVINO_RT_NPU", OrtArenaAllocator, 0, OrtMemTypeCPUInput);
     if (type_info.GetONNXType() == ONNX_TYPE_TENSOR) {
       auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
       std::vector<int64_t> input_node_dim = tensor_info.GetShape();
@@ -976,8 +973,8 @@ bool OnnxRuntimeTestSession::PopulateGeneratedInputTestData(int32_t seed) {
         }
       }
 
-      Ort::Allocator allocator(session_, memory_info);
-      Ort::Value input_tensor = Ort::Value::CreateTensor(allocator, (const int64_t*)input_node_dim.data(),
+      
+      Ort::Value input_tensor = Ort::Value::CreateTensor(*custom_allocator_, (const int64_t*)input_node_dim.data(),
                                                          input_node_dim.size(), tensor_info.GetElementType());
       InitializeTensorWithSeed(seed, input_tensor);
       PreLoadTestData(0, i, std::move(input_tensor));
