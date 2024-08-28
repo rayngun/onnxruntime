@@ -262,12 +262,6 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
                   "Input names mismatch between OpenVINO and ONNX. " + onnx_input_name +
                   " doesn't exist in the list of OpenVINO input tensor names");
       }
-      auto ort_shape_to_ovshape = [](const std::vector<int64_t>& shape) {
-        ov::Shape ov_shape(shape.size());
-        std::copy(shape.begin(), shape.end(), ov_shape.begin());
-        return ov_shape;
-      };
-
       size_t batch_slice_idx = 0;
       if (subgraph_context_.has_dynamic_input_shape &&
           !global_context_.disable_dynamic_shapes &&
