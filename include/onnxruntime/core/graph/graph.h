@@ -1196,6 +1196,16 @@ class Graph {  // NOLINT(clang-analyzer-optin.performance.Padding): preserve exi
     return ToGraphProtoWithExternalInitializers(external_file_path, model_file_path, initializer_size_threshold, default_options);
   }
 
+  ONNX_NAMESPACE::GraphProto ToGraphProtoWithExternalInitializers(std::vector<uint8_t>& external_data_buffer,
+                                                                size_t initializer_size_threshold,
+                                                                const OffsetAlignmentInfo& align_info) const;
+
+  ONNX_NAMESPACE::GraphProto ToGraphProtoWithExternalInitializers(std::vector<uint8_t>& external_data_buffer,
+                                                                size_t initializer_size_threshold) const {
+    OffsetAlignmentInfo default_options;
+    return ToGraphProtoWithExternalInitializers(external_data_buffer, initializer_size_threshold, default_options);
+  }
+
   /** Gets the ISchemaRegistry instances being used with this Graph. */
   IOnnxRuntimeOpSchemaCollectionPtr GetSchemaRegistry() const;
 

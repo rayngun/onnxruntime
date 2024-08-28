@@ -394,6 +394,19 @@ ModelProto Model::ToGraphProtoWithExternalInitializers(const std::filesystem::pa
   return result;
 }
 
+ModelProto Model::ToGraphProtoWithExternalInitializers(std::vector<uint8_t>& external_data_buffer,
+                                                       size_t initializer_size_threshold,
+                                                       const Graph::OffsetAlignmentInfo& align_info) const {
+  ModelProto result(model_proto_);
+  const auto& graph = *graph_;
+  *(result.mutable_graph()) = graph.ToGraphProtoWithExternalInitializers(external_data_buffer,
+                                                                         initializer_size_threshold,
+                                                                         align_info);
+  return result;
+}
+
+
+
 Status Model::Load(std::istream& model_istream, ModelProto* p_model_proto) {
   if (!model_istream.good()) {
     return Status(ONNXRUNTIME, INVALID_ARGUMENT, "Invalid istream object.");

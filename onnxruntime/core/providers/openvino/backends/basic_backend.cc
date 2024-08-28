@@ -52,7 +52,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
   if (IsDebugEnabled()) {
     std::string file_name = subgraph_context.subgraph_name + "_static.onnx";
     std::fstream outfile(file_name, std::ios::out | std::ios::trunc | std::ios::binary);
-    model_proto.SerializeToOstream(outfile);
+    model_proto->SerializeToOstream(outfile);
   }
 #endif
 
@@ -90,7 +90,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
                                                            global_context_.ep_context_embed_mode,
                                                            subgraph_context_.subgraph_name);
         // ie_cnn_network_ = exe_network_.Get().get_runtime_model();
-      } else if (global_context_.export_ep_ctx_blob &&
+      } else if (0 && global_context_.export_ep_ctx_blob &&
                  hw_target.find("NPU") != std::string::npos) {
         std::shared_ptr<ov::Model> ov_model;
         {
@@ -101,7 +101,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
           ov_model = global_context_.ie_core.Get().read_model(model, ov::Tensor());
         }
         exe_network_ = OVExeNetwork(global_context_.ie_core.Get().compile_model(ov_model, hw_target, device_config));
-      } else if ((!subgraph_context_.has_dynamic_input_shape) &&
+      } else if (0 && (!subgraph_context_.has_dynamic_input_shape) &&
                  ((hw_target.find("AUTO") == std::string::npos) ||
                   (global_context_.OpenVINO_Version.at(0) >= 2024 && global_context_.OpenVINO_Version.at(1) > 2))) {
         // Optimized OV compile_model API is supported with AUTO from version 2024.3 and above

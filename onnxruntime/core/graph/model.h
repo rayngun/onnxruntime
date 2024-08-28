@@ -200,6 +200,18 @@ class Model {
     return ToGraphProtoWithExternalInitializers(external_file_name, file_path, initializer_size_threshold, default_align_info);
   }
 
+
+  ONNX_NAMESPACE::ModelProto ToGraphProtoWithExternalInitializers(std::vector<uint8_t>& external_data_buffer,
+                                                                  size_t initializer_size_threshold,
+                                                                  const Graph::OffsetAlignmentInfo& align_info) const;
+
+
+  ONNX_NAMESPACE::ModelProto ToGraphProtoWithExternalInitializers(std::vector<uint8_t>& external_data_buffer,
+                                                                  size_t initializer_size_threshold) const {
+    Graph::OffsetAlignmentInfo default_align_info;
+    return ToGraphProtoWithExternalInitializers(external_data_buffer, initializer_size_threshold, default_align_info);
+  }
+
   static common::Status Save(Model& model, const PathString& file_path);
 
   static common::Status Save(Model& model, int fd);

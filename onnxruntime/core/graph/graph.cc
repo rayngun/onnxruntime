@@ -4177,6 +4177,89 @@ ONNX_NAMESPACE::GraphProto Graph::ToGraphProtoWithExternalInitializers(const std
   return result;
 }
 
+ONNX_NAMESPACE::GraphProto Graph::ToGraphProtoWithExternalInitializers(
+    std::vector<uint8_t>& external_data_buffer,
+    size_t initializer_size_threshold,
+    const OffsetAlignmentInfo& align_info) const {
+
+  ONNX_NAMESPACE::GraphProto result;
+  ToGraphProtoInternal(result);
+
+  int64_t external_offset = 0;
+
+  // Add the initializers to the result graph.
+  const auto& model_path = ModelPath();
+
+  for (const auto& initializer : graph_proto_->initializer()) {
+    // Handle sparse tensor cases if applicable
+    #if !defined(DISABLE_SPARSE_TENSORS)
+    const auto sparse_end = sparse_tensor_names_.end();
+    if (sparse_end != sparse_tensor_names_.find(initializer.name())) {
+      auto& sparse_initializer = *result.add_sparse_initializer();
+      auto status = utils::DenseTensorToSparseTensorProto(initializer, model_path, sparse_initializer);
+      ORT_ENFORCE(status.IsOK(), "Failed to convert dense initializer to sparse");
+      continue;
+    }
+    #endif
+
+    // Dense tensors larger than the threshold are added to the external buffer.
+    TensorProto* output_proto = result.add_initializer();
+
+    std::vector<uint8_t> raw_data;
+    ORT_THROW_IF_ERROR(utils::UnpackInitializerData(initializer, model_path, raw_data));
+    size_t tensor_bytes_size = raw_data.size();
+    if (tensor_bytes_size < initializer_size_threshold) {
+      *output_proto = initializer;
+      continue;
+    }
+
+    // Update external_offset for alignment
+    if (align_info.align_offset && static_cast<int64_t>(tensor_bytes_size) > align_info.align_threshold) {
+      int64_t alignment_factor = std::max(static_cast<int64_t>(4096), align_info.allocation_granularity);
+      int64_t new_external_offset = static_cast<int64_t>(
+        std::floor((external_offset + alignment_factor - 1) / alignment_factor)) *
+        alignment_factor;
+
+      // Padding with zeros for alignment
+      external_data_buffer.resize(new_external_offset, 0);
+
+      external_offset = new_external_offset;
+    }
+
+    // Append tensor data to the buffer
+    external_data_buffer.insert(external_data_buffer.end(), raw_data.begin(), raw_data.end());
+
+    output_proto->set_data_location(ONNX_NAMESPACE::TensorProto_DataLocation::TensorProto_DataLocation_EXTERNAL);
+
+    // Use stringstream for location
+    std::stringstream location_ss;
+    location_ss << "memory://" << std::to_string(reinterpret_cast<uintptr_t>(external_data_buffer.data()));
+
+    // Set external data info
+    ONNX_NAMESPACE::StringStringEntryProto* location = output_proto->add_external_data();
+    location->set_key("location");
+    location->set_value(location_ss.str());
+    ONNX_NAMESPACE::StringStringEntryProto* offset = output_proto->add_external_data();
+    offset->set_key("offset");
+    offset->set_value(std::to_string(external_offset));
+    ONNX_NAMESPACE::StringStringEntryProto* length = output_proto->add_external_data();
+    length->set_key("length");
+    length->set_value(std::to_string(tensor_bytes_size));
+
+    output_proto->set_name(initializer.name());
+    output_proto->set_data_type(initializer.data_type());
+    for (int i = 0; i != initializer.dims_size(); ++i) {
+      output_proto->add_dims(initializer.dims(i));
+    }
+    output_proto->set_doc_string(initializer.doc_string());
+
+    external_offset += tensor_bytes_size;
+  }
+
+  return result;
+}
+
+
 void Graph::ToGraphProtoInternal(ONNX_NAMESPACE::GraphProto& graph_proto) const {
   graph_proto_->clear_node();
   graph_proto_->clear_input();
