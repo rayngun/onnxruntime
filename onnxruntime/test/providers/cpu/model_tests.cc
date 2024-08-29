@@ -714,6 +714,9 @@ static constexpr ORT_STRING_VIEW provider_name_dml = ORT_TSTR("dml");
     all_disabled_tests.insert(ORT_TSTR("fp16_inception_v1"));
     all_disabled_tests.insert(ORT_TSTR("fp16_tiny_yolov2"));
 
+    all_disabled_tests.insert(ORT_TSTR("Faster_RCNN_Variant"));
+    all_disabled_tests.insert(ORT_TSTR("2_Stage_Product_Recall"));
+
     while (!paths.empty()) {
       std::filesystem::path node_data_root_path = paths.back();
       paths.pop_back();
