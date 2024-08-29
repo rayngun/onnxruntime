@@ -180,6 +180,11 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
       device_property = std::make_pair("NPU_COMPILER_TYPE", env_npu_compiler_type);
     }
     device_config.emplace(ov::device::properties("NPU", device_property));
+    if(global_context_.export_ep_ctx_blob) {
+      std::pair<std::string, ov::Any> cache_property;
+      cache_property = std::make_pair("NPU_BYPASS_UMD_CACHING", true);
+      device_config.emplace(ov::device::properties("NPU", cache_property));
+    }
   }
 }
 
