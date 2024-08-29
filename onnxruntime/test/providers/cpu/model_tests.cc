@@ -577,7 +577,9 @@ static constexpr ORT_STRING_VIEW provider_name_dml = ORT_TSTR("dml");
       ORT_TSTR("Candy"),
       ORT_TSTR("SSD"),
       ORT_TSTR("ResNet101_DUC_HDC-12"),
-      ORT_TSTR("YOLOv3-12")};
+      ORT_TSTR("YOLOv3-12"),
+      ORT_TSTR("Faster_RCNN_Variant"),
+      ORT_TSTR("2_Stage_Product_Recall")};
   static const ORTCHAR_T* dml_disabled_tests[] = {ORT_TSTR("mlperf_ssd_resnet34_1200"),
                                                   ORT_TSTR("mlperf_ssd_mobilenet_300"),
                                                   ORT_TSTR("mask_rcnn"),
