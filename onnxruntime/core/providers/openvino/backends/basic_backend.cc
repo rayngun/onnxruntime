@@ -48,14 +48,6 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
   // Set the inference_num_threads property of the CPU
   SetNumThreads(device_config);
 
-#ifndef NDEBUG
-  if (IsDebugEnabled()) {
-    std::string file_name = subgraph_context.subgraph_name + "_static.onnx";
-    std::fstream outfile(file_name, std::ios::out | std::ios::trunc | std::ios::binary);
-    model_proto.SerializeToOstream(outfile);
-  }
-#endif
-
   try {
     std::string dev_prec = global_context.device_type + "_" + global_context_.precision_str;
 
@@ -307,10 +299,6 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           ov_tensor_key.tensor_ptr = std::make_shared<ov::Tensor>(input->get_element_type(), input->get_shape(),
                                                                     (void*)tensor.GetTensorRawData());
           if (allocator_name == OpenVINO_RT_NPU) {
-            // do we need this??
-            // auto tensor_info = tensor.GetTensorTypeAndShapeInfo();
-            // auto tensor_shape = tensor_info.GetShape();
-            // auto tensor_size = tensor_shape.size();
             ov_tensor_key.copy_needed = false;
           } else {
             ov_tensor_key.copy_needed = true;
@@ -389,7 +377,6 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           ORT_THROW(msg);
         }
       }
-
       output_idx++;
     }
 
