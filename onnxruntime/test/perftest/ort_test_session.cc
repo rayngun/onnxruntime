@@ -38,8 +38,13 @@ std::chrono::duration<double> OnnxRuntimeTestSession::Run() {
   auto& input = test_inputs_.at(id);
   auto start = std::chrono::high_resolution_clock::now();
 
+  if (!use_device_mem) {
+    auto output_values = session_.Run(Ort::RunOptions{nullptr}, input_names_.data(), input.data(), input_names_.size(),
+                                    output_names_raw_ptr.data(), output_names_raw_ptr.size());
+  } else {
   session_.Run(Ort::RunOptions{nullptr}, input_names_.data(), input.data(), input_names_.size(),
                                     output_names_raw_ptr.data(), outputs_.data(), output_names_raw_ptr.size());
+  }
 
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> duration_seconds = end - start;
@@ -964,6 +969,9 @@ bool OnnxRuntimeTestSession::PopulateGeneratedInputTestData(int32_t seed) {
     Ort::TypeInfo type_info = session_.GetInputTypeInfo(i);
     if (type_info.GetONNXType() == ONNX_TYPE_TENSOR) {
       auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
+      if (!use_device_mem){
+        Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+      }
       std::vector<int64_t> input_node_dim = tensor_info.GetShape();
 
       // free dimensions are treated as 1 if not overridden
@@ -972,12 +980,18 @@ bool OnnxRuntimeTestSession::PopulateGeneratedInputTestData(int32_t seed) {
           dim = 1;
         }
       }
-
-      
-      Ort::Value input_tensor = Ort::Value::CreateTensor(*custom_allocator_, (const int64_t*)input_node_dim.data(),
-                                                         input_node_dim.size(), tensor_info.GetElementType());
-      InitializeTensorWithSeed(seed, input_tensor);
-      PreLoadTestData(0, i, std::move(input_tensor));
+      if (use_device_mem){
+        Ort::Value input_tensor = Ort::Value::CreateTensor(*custom_allocator_, (const int64_t*)input_node_dim.data(),
+                                                          input_node_dim.size(), tensor_info.GetElementType());
+        InitializeTensorWithSeed(seed, input_tensor);
+        PreLoadTestData(0, i, std::move(input_tensor));
+      } else {
+        auto allocator = Ort::AllocatorWithDefaultOptions();
+        Ort::Value input_tensor = Ort::Value::CreateTensor(allocator, (const int64_t*)input_node_dim.data(),
+                                                          input_node_dim.size(), tensor_info.GetElementType());
+        InitializeTensorWithSeed(seed, input_tensor);
+        PreLoadTestData(0, i, std::move(input_tensor));
+      }
     }
   }
   return true;

@@ -48,6 +48,7 @@ class OnnxRuntimeTestSession : public TestSession {
   std::vector<std::string> input_names_str_;
   const int input_length_;
   std::string provider_name_;
+  bool use_device_mem = false;
 };
 
 }  // namespace perftest
