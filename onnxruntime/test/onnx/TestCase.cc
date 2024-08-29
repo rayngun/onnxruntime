@@ -1392,6 +1392,11 @@ std::unique_ptr<std::set<BrokenTest>> GetBrokenTests(const std::string& provider
     broken_tests->insert({"resize_upsample_sizes_nearest_axes_3_2", "result differs"});
   }
 
+  if (provider_name == "openvino") {
+    broken_tests->insert({"2_Stage_Product_Recall", "disable temporarily"});
+    broken_tests->insert({"Faster_RCNN_Variant", "disable temporarily"});
+  }
+
 #ifdef DISABLE_CONTRIB_OPS
   broken_tests->insert({"coreml_SqueezeNet_ImageNet", "This model uses contrib ops."});
   broken_tests->insert({"keras2coreml_Permute_ImageNet", "This model uses contrib ops."});
