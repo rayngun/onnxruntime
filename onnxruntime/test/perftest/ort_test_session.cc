@@ -868,6 +868,7 @@ select from 'TF8', 'TF16', 'UINT8', 'FLOAT', 'ITENSOR'. \n)");
     input_names_[i] = input_names_str_[i].c_str();
   }
 
+<<<<<<< HEAD
   if (use_device_mem) {
     Ort::MemoryInfo memory_info = Ort::MemoryInfo("OpenVINO_RT_NPU", OrtArenaAllocator, 0, OrtMemTypeCPUOutput);
     custom_allocator_ = std::make_unique<Ort::Allocator>(session_, memory_info);
@@ -887,6 +888,25 @@ select from 'TF8', 'TF16', 'UINT8', 'FLOAT', 'ITENSOR'. \n)");
         outputs_.push_back(Ort::Value::CreateTensor(*custom_allocator_, (const int64_t*)output_shape.data(),
                                                     output_shape.size(), tensor_info.GetElementType()));
     }
+=======
+  Ort::MemoryInfo memory_info = Ort::MemoryInfo("OpenVINO_RT_NPU", OrtArenaAllocator, 0, OrtMemTypeCPUOutput);
+  custom_allocator_ = std::make_unique<Ort::Allocator>(session_, memory_info);
+  for (size_t i = 0; i < output_names_raw_ptr.size(); i++) {
+    Ort::TypeInfo type_info = session_.GetOutputTypeInfo(i);
+    auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
+
+    std::vector<int64_t> output_shape = tensor_info.GetShape();
+
+    // free dimensions are treated as 1 if not overridden
+    for (int64_t& dim : output_shape) {
+      if (dim == -1) {
+        dim = 1;
+      }
+    }
+
+      outputs_.push_back(Ort::Value::CreateTensor(*custom_allocator_, (const int64_t*)output_shape.data(),
+                                                  output_shape.size(), tensor_info.GetElementType()));
+>>>>>>> 966c48a2ccdd04341e5f935820b97fcfee8ce293
   }
 }
 
