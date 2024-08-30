@@ -679,6 +679,8 @@ static constexpr ORT_STRING_VIEW provider_name_dml = ORT_TSTR("dml");
       // these models run but disabled tests to keep memory utilization low
       // This will be removed after LRU implementation
       all_disabled_tests.insert(std::begin(openvino_disabled_tests), std::end(openvino_disabled_tests));
+      all_disabled_tests.insert(ORT_TSTR("Faster_RCNN_Variant"));
+      all_disabled_tests.insert(ORT_TSTR("2_Stage_Product_Recall"));
     }
 
 #if !defined(__amd64__) && !defined(_M_AMD64)
@@ -714,8 +716,6 @@ static constexpr ORT_STRING_VIEW provider_name_dml = ORT_TSTR("dml");
     all_disabled_tests.insert(ORT_TSTR("fp16_inception_v1"));
     all_disabled_tests.insert(ORT_TSTR("fp16_tiny_yolov2"));
 
-    all_disabled_tests.insert(ORT_TSTR("Faster_RCNN_Variant"));
-    all_disabled_tests.insert(ORT_TSTR("2_Stage_Product_Recall"));
 
     while (!paths.empty()) {
       std::filesystem::path node_data_root_path = paths.back();
