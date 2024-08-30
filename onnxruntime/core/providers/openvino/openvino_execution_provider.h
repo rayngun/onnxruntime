@@ -190,6 +190,8 @@ class OpenVINOExecutionProvider : public IExecutionProvider {
     return nullptr;
   }
 
+  std::vector<AllocatorPtr> CreatePreferredAllocators() override;
+
  private:
   std::unique_ptr<openvino_ep::GlobalContext> global_context_;
   openvino_ep::EPCtxHandler ep_ctx_handle_{};
