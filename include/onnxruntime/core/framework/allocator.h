@@ -50,11 +50,6 @@ constexpr const char* HIP = "Hip";
 constexpr const char* HIP_PINNED = "HipPinned";
 constexpr const char* OpenVINO_CPU = "OpenVINO_CPU";
 constexpr const char* OpenVINO_GPU = "OpenVINO_GPU";
-
-// application
-// 1. Allocate with ORT::CreateTensor("<custom_allocator_tag>")
-// 2. "Manual" allocation
-
 constexpr const char* OpenVINO_RT = "OpenVINO_RT";
 constexpr const char* OpenVINO_RT_NPU = "OpenVINO_RT_NPU";
 constexpr const char* WEBGPU_BUFFER = "WebGPU_Buffer";
