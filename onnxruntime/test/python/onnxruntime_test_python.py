@@ -104,6 +104,7 @@ class TestInferenceSession(unittest.TestCase):
         self.assertIn("Build Info", onnxrt.get_build_info())
 
     def test_model_serialization(self):
+        print("Running: test_model_serialization ")
         try:
             so = onnxrt.SessionOptions()
             so.log_severity_level = 1
@@ -122,6 +123,7 @@ class TestInferenceSession(unittest.TestCase):
                 raise onnxruntime_error
 
     def test_model_serialization_with_external_initializers(self):
+        print("Running: test_model_serialization_with_external_initializers ")
         try:
             so = onnxrt.SessionOptions()
             so.log_severity_level = 1
@@ -147,6 +149,7 @@ class TestInferenceSession(unittest.TestCase):
                 raise onnxruntime_error
 
     def test_model_serialization_with_external_initializers_to_directory(self):
+        print("Running: test_model_serialization_with_external_initializers_to_directory ")
         try:
             so = onnxrt.SessionOptions()
             so.log_severity_level = 1
@@ -173,6 +176,7 @@ class TestInferenceSession(unittest.TestCase):
                 raise onnxruntime_error
 
     def test_model_serialization_with_original_external_initializers_to_directory(self):
+        print("Running: test_model_serialization_with_original_external_initializers_to_directory ")
         try:
             so = onnxrt.SessionOptions()
             so.log_severity_level = 1
@@ -199,6 +203,7 @@ class TestInferenceSession(unittest.TestCase):
                 raise onnxruntime_error
 
     def test_model_serialization_with_original_external_initializers_to_current_directory(self):
+        print("Running: test_model_serialization_with_original_external_initializers_to_current_directory ")
         optimized_model_filepath = "model_opt_with_ext_data_1.onnx"
         external_initializers_file = "model_opt_with_ext_data_1.bin"
         optimized_model_filepath_2 = "model_opt_with_ext_data_2.onnx"
@@ -249,6 +254,7 @@ class TestInferenceSession(unittest.TestCase):
         os.remove(external_initializers_file_2)
 
     def test_get_providers(self):
+        print("Running: test_get_providers ")
         self.assertTrue("CPUExecutionProvider" in onnxrt.get_available_providers())
         # get_all_providers() returns the default EP order from highest to lowest.
         # CPUExecutionProvider should always be last.
@@ -278,6 +284,7 @@ class TestInferenceSession(unittest.TestCase):
             self.assertEqual(["CPUExecutionProvider"], sess.get_providers())
 
     def test_set_providers_with_options(self):
+        print("Running: test_set_providers_with_options ")
         if "TensorrtExecutionProvider" in onnxrt.get_available_providers():
             sess = onnxrt.InferenceSession(get_name("mul_1.onnx"), providers=["TensorrtExecutionProvider"])
             self.assertIn("TensorrtExecutionProvider", sess.get_providers())
@@ -590,6 +597,7 @@ class TestInferenceSession(unittest.TestCase):
             run_rocm_options_test()
 
     def test_invalid_set_providers(self):
+        print("Running: test_invalid_set_providers ")
         with self.assertRaises(RuntimeError) as context:
             sess = onnxrt.InferenceSession(get_name("mul_1.onnx"), providers=["CPUExecutionProvider"])
             sess.set_providers(["InvalidProvider"])
@@ -1264,6 +1272,7 @@ class TestInferenceSession(unittest.TestCase):
         self.assertEqual(so.get_session_config_entry(key), val)
 
     def test_invalid_session_options_config_entry(self):
+        print("Running: test_invalid_session_options_config_entry ")
         so = onnxrt.SessionOptions()
         invalide_key = "INVALID_KEY"
         with self.assertRaises(RuntimeError) as context:
