@@ -295,8 +295,8 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           ov_tensor_key = it->second;
         } else {
           // Does this make sense for both types of allocators?
-          auto input = ie_cnn_network_->get_parameters().at(input_idx);
-          ov_tensor_key.tensor_ptr = std::make_shared<ov::Tensor>(input->get_element_type(), input->get_shape(),
+          auto input = graph_input_info.at(input_idx);
+          ov_tensor_key.tensor_ptr = std::make_shared<ov::Tensor>(input.get_element_type(), input.get_shape(),
                                                                     (void*)tensor.GetTensorRawData());
           if (allocator_name == OpenVINO_RT_NPU) {
             ov_tensor_key.copy_needed = false;
@@ -361,8 +361,8 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
       if (const auto& it = ort_ov_tensor_map.find(ort_tensor_key); it != ort_ov_tensor_map.end()) {
         ov_tensor_data = it->second;
       } else {
-        auto output = ie_cnn_network_->get_results().at(output_idx);
-        ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(output->get_element_type(), output->get_shape(),
+        auto output = graph_output_info.at(output_idx);
+        ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(output.get_element_type(), output.get_shape(),
                                                                  (void*)tensor.GetTensorRawData());
         if(allocator_name == OpenVINO_RT_NPU) {
           ov_tensor_data.copy_needed = false;
