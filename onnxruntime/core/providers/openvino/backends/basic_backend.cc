@@ -341,13 +341,6 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           break;
         }
       }
-      if (!output_name_found) {
-        ORT_THROW(
-            log_tag +
-            "Output names mismatch between OpenVINO and ONNX. [ONNX Output: ] " +
-            onnx_output_name + " doesn't exist in the list of OpenVINO output tensor names");
-      }
-
       size_t batch_size = 1;
       Ort::UnownedValue tensor = GetOutputTensor(context,
                                                  batch_size,
