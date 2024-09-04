@@ -1,6 +1,6 @@
 // Copyright (C) Intel Corporation
 // Licensed under the MIT License
-
+#if OPENVINO_VERSION_MAJOR == 2024 && OPENVINO_VERSION_MINOR == 4
 #pragma once
 
 #include "core/common/inlined_containers.h"
@@ -22,3 +22,4 @@ class OVRTAllocator : public IAllocator {
 };
 
 }  // namespace onnxruntime
+#endif
