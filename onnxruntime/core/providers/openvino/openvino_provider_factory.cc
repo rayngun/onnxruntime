@@ -53,7 +53,7 @@ std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
   bool so_export_ep_ctx_blob = config_options_.GetConfigOrDefault("ep.context_enable", "0") == "1";
   bool so_epctx_embed_mode = config_options_.GetConfigOrDefault("ep.context_embed_mode", "1") == "1";
   std::string so_cache_path = config_options_.GetConfigOrDefault("ep.context_file_path", "").c_str();
-
+  std::string so_workload_type_ = config_options_.GetConfigOrDefault("session.workload_type", "").c_str();
   if (so_export_ep_ctx_blob && !so_cache_path.empty()) {
     cache_dir_ = so_cache_path;
     auto file_path = std::filesystem::path(cache_dir_);
@@ -70,11 +70,21 @@ std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
       ORT_THROW("[ERROR] [OpenVINO] Invalid ep_ctx_file_path" + cache_dir_ + " \n");
     }
   }
+  if (!so_workload_type_.empty()){
+    std::transform(so_workload_type_.begin(), so_workload_type_.end(), so_workload_type_.begin(), ::tolower);
+    if (so_workload_type_=="default") {
+      so_workload_type_ = "DEFAULT";
+    } else if (so_workload_type_=="efficient") {
+      so_workload_type_ = "EFFICIENT";
+    } else {
+        ORT_THROW("[ERROR] [OpenVINO] Invalid workload_type - Supported modes are Default and Efficient \n");
+    }
+  }
 
   OpenVINOExecutionProviderInfo info(device_type_, precision_, enable_npu_fast_compile_, num_of_threads_, load_config_,
                                      cache_dir_, model_priority_, num_streams_, context_, enable_opencl_throttling_,
                                      disable_dynamic_shapes_, so_export_ep_ctx_blob, enable_qdq_optimizer_,
-                                     so_disable_cpu_fallback, so_epctx_embed_mode);
+                                     so_disable_cpu_fallback, so_epctx_embed_mode, so_workload_type_);
   return std::make_unique<OpenVINOExecutionProvider>(info);
 }
 

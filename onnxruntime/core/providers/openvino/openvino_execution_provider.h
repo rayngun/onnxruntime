@@ -92,6 +92,7 @@ struct OpenVINOExecutionProviderInfo {
   bool enable_qdq_optimizer_{false};
   bool disable_cpu_fallback_{false};
   bool so_epctx_embed_mode_{true};
+  std::string so_workload_type_{""};
 
   OpenVINOExecutionProviderInfo() = delete;
 
@@ -102,7 +103,7 @@ struct OpenVINOExecutionProviderInfo {
                                          void* context, bool enable_opencl_throttling,
                                          bool disable_dynamic_shapes, bool export_ep_ctx_blob,
                                          bool enable_qdq_optimizer, bool disable_cpu_fallback,
-                                         bool so_epctx_embed_mode)
+                                         bool so_epctx_embed_mode, std::string so_workload_type)
       : precision_(std::move(precision)),
         enable_npu_fast_compile_(enable_npu_fast_compile),
         num_of_threads_(num_of_threads),
@@ -116,7 +117,8 @@ struct OpenVINOExecutionProviderInfo {
         export_ep_ctx_blob_(export_ep_ctx_blob),
         enable_qdq_optimizer_(enable_qdq_optimizer),
         disable_cpu_fallback_(disable_cpu_fallback),
-        so_epctx_embed_mode_{so_epctx_embed_mode} {
+        so_epctx_embed_mode_{so_epctx_embed_mode},
+        so_workload_type_(so_workload_type) {
     std::set<std::string> ov_supported_device_types = {"CPU", "GPU",
                                                        "GPU.0", "GPU.1", "NPU"};
 

@@ -33,6 +33,7 @@ struct GlobalContext {
   std::vector<bool> deviceAvailableList = {true, true, true, true, true, true, true, true};
   std::string onnx_model_name;
   std::string onnx_model_path_name;
+  std::string workload_type;
   int onnx_opset_version;
   void* context = 0;
   bool use_api_2;
