@@ -1964,6 +1964,8 @@ void ORTSessionOptionsToOrtOpenVINOProviderOptions(ProviderOptions& ov_options,
     // defaults to true
     ov_options["so_epctx_embed_mode"] = "false";
   }
+
+  ov_options["workload_type"] = session_options->config_options.GetConfigOrDefault(kOrtSessionOptionsWorkloadType, "").c_str();
 }
 
 std::shared_ptr<IExecutionProviderFactory> OpenVINOProviderFactoryCreator::Create(ProviderOptions* provider_options_map,

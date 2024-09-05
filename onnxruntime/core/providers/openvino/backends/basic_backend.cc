@@ -48,13 +48,8 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
   // Set the inference_num_threads property of the CPU
   SetNumThreads(device_config);
 
-#ifndef NDEBUG
-  if (IsDebugEnabled()) {
-    std::string file_name = subgraph_context.subgraph_name + "_static.onnx";
-    std::fstream outfile(file_name, std::ios::out | std::ios::trunc | std::ios::binary);
-    model_proto.SerializeToOstream(outfile);
-  }
-#endif
+  //set workload type to decide on the performance mode
+  SetWorkLoadType(device_config);
 
   try {
     std::string dev_prec = global_context.device_type + "_" + global_context_.precision_str;
@@ -235,6 +230,15 @@ void BasicBackend::SetNumThreads(ov::AnyMap& device_config) {
   if (global_context_.device_type.find("CPU") != std::string::npos)
     device_config.emplace(ov::inference_num_threads(global_context_.num_of_threads));
 }
+
+void BasicBackend::SetWorkLoadType(ov::AnyMap& device_config){
+  if((global_context_.OpenVINO_Version.at(0) >= 2024 &&
+      global_context_.OpenVINO_Version.at(1) >= 4 )){
+        device_config.emplace(ov::workload_type(global_context_.workload_type));
+        LOGS_DEFAULT(INFO) << log_tag << "Set workloadtype as " << global_context_.workload_type;
+      }
+}
+
 
 // Starts an asynchronous inference request for data in slice indexed by batch_slice_idx on
 // an Infer Request indexed by infer_req_idx

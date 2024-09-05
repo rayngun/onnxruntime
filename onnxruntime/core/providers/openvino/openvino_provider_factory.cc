@@ -15,7 +15,8 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
                           bool enable_opencl_throttling, bool disable_dynamic_shapes,
                           bool export_ep_ctx_blob, bool enable_qdq_optimizer,
                           bool disable_cpu_fallback,
-                          bool so_epctx_embed_mode)
+                          bool so_epctx_embed_mode,
+                          std::string workload_type)
       : precision_(precision),
         enable_npu_fast_compile_(enable_npu_fast_compile),
         num_of_threads_(num_of_threads),
@@ -27,7 +28,8 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
         export_ep_ctx_blob_(export_ep_ctx_blob),
         enable_qdq_optimizer_(enable_qdq_optimizer),
         disable_cpu_fallback_(disable_cpu_fallback),
-        so_epctx_embed_mode_(so_epctx_embed_mode) {
+        so_epctx_embed_mode_(so_epctx_embed_mode),
+        workload_type_(workload_type) {
     device_type_ = (device_type == nullptr) ? "" : device_type;
     cache_dir_ = (cache_dir == nullptr) ? "" : cache_dir;
   }
@@ -52,14 +54,14 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
   bool enable_qdq_optimizer_;
   bool disable_cpu_fallback_;
   bool so_epctx_embed_mode_;
+  std::string workload_type_;
 };
 
 std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
   OpenVINOExecutionProviderInfo info(device_type_, precision_, enable_npu_fast_compile_, num_of_threads_,
                                      cache_dir_, model_priority_, num_streams_, context_, enable_opencl_throttling_,
                                      disable_dynamic_shapes_, export_ep_ctx_blob_, enable_qdq_optimizer_,
-                                     disable_cpu_fallback_,
-                                     so_epctx_embed_mode_);
+                                     disable_cpu_fallback_, so_epctx_embed_mode_, workload_type_);
   return std::make_unique<OpenVINOExecutionProvider>(info);
 }
 
@@ -111,6 +113,8 @@ struct OpenVINO_Provider : Provider {
     bool disable_cpu_fallback = false;
 
     bool so_epctx_embed_mode = true;
+
+    std::string workload_type = "";
 
     if (provider_options_map.find("device_type") != provider_options_map.end()) {
       device_type = provider_options_map.at("device_type").c_str();
@@ -318,6 +322,17 @@ struct OpenVINO_Provider : Provider {
         }
       }
     }
+    if (provider_options_map.find("workload_type") != provider_options_map.end()) {
+      workload_type = provider_options_map.at("workload_type");
+      std::transform(workload_type.begin(), workload_type.end(), workload_type.begin(), ::tolower);
+      if (workload_type=="" || workload_type=="default") {
+        workload_type = "DEFAULT";
+      } else if(workload_type=="efficient") {
+        workload_type = "EFFICIENT";
+      } else {
+        ORT_THROW("[ERROR] [OpenVINO] Invalid workload_type - Supported modes are Default and Efficient \n");
+      }
+    }
 
     return std::make_shared<OpenVINOProviderFactory>(const_cast<char*>(device_type.c_str()),
                                                      const_cast<char*>(precision.c_str()),
@@ -332,7 +347,8 @@ struct OpenVINO_Provider : Provider {
                                                      export_ep_ctx_blob,
                                                      enable_qdq_optimizer,
                                                      disable_cpu_fallback,
-                                                     so_epctx_embed_mode);
+                                                     so_epctx_embed_mode,
+                                                     workload_type);
   }
 
   void Initialize() override {
