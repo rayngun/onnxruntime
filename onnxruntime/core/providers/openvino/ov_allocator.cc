@@ -1,6 +1,6 @@
 // Copyright (C) Intel Corporation
 // Licensed under the MIT License
-
+#ifdef USE_DEVICE_MEMORY
 #include "core/providers/openvino/ov_allocator.h"
 #include "core/providers/openvino/ov_interface.h"
 #include "openvino/runtime/intel_npu/level_zero/level_zero.hpp"
@@ -52,3 +52,4 @@ void OVRTAllocator::Free(void* p) {
 }
 
 }  // namespace onnxruntime
+#endif

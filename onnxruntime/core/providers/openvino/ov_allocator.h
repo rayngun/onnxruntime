@@ -1,6 +1,6 @@
 // Copyright (C) Intel Corporation
 // Licensed under the MIT License
-
+#ifdef USE_DEVICE_MEMORY
 #pragma once
 
 #include "core/common/inlined_containers.h"
@@ -22,3 +22,4 @@ class OVRTAllocator : public IAllocator {
 };
 
 }  // namespace onnxruntime
+#endif

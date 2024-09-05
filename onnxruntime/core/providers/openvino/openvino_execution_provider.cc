@@ -10,7 +10,9 @@
 #include "core/providers/openvino/onnx_ctx_model_helper.h"
 #include "core/providers/openvino/ov_versions/capability.h"
 #include "openvino/core/version.hpp"
+#ifdef USE_DEVICE_MEMORY
 #include "core/providers/openvino/ov_allocator.h"
+#endif
 
 #define MEMCPY_S(dest, src, destsz, srcsz) memcpy(dest, src, std::min(destsz, srcsz))
 
@@ -181,6 +183,7 @@ common::Status OpenVINOExecutionProvider::Compile(
   return Status::OK();
 }
 
+#ifdef USE_DEVICE_MEMORY
 std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators() {
   AllocatorCreationInfo npu_allocator_info {
     [this](OrtDevice::DeviceId device_id) {
@@ -192,5 +195,6 @@ std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators()
   // fill in allocator
   return std::vector<AllocatorPtr>{CreateAllocator(npu_allocator_info)};
 }
+#endif
 
 }  // namespace onnxruntime
