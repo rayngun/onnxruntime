@@ -287,8 +287,8 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           ORT_THROW(msg);
         }
       } else {
-        Ort::ConstValue tensor = context.GetInput(subgraph_context_.input_names.at(input_name));
-        std::string allocator_name = tensor.GetTensorMemoryInfo().GetAllocatorName();
+        auto tensor = context.GetInput(subgraph_context_.input_names.at(input_name));
+        auto allocator_name = tensor.GetTensorMemoryInfo().GetAllocatorName();
         ov_tensor_data_t ov_tensor_key;
         ort_tensor_key_t ort_tensor_key{tensor.GetTensorRawData(), allocator_name};
         if (const auto& it = ort_ov_tensor_map.find(ort_tensor_key); it != ort_ov_tensor_map.end()) {
@@ -315,7 +315,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
         if (ov_tensor_key.copy_needed) {
           const char* ort_tensor_data = tensor.GetTensorData<char>();
           size_t tensor_data_size = ov_tensor_key.tensor_ptr->get_byte_size();
-          const char *ort_batch_memory_offset = ort_tensor_data + tensor_data_size * batch_slice_idx;
+          auto ort_batch_memory_offset = ort_tensor_data + tensor_data_size * batch_slice_idx;
           std::memcpy(ov_tensor_key.tensor_ptr->data(), ort_batch_memory_offset, tensor_data_size);
         }
       }
@@ -324,7 +324,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
 
     // Set the output blob as remote blob
     auto graph_output_info = exe_network_.Get().outputs();
-    int output_idx = 0;
+    auto output_idx = 0;
     for (auto output_info_iter = graph_output_info.begin();
          output_info_iter != graph_output_info.end(); ++output_info_iter) {
       auto output_names = output_info_iter->get_names();
@@ -347,7 +347,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
                                                  infer_request,
                                                  output_name,
                                                  subgraph_context_.output_names);
-      std::string allocator_name = tensor.GetTensorMemoryInfo().GetAllocatorName();
+      auto allocator_name = tensor.GetTensorMemoryInfo().GetAllocatorName();
 
       ov_tensor_data_t ov_tensor_data;
       ort_tensor_key_t ort_tensor_key{tensor.GetTensorRawData(), allocator_name};

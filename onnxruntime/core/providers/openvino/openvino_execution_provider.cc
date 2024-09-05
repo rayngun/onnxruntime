@@ -180,7 +180,7 @@ common::Status OpenVINOExecutionProvider::Compile(
 
   return Status::OK();
 }
-#if OPENVINO_VERSION_MAJOR == 2024 && OPENVINO_VERSION_MINOR == 4
+
 std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators() {
   AllocatorCreationInfo npu_allocator_info {
     [this](OrtDevice::DeviceId device_id) {
@@ -192,6 +192,5 @@ std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators()
   // fill in allocator
   return std::vector<AllocatorPtr>{CreateAllocator(npu_allocator_info)};
 }
-#endif
 
 }  // namespace onnxruntime

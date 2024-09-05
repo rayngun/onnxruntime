@@ -976,6 +976,9 @@ bool OnnxRuntimeTestSession::PopulateGeneratedInputTestData(int32_t seed) {
     Ort::TypeInfo type_info = session_.GetInputTypeInfo(i);
     if (type_info.GetONNXType() == ONNX_TYPE_TENSOR) {
       auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
+      if (!use_device_mem){
+        Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+      }
       std::vector<int64_t> input_node_dim = tensor_info.GetShape();
 
       // free dimensions are treated as 1 if not overridden
@@ -990,7 +993,6 @@ bool OnnxRuntimeTestSession::PopulateGeneratedInputTestData(int32_t seed) {
         InitializeTensorWithSeed(seed, input_tensor);
         PreLoadTestData(0, i, std::move(input_tensor));
       } else {
-        Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
         auto allocator = Ort::AllocatorWithDefaultOptions();
         Ort::Value input_tensor = Ort::Value::CreateTensor(allocator, (const int64_t*)input_node_dim.data(),
                                                           input_node_dim.size(), tensor_info.GetElementType());
