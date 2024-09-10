@@ -187,6 +187,9 @@ class OpenVINOExecutionProvider : public IExecutionProvider {
 
   Status Compile(const std::vector<FusedNodeAndGraph>& fused_nodes,
                  std::vector<NodeComputeInfo>& node_compute_funcs) override;
+  Status OnRunStart(const onnxruntime::RunOptions& run_options) override;
+
+  Status OnRunEnd(bool sync_stream, const onnxruntime::RunOptions& run_options) override;
 
   const void* GetExecutionHandle() const noexcept override {
     return nullptr;

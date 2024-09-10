@@ -310,6 +310,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
       input_idx++;
     }
     // Start Async inference
+    exe_network_.Get().set_property(ov::workload_type(global_context_.runtime_workload_type));
     infer_request->StartAsync();
   } catch (const char* msg) {
     ORT_THROW(msg);
@@ -418,6 +419,7 @@ void BasicBackend::StartRemoteAsyncInference(Ort::KernelContext& context, OVInfe
     }
 
     // Start Async inference
+    exe_network_.Get().set_property(ov::workload_type(global_context_.runtime_workload_type));
     infer_request->StartAsync();
   } catch (const char* msg) {
     ORT_THROW(msg);
