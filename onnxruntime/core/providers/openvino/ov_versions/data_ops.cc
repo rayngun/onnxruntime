@@ -127,6 +127,7 @@ std::vector<SupportedOp> supported_op_mode = {
     {"Erf", V_2020_4, {"CPU", "GPU"}},
     {"Exp", V_2020_4, {"CPU", "GPU"}},
     {"Expand", V_2022_1, {"CPU", "GPU"}},
+    {"Expand", V_2024_3, {"CPU", "GPU"}},
     {"EyeLike", V_2022_1, {"CPU"}},
     {"Flatten", V_2020_4, {"CPU", "GPU"}},
     {"Floor", V_2020_4, {"CPU", "GPU"}},
@@ -328,6 +329,7 @@ void DataOps::populate_op_mode_supported() {
   no_dimension_supported_.push_back({"Equal", V_2022_1, {"CPU"}});
   no_dimension_supported_.push_back({"Equal", V_2023_0, {"GPU"}});
   no_dimension_supported_.push_back({"Expand", V_2023_3, {"CPU"}});
+  no_dimension_supported_.push_back({"Expand", V_2024_3, {"CPU", "GPU"}});
   no_dimension_supported_.push_back({"Floor", V_2020_4, {"All"}});
   no_dimension_supported_.push_back({"Gather", V_2020_4, {"All"}});
   no_dimension_supported_.push_back({"Identity", V_2023_0, {"All"}});
