@@ -1,6 +1,6 @@
 // Copyright (C) Intel Corporation
 // Licensed under the MIT License
-#ifdef USE_DEVICE_MEMORY
+#ifdef USE_OVEP_NPU_MEMORY
 #include "core/providers/openvino/ov_allocator.h"
 #include "core/providers/openvino/ov_interface.h"
 #include "openvino/runtime/intel_npu/level_zero/level_zero.hpp"
@@ -28,7 +28,7 @@ void* OVRTAllocator::Alloc(size_t size) {
   try {
     size_t alloc_size = align_up(size + sizeof(ov::Tensor*) + default_alignment, default_alignment);
     ov::Tensor* tensor = new ov::Tensor(remote_ctx_.create_host_tensor(ov::element::Type_t::u8,
-                                                                       { alloc_size }));
+                                                                       {alloc_size}));
     uintptr_t data_ptr = reinterpret_cast<uintptr_t>(tensor->data());
 
     ov::Tensor** ptr = reinterpret_cast<ov::Tensor**>(align_up(data_ptr + sizeof(ov::Tensor*), default_alignment));
