@@ -239,7 +239,9 @@ void BasicBackend::SetNumThreads(ov::AnyMap& device_config) {
 void BasicBackend::SetWorkLoadType(ov::AnyMap& device_config){
   if((global_context_.OpenVINO_Version.at(0) >= 2024 &&
       global_context_.OpenVINO_Version.at(1) >= 4 )){
-        device_config.emplace(ov::workload_type(global_context_.workload_type));
+        std::pair<std::string, ov::Any> device_property;
+        device_property = std::make_pair("WORKLOAD_TYPE", global_context_.workload_type);
+        device_config.emplace(ov::device::properties("NPU", device_property));
         LOGS_DEFAULT(INFO) << log_tag << "Set workloadtype as " << global_context_.workload_type;
       }
 }
@@ -403,7 +405,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
     }
 
     // Start Async inference
-    exe_network_.Get().set_property(ov::workload_type(global_context_.runtime_workload_type));
+    exe_network_.Get().set_property({{"WORKLOAD_TYPE", global_context_.runtime_workload_type}});
     infer_request->StartAsync();
   } catch (const char* msg) {
     ORT_THROW(msg);
@@ -512,7 +514,7 @@ void BasicBackend::StartRemoteAsyncInference(Ort::KernelContext& context, OVInfe
     }
 
     // Start Async inference
-    exe_network_.Get().set_property(ov::workload_type(global_context_.runtime_workload_type));
+    exe_network_.Get().set_property({{"WORKLOAD_TYPE", global_context_.runtime_workload_type}});
     infer_request->StartAsync();
   } catch (const char* msg) {
     ORT_THROW(msg);
