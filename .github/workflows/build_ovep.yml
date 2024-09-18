@@ -31,5 +31,5 @@ jobs:
         cd w_openvino_toolkit_windows_2024.3.0.16041.1e3b88e4e3f_x86_64
         call setupvars.bat
         cd ../../
-        call build.bat --build --update --config Release --cmake_generator "Visual Studio 17 2022" --use_openvino --build_shared_lib --skip_tests --parallel  --compile_no_warning_as_error
+        call build.bat --build --update --config Release --cmake_generator "Visual Studio 17 2022" --use_openvino --build_shared_lib --parallel --enable_pybind
       shell: cmd
