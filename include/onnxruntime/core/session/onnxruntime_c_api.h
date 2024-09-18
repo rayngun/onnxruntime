@@ -630,27 +630,27 @@ typedef struct OrtMIGraphXProviderOptions {
  */
 typedef struct OrtOpenVINOProviderOptions {
 #ifdef __cplusplus
-  OrtOpenVINOProviderOptions() : device_type{},
-                                 enable_npu_fast_compile{},
-                                 device_id{},
+OrtOpenVINOProviderOptions() : device_type{},
+                                 precision{},
                                  num_of_threads{},
-                                 cache_dir{},
+                                 num_streams{},
                                  context{},
+                                 cache_dir{},
                                  enable_opencl_throttling{},
-                                 enable_dynamic_shapes{} {}
+                                 enable_qdq_optimizer{} {}
 #endif
   /** \brief Device type string
    *
    * Valid settings are one of: "CPU_FP32", "CPU_FP16", "GPU_FP32", "GPU_FP16"
    */
-  const char* device_type;
-  unsigned char enable_npu_fast_compile;  ///< 0 = disabled, nonzero = enabled
-  const char* device_id;
+  const char* device_type;  ///< values can be CPU, GPU, NPU, Any valid Hetero combination, Any valid Multi or Auto devices combination
+  const char* precision; ///< values can be FP32, FP16, ACCURACY based on the device_type chosen
   size_t num_of_threads;  ///< 0 = Use default number of threads
-  const char* cache_dir;  // path is set to empty by default
-  void* context;
+  size_t num_streams;  ///< 0 = Use default number of streams
+  void* context;  ///< OpenCL Context 
+  const char* cache_dir;  ///< Any valid string path on the hardware target 
   unsigned char enable_opencl_throttling;  ///< 0 = disabled, nonzero = enabled
-  unsigned char enable_dynamic_shapes;     ///< 0 = disabled, nonzero = enabled
+  unsigned char enable_qdq_optimizer; ///< 0 = disabled, nonzero = enabled
 } OrtOpenVINOProviderOptions;
 
 struct OrtApi;
