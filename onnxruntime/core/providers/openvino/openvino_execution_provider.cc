@@ -143,7 +143,7 @@ common::Status OpenVINOExecutionProvider::Compile(
     // For original model, check if the user wants to export a model with pre-compiled blob
 
     std::shared_ptr<openvino_ep::BackendManager> backend_manager =
-        std::make_shared<openvino_ep::BackendManager>(*global_context_,
+        std::make_shared<openvino_ep::BackendManager>(global_context_.get(),
                                                       fused_node,
                                                       graph_body_viewer,
                                                       *GetLogger(),
@@ -181,18 +181,15 @@ common::Status OpenVINOExecutionProvider::Compile(
   return Status::OK();
 }
 common::Status OpenVINOExecutionProvider::OnRunStart(const onnxruntime::RunOptions& run_options) {
-  // std::string workload_type="";
   auto workload_type_opt = run_options.GetConfigOptions().GetConfigEntry(kOrtRunOptionsWorkloadType);
   if(workload_type_opt.has_value()){
     std::string workload_type = workload_type_opt.value();
-    std::cout << " Workload type from RunOption = " << workload_type << std::endl;
+    LOGS_DEFAULT(INFO) << "[OpenVINO-EP]" << "Workload type from ORT RunOption = " << workload_type;
     std::transform(workload_type.begin(), workload_type.end(), workload_type.begin(), ::tolower);
     if (workload_type=="default") {
       global_context_->runtime_workload_type = "DEFAULT";
-      // backend_manager_->GetGlobalContext().runtime_workload_type = "DEFAULT";
     } else if(workload_type=="efficient") {
       global_context_->runtime_workload_type = "EFFICIENT";
-      // backend_manager_->GetGlobalContext().runtime_workload_type = "EFFICIENT";
     }
   }
    return Status::OK();
