@@ -454,7 +454,10 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
     }
 
     // Start Async inference
-    exe_network_.Get().set_property({{"WORKLOAD_TYPE", global_context_.runtime_workload_type}});
+    // exe_network_.Get().set_property(ov::device::properties("NPU",
+    //                                 {{"WORKLOAD_TYPE", global_context_.runtime_workload_type}}));
+    std::cout << " Global context runtime workload type = " << global_context_.runtime_workload_type << std::endl;
+    exe_network_.Get().set_property(ov::workload_type(global_context_.runtime_workload_type));
     infer_request->StartAsync();
   } catch (const char* msg) {
     ORT_THROW(msg);
@@ -563,7 +566,10 @@ void BasicBackend::StartRemoteAsyncInference(Ort::KernelContext& context, OVInfe
     }
 
     // Start Async inference
-    exe_network_.Get().set_property({{"WORKLOAD_TYPE", global_context_.runtime_workload_type}});
+    // exe_network_.Get().set_property(ov::device::properties("NPU",
+    //                                 {{"WORKLOAD_TYPE", global_context_.runtime_workload_type}}));
+    exe_network_.Get().set_property(ov::workload_type(global_context_.runtime_workload_type));
+
     infer_request->StartAsync();
   } catch (const char* msg) {
     ORT_THROW(msg);

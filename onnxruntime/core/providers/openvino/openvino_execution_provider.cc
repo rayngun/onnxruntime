@@ -152,7 +152,7 @@ common::Status OpenVINOExecutionProvider::Compile(
                                                       graph_body_viewer,
                                                       *GetLogger(),
                                                       ep_ctx_handle_);
-
+    backend_manager_ = backend_manager;
     compute_info.create_state_func =
         [backend_manager](ComputeContext* context, FunctionState* state) {
           OpenVINOEPFunctionState* p = new OpenVINOEPFunctionState();
@@ -185,20 +185,20 @@ common::Status OpenVINOExecutionProvider::Compile(
   return Status::OK();
 }
 common::Status OpenVINOExecutionProvider::OnRunStart(const onnxruntime::RunOptions& run_options) {
-  std::string workload_type="";
+  // std::string workload_type="";
   auto workload_type_opt = run_options.GetConfigOptions().GetConfigEntry(kOrtRunOptionsWorkloadType);
   if(workload_type_opt.has_value()){
-    workload_type = workload_type_opt.value();
+    std::string workload_type = workload_type_opt.value();
+    std::cout << " Workload type from RunOption = " << workload_type << std::endl;
+    std::transform(workload_type.begin(), workload_type.end(), workload_type.begin(), ::tolower);
+    if (workload_type=="default") {
+      global_context_->runtime_workload_type = "DEFAULT";
+      // backend_manager_->GetGlobalContext().runtime_workload_type = "DEFAULT";
+    } else if(workload_type=="efficient") {
+      global_context_->runtime_workload_type = "EFFICIENT";
+      // backend_manager_->GetGlobalContext().runtime_workload_type = "EFFICIENT";
+    }
   }
-   std::transform(workload_type.begin(), workload_type.end(), workload_type.begin(), ::tolower);
-   if (workload_type=="" || workload_type=="default") {
-     workload_type = "DEFAULT";
-   } else if(workload_type=="efficient") {
-     workload_type = "EFFICIENT";
-   } else {
-     ORT_THROW("[ERROR] [OpenVINO] Invalid workload_type - Supported modes are Default and Efficient \n");
-   }
-   global_context_->runtime_workload_type = workload_type;
    return Status::OK();
 }
 
