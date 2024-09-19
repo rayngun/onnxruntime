@@ -30,7 +30,7 @@ class InferRequestsQueue;
 class BasicBackend : public IBackend {
  public:
   BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_proto,
-               GlobalContext& global_context,
+               GlobalContext* global_context,
                const SubGraphContext& subgraph_context,
                EPCtxHandler& ep_ctx_handle);
 
@@ -56,7 +56,7 @@ class BasicBackend : public IBackend {
 
   void CompleteAsyncInference(Ort::KernelContext& context, std::shared_ptr<OVInferRequest> infer_request);
 
-  GlobalContext& global_context_;
+  GlobalContext* global_context_;
   SubGraphContext subgraph_context_;
   mutable std::mutex compute_lock_;
   std::shared_ptr<const OVNetwork> ie_cnn_network_;
