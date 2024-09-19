@@ -197,6 +197,7 @@ class OpenVINOExecutionProvider : public IExecutionProvider {
 #ifdef USE_OVEP_NPU_MEMORY
   std::vector<AllocatorPtr> CreatePreferredAllocators() override;
 #endif
+  std::shared_ptr<openvino_ep::BackendManager> backend_manager_;
  private:
   std::unique_ptr<openvino_ep::GlobalContext> global_context_;
   openvino_ep::EPCtxHandler ep_ctx_handle_{};
