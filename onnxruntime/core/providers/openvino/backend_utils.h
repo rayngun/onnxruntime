@@ -34,7 +34,7 @@ bool IsDebugEnabled();
 // Internal diagnostic function.
 bool IsCILogEnabled();
 
-int GetFirstAvailableDevice(GlobalContext& global_context);
+int GetFirstAvailableDevice(GlobalContext* global_context);
 
 void FillOutputsWithConstantData(std::shared_ptr<ov::Node> node, Ort::UnownedValue& out_tensor);
 
@@ -62,7 +62,7 @@ void FillOutputBlob(OVTensorPtr outputBlob, Ort::UnownedValue& output_tensor,
 
 std::shared_ptr<OVNetwork>
 CreateOVModel(const ONNX_NAMESPACE::ModelProto& model_proto,
-              const GlobalContext& global_context,
+              const GlobalContext* global_context,
               std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map);
 
 void printPerformanceCounts(const std::vector<OVProfilingInfo>& performanceMap,

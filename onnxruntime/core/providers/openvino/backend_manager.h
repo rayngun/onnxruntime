@@ -19,7 +19,7 @@ namespace openvino_ep {
 // Singleton class that manages all the backends
 class BackendManager {
  public:
-  BackendManager(const GlobalContext& global_context,
+  BackendManager(GlobalContext* global_context,
                  const onnxruntime::Node& fused_node,
                  const onnxruntime::GraphViewer& subgraph,
                  const logging::Logger& logger,
@@ -27,7 +27,7 @@ class BackendManager {
   void Compute(OrtKernelContext* context);
   void ShutdownBackendManager();
   void SetGlobalCotext(const GlobalContext& global_context);
-  GlobalContext& GetGlobalContext();
+  GlobalContext* GetGlobalContext();
   Status ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphViewer& subgraph,
                                        const logging::Logger& logger);
 
@@ -51,7 +51,7 @@ class BackendManager {
   std::shared_ptr<IBackend> concrete_backend_;
   std::map<std::string, std::shared_ptr<IBackend>> backend_map_;
   SubGraphContext subgraph_context_;
-  GlobalContext global_context_;
+  GlobalContext* global_context_;
   EPCtxHandler ep_ctx_handle_{};
   std::string openvino_sdk_version_{};
 };
