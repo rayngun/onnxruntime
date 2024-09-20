@@ -48,7 +48,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
   // Set the inference_num_threads property of the CPU
   SetNumThreads(device_config);
 
-  //set workload type to decide on the performance mode
+  // set workload type to decide on the performance mode
   SetWorkLoadType(device_config);
 
   try {
@@ -59,8 +59,8 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
       if (is_ep_ctx_graph_) {
         std::istringstream model_stream(ep_ctx_handle.GetModelBlobString());
         exe_network_ = global_context_->ie_core.ImportModel(model_stream,
-                                                           remote_context_,
-                                                           subgraph_context_.subgraph_name);
+                                                            remote_context_,
+                                                            subgraph_context_.subgraph_name);
       } else if ((global_context_->device_type.find("GPU") != std::string::npos) &&
                  (global_context_->context != nullptr)) {
         LOGS_DEFAULT(INFO) << log_tag << "IO Buffering Enabled";
@@ -80,10 +80,10 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
         // If the blob is held in an EPContext node, then skip FE+Compile
         // and directly move on to creating a backend with the executable blob
         exe_network_ = global_context_->ie_core.ImportModel(ep_ctx_handle.GetModelBlobStream(),
-                                                           hw_target,
-                                                           device_config,
-                                                           global_context_->ep_context_embed_mode,
-                                                           subgraph_context_.subgraph_name);
+                                                            hw_target,
+                                                            device_config,
+                                                            global_context_->ep_context_embed_mode,
+                                                            subgraph_context_.subgraph_name);
       } else if (global_context_->export_ep_ctx_blob &&
                  hw_target.find("NPU") != std::string::npos) {
         std::shared_ptr<ov::Model> ov_model;
@@ -102,9 +102,9 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
         // Inputs with static dimenstions
         const std::string model = model_proto->SerializeAsString();
         exe_network_ = global_context_->ie_core.CompileModel(model,
-                                                            hw_target,
-                                                            device_config,
-                                                            subgraph_context_.subgraph_name);
+                                                             hw_target,
+                                                             device_config,
+                                                             subgraph_context_.subgraph_name);
       } else {  // For all other types use ov::Model Type
         ie_cnn_network_ = CreateOVModel(*model_proto, global_context_, const_outputs_map_);
         exe_network_ = global_context_->ie_core.CompileModel(
@@ -235,16 +235,15 @@ void BasicBackend::SetNumThreads(ov::AnyMap& device_config) {
     device_config.emplace(ov::inference_num_threads(global_context_->num_of_threads));
 }
 
-void BasicBackend::SetWorkLoadType(ov::AnyMap& device_config){
-  if((global_context_->OpenVINO_Version.at(0) >= 2024 &&
-      global_context_->OpenVINO_Version.at(1) >= 3 )){
-        std::pair<std::string, ov::Any> device_property;
-        device_property = std::make_pair("WORKLOAD_TYPE", global_context_->workload_type);
-        device_config.emplace(ov::device::properties("NPU", device_property));
-        LOGS_DEFAULT(INFO) << log_tag << "Set compile time workloadtype as " << global_context_->workload_type;
-      }
+void BasicBackend::SetWorkLoadType(ov::AnyMap& device_config) {
+  if ((global_context_->OpenVINO_Version.at(0) >= 2024 &&
+       global_context_->OpenVINO_Version.at(1) >= 3)) {
+    std::pair<std::string, ov::Any> device_property;
+    device_property = std::make_pair("WORKLOAD_TYPE", global_context_->workload_type);
+    device_config.emplace(ov::device::properties("NPU", device_property));
+    LOGS_DEFAULT(INFO) << log_tag << "Set compile time workloadtype as " << global_context_->workload_type;
+  }
 }
-
 
 // Starts an asynchronous inference request for data in slice indexed by batch_slice_idx on
 // an Infer Request indexed by infer_req_idx

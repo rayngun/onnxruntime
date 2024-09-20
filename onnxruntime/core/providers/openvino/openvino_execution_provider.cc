@@ -185,13 +185,13 @@ common::Status OpenVINOExecutionProvider::Compile(
 }
 common::Status OpenVINOExecutionProvider::OnRunStart(const onnxruntime::RunOptions& run_options) {
   auto workload_type_opt = run_options.GetConfigOptions().GetConfigEntry(kOrtRunOptionsWorkloadType);
-  if(workload_type_opt.has_value()){
+  if (workload_type_opt.has_value()) {
     std::string workload_type = workload_type_opt.value();
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP]" << "Workload type from ORT RunOption = " << workload_type;
     std::transform(workload_type.begin(), workload_type.end(), workload_type.begin(), ::tolower);
-    if (workload_type=="default") {
+    if (workload_type == "default") {
       global_context_->runtime_workload_type = "DEFAULT";
-    } else if(workload_type=="efficient") {
+    } else if (workload_type == "efficient") {
       global_context_->runtime_workload_type = "EFFICIENT";
     }
   }
@@ -201,7 +201,7 @@ common::Status OpenVINOExecutionProvider::OnRunStart(const onnxruntime::RunOptio
 common::Status OpenVINOExecutionProvider::OnRunEnd(bool /*sync_stream*/, const onnxruntime::RunOptions& run_options) {
   global_context_->runtime_workload_type = "";
   return Status::OK();
- }
+}
 #ifdef USE_OVEP_NPU_MEMORY
 std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators() {
   AllocatorCreationInfo npu_allocator_info{
@@ -215,6 +215,5 @@ std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators()
   return std::vector<AllocatorPtr>{CreateAllocator(npu_allocator_info)};
 }
 #endif
-
 
 }  // namespace onnxruntime

@@ -325,9 +325,9 @@ struct OpenVINO_Provider : Provider {
     if (provider_options_map.find("workload_type") != provider_options_map.end()) {
       workload_type = provider_options_map.at("workload_type");
       std::transform(workload_type.begin(), workload_type.end(), workload_type.begin(), ::tolower);
-      if (workload_type=="" || workload_type=="default") {
+      if (workload_type == "" || workload_type == "default") {
         workload_type = "DEFAULT";
-      } else if(workload_type=="efficient") {
+      } else if (workload_type == "efficient") {
         workload_type = "EFFICIENT";
       } else {
         ORT_THROW("[ERROR] [OpenVINO] Invalid workload_type - Supported modes are Default and Efficient \n");
