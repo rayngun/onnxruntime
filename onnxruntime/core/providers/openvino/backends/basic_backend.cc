@@ -175,8 +175,8 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
     }
     device_config.emplace(ov::device::properties("NPU", device_property));
 #if (OPENVINO_VERSION_MAJOR >= 2024) && (OPENVINO_VERSION_MINOR > 3)
-    if (global_context_.export_ep_ctx_blob) {
-      global_context_.ie_core.Get().set_property("NPU", ov::intel_npu::bypass_umd_caching(true));
+    if (global_context_->export_ep_ctx_blob) {
+      global_context_->ie_core.Get().set_property("NPU", ov::intel_npu::bypass_umd_caching(true));
     }
 #endif
   }
@@ -305,8 +305,8 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           ORT_THROW(msg);
         }
       } else {
-        if ((global_context_.device_type.find("CPU") != std::string::npos ||
-             global_context_.device_type.find("GPU") != std::string::npos)) {
+        if ((global_context_->device_type.find("CPU") != std::string::npos ||
+             global_context_->device_type.find("GPU") != std::string::npos)) {
           OVTensorPtr graph_input_blob;
           try {
             graph_input_blob = infer_request->GetTensor(input_name);
@@ -351,7 +351,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
       }
       input_idx++;
     }
-    if (global_context_.device_type.find("NPU") != std::string::npos) {
+    if (global_context_->device_type.find("NPU") != std::string::npos) {
       // Set the output blob as remote blob
       auto graph_output_info = exe_network_.Get().outputs();
       auto output_idx = 0;
@@ -557,8 +557,8 @@ void BasicBackend::CompleteAsyncInference(Ort::KernelContext& context, OVInferRe
             " doesn't exist in the "
             "list of OpenVINO output tensor names");
       }
-      if ((global_context_.device_type.find("CPU") != std::string::npos ||
-           global_context_.device_type.find("GPU") != std::string::npos)) {
+      if ((global_context_->device_type.find("CPU") != std::string::npos ||
+           global_context_->device_type.find("GPU") != std::string::npos)) {
         try {
           graph_output_blob = infer_request->GetTensor(output_name);
         } catch (const char* msg) {

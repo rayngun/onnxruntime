@@ -195,11 +195,12 @@ common::Status OpenVINOExecutionProvider::OnRunStart(const onnxruntime::RunOptio
       global_context_->runtime_workload_type = "EFFICIENT";
     }
   }
-   return Status::OK();
+  return Status::OK();
 }
 
 common::Status OpenVINOExecutionProvider::OnRunEnd(bool /*sync_stream*/, const onnxruntime::RunOptions& run_options) {
-   return Status::OK();
+  global_context_->runtime_workload_type = "";
+  return Status::OK();
  }
 #ifdef USE_OVEP_NPU_MEMORY
 std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators() {
