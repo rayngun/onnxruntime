@@ -144,14 +144,12 @@ common::Status OpenVINOExecutionProvider::Compile(
     // During backend creation, we check if user wants to use precompiled blob onnx model or the original model
     // For precompiled blob, directly load the model instead of compiling the model
     // For original model, check if the user wants to export a model with pre-compiled blob
-
     std::shared_ptr<openvino_ep::BackendManager> backend_manager =
         std::make_shared<openvino_ep::BackendManager>(global_context_.get(),
                                                       fused_node,
                                                       graph_body_viewer,
                                                       *GetLogger(),
                                                       ep_ctx_handle_);
-    backend_manager_ = backend_manager;
     compute_info.create_state_func =
         [backend_manager](ComputeContext* context, FunctionState* state) {
           OpenVINOEPFunctionState* p = new OpenVINOEPFunctionState();
@@ -199,7 +197,7 @@ common::Status OpenVINOExecutionProvider::OnRunStart(const onnxruntime::RunOptio
 }
 
 common::Status OpenVINOExecutionProvider::OnRunEnd(bool /*sync_stream*/, const onnxruntime::RunOptions& run_options) {
-  global_context_->runtime_workload_type = "";
+  global_context_->runtime_workload_type = global_context_->workload_type;
   return Status::OK();
 }
 #ifdef USE_OVEP_NPU_MEMORY
