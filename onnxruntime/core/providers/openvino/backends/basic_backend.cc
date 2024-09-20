@@ -453,9 +453,11 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
     }
 
     // Start Async inference
-    LOGS_DEFAULT(VERBOSE) << "[OpenVINO-EP]" << global_context_->runtime_workload_type << " mode is set for OV inference";
-    exe_network_.Get().set_property(ov::workload_type(global_context_->runtime_workload_type));
-    infer_request->StartAsync();
+    std::string runtime_workload_type = global_context_->runtime_workload_type;
+    if(runtime_workload_type=="DEFAULT" || runtime_workload_type=="EFFICIENT"){
+      LOGS_DEFAULT(VERBOSE) << "[OpenVINO-EP]" << global_context_->runtime_workload_type << " mode is set for OV inference";
+      exe_network_.Get().set_property(ov::workload_type(runtime_workload_type));
+    }
   } catch (const char* msg) {
     ORT_THROW(msg);
   }
@@ -563,9 +565,11 @@ void BasicBackend::StartRemoteAsyncInference(Ort::KernelContext& context, OVInfe
     }
 
     // Start Async inference
-    LOGS_DEFAULT(VERBOSE) << "[OpenVINO-EP]" << global_context_->runtime_workload_type << " mode is set for OV inference";
-    exe_network_.Get().set_property(ov::workload_type(global_context_->runtime_workload_type));
-
+    std::string runtime_workload_type = global_context_->runtime_workload_type;
+    if(runtime_workload_type=="DEFAULT" || runtime_workload_type=="EFFICIENT"){
+      LOGS_DEFAULT(VERBOSE) << "[OpenVINO-EP]" << global_context_->runtime_workload_type << " mode is set for OV inference";
+      exe_network_.Get().set_property(ov::workload_type(runtime_workload_type));
+    }
     infer_request->StartAsync();
   } catch (const char* msg) {
     ORT_THROW(msg);

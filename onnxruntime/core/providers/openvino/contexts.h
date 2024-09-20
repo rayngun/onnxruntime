@@ -34,7 +34,7 @@ struct GlobalContext {
   std::string onnx_model_name;
   std::string onnx_model_path_name;
   std::string workload_type;
-  std::string runtime_workload_type;
+  std::string runtime_workload_type="";
   int onnx_opset_version;
   void* context = 0;
   bool use_api_2;

@@ -31,7 +31,6 @@ BackendManager::BackendManager(GlobalContext* global_context,
                                const logging::Logger& logger,
                                EPCtxHandler& ep_ctx_handle_) {
   global_context_ = global_context;
-
   openvino_sdk_version_ = std::to_string(global_context_->OpenVINO_Version.at(0)) + "." +
                           std::to_string(global_context_->OpenVINO_Version.at(1));
   if (ep_ctx_handle_.CheckForOVEPCtxNode(subgraph, openvino_sdk_version_)) {
