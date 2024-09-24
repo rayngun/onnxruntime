@@ -708,8 +708,7 @@ struct ProviderHostImpl : ProviderHost {
   }
 
   // ConfigOptions (wrapped)
-  std::string ConfigOptions__GetConfigOrDefault(const ConfigOptions* p, const std::string& config_key, \
-                                                const std::string& default_value) override {
+  std::string ConfigOptions__GetConfigOrDefault(const ConfigOptions* p, const std::string& config_key, const std::string& default_value) override {
     return p->GetConfigOrDefault(config_key, default_value);
   }
 
@@ -1821,8 +1820,7 @@ ProviderOptions OrtOpenVINOProviderOptionsToOrtOpenVINOProviderOptionsV2(const O
   return ov_options_converted_map;
 }
 
-std::shared_ptr<IExecutionProviderFactory> OpenVINOProviderFactoryCreator::Create(const ProviderOptions* provider_options_map, \
-                                                                                  const SessionOptions* session_options) {
+std::shared_ptr<IExecutionProviderFactory> OpenVINOProviderFactoryCreator::Create(const ProviderOptions* provider_options_map, const SessionOptions* session_options) {
   // Append session options applicable for EP to EP Provider options.
   std::pair<const ProviderOptions*, const ConfigOptions&> config_buffer = {provider_options_map, session_options->config_options};
   const void* obj = reinterpret_cast<const void*>(&config_buffer);
@@ -2079,8 +2077,7 @@ ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_MIGraphX, _In
   API_IMPL_END
 }
 
-ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_OpenVINO, _In_ OrtSessionOptions* options, \
-                   _In_ const OrtOpenVINOProviderOptions* provider_options) {
+ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_OpenVINO, _In_ OrtSessionOptions* options, _In_ const OrtOpenVINOProviderOptions* provider_options) {
   API_IMPL_BEGIN
   const onnxruntime::ProviderOptions ov_options_converted_map = onnxruntime::OrtOpenVINOProviderOptionsToOrtOpenVINOProviderOptionsV2(provider_options);
   auto factory = onnxruntime::OpenVINOProviderFactoryCreator::Create(&ov_options_converted_map, &(options->value));
