@@ -357,7 +357,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           auto output = graph_output_info.at(output_idx);
           ov_tensor_data.ort_ptr = tensor.GetTensorRawData();
           ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(output.get_element_type(), output.get_shape(),
-                                                                   const_cast<void*>(tensor.GetTensorRawData()));
+                                                                   tensor.GetTensorMutableRawData());
           ort_ov_tensor_map[ort_tensor_key] = ov_tensor_data;
 
           try {
