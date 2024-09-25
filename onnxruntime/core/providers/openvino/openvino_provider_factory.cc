@@ -70,14 +70,14 @@ std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
       ORT_THROW("[ERROR] [OpenVINO] Invalid ep_ctx_file_path" + cache_dir_ + " \n");
     }
   }
-  if (!so_workload_type_.empty()){
+  if (!so_workload_type_.empty()) {
     std::transform(so_workload_type_.begin(), so_workload_type_.end(), so_workload_type_.begin(), ::tolower);
-    if (so_workload_type_=="default") {
+    if (so_workload_type_ == "default") {
       so_workload_type_ = "DEFAULT";
-    } else if (so_workload_type_=="efficient") {
+    } else if (so_workload_type_ == "efficient") {
       so_workload_type_ = "EFFICIENT";
     } else {
-        ORT_THROW("[ERROR] [OpenVINO] Invalid workload_type - Supported modes are Default and Efficient \n");
+      ORT_THROW("[ERROR] [OpenVINO] Invalid workload_type - Supported modes are Default and Efficient \n");
     }
   }
 
