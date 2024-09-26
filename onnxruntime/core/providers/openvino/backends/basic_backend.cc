@@ -21,11 +21,11 @@ namespace openvino_ep {
 using namespace backend_utils;
 
 BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_proto,
-                           GlobalContext& global_context,
+                           GlobalContext* global_context,
                            const SubGraphContext& subgraph_context,
                            EPCtxHandler& ep_ctx_handle)
     : global_context_(global_context), subgraph_context_(subgraph_context) {
-  std::string& hw_target = global_context_.device_type;
+  std::string& hw_target = global_context_->device_type;
 
   is_ep_ctx_graph_ = ep_ctx_handle.IsValidOVEPCtxGraph();
 
@@ -48,18 +48,20 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
   // Set the inference_num_threads property of the CPU
   SetNumThreads(device_config);
 
-  try {
-    std::string dev_prec = global_context.device_type + "_" + global_context_.precision_str;
+  SetWorkLoadType(device_config);
 
-    if (global_context.is_wholly_supported_graph) {  // Full graph is supported
+  try {
+    std::string dev_prec = global_context_->device_type + "_" + global_context_->precision_str;
+
+    if (global_context_->is_wholly_supported_graph) {  // Full graph is supported
 #if defined(IO_BUFFER_ENABLED)
       if (is_ep_ctx_graph_) {
         std::istringstream model_stream(ep_ctx_handle.GetModelBlobString());
-        exe_network_ = global_context_.ie_core.ImportModel(model_stream,
-                                                           remote_context_,
-                                                           subgraph_context_.subgraph_name);
-      } else if ((global_context.device_type.find("GPU") != std::string::npos) &&
-                 (global_context_.context != nullptr)) {
+        exe_network_ = global_context_->ie_core.ImportModel(model_stream,
+                                                            remote_context_,
+                                                            subgraph_context_.subgraph_name);
+      } else if ((global_context_->device_type.find("GPU") != std::string::npos) &&
+                 (global_context_->context != nullptr)) {
         LOGS_DEFAULT(INFO) << log_tag << "IO Buffering Enabled";
         cl_context ctx = static_cast<cl_context>(global_context_.context);
         remote_context_ = new ov::intel_gpu::ocl::ClContext(global_context_.ie_core.Get(), ctx);
