@@ -408,6 +408,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
       LOGS_DEFAULT(VERBOSE) << "[OpenVINO-EP]" << global_context_->runtime_workload_type << " mode is set for OV inference";
       exe_network_.Get().set_property(ov::workload_type(runtime_workload_type));
     }
+    infer_request->StartAsync();
   } catch (const char* msg) {
     ORT_THROW(msg);
   }
