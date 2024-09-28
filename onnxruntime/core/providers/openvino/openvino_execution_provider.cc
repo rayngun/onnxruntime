@@ -13,7 +13,7 @@
 #ifdef USE_OVEP_NPU_MEMORY
 #include "core/providers/openvino/ov_allocator.h"
 #endif
-
+#include "core/session/onnxruntime_run_options_config_keys.h"
 #define MEMCPY_S(dest, src, destsz, srcsz) memcpy(dest, src, std::min(destsz, srcsz))
 
 namespace onnxruntime {
@@ -38,6 +38,7 @@ OpenVINOExecutionProvider::OpenVINOExecutionProvider(const OpenVINOExecutionProv
   global_context_->enable_qdq_optimizer = info.enable_qdq_optimizer_;
   global_context_->disable_cpu_fallback = info.disable_cpu_fallback_;
   global_context_->ep_context_embed_mode = info.so_epctx_embed_mode_;
+  global_context_->workload_type = info.so_workload_type_;
 
   // to check if target device is available
   // using ie_core capability GetAvailableDevices to fetch list of devices plugged in
@@ -144,7 +145,7 @@ common::Status OpenVINOExecutionProvider::Compile(
     // For original model, check if the user wants to export a model with pre-compiled blob
 
     std::shared_ptr<openvino_ep::BackendManager> backend_manager =
-        std::make_shared<openvino_ep::BackendManager>(*global_context_,
+        std::make_shared<openvino_ep::BackendManager>(global_context_.get(),
                                                       fused_node,
                                                       graph_body_viewer,
                                                       *GetLogger(),
@@ -179,7 +180,26 @@ common::Status OpenVINOExecutionProvider::Compile(
         };
     node_compute_funcs.push_back(compute_info);
   }
+  return Status::OK();
+}
+common::Status OpenVINOExecutionProvider::OnRunStart(const onnxruntime::RunOptions& run_options) {
+  auto workload_type_opt = run_options.GetConfigOptions().GetConfigEntry(kOrtRunOptionsWorkloadType);
+  if (workload_type_opt.has_value()) {
+    std::string workload_type = workload_type_opt.value();
+    LOGS_DEFAULT(INFO) << "[OpenVINO-EP]" << "Workload type from ORT RunOption = " << workload_type;
+    std::transform(workload_type.begin(), workload_type.end(), workload_type.begin(), ::tolower);
+    if (workload_type == "default") {
+      global_context_->runtime_workload_type = "DEFAULT";
+    } else if (workload_type == "efficient") {
+      global_context_->runtime_workload_type = "EFFICIENT";
+    }
+  }
 
+  return Status::OK();
+}
+
+common::Status OpenVINOExecutionProvider::OnRunEnd(bool /*sync_stream*/, const onnxruntime::RunOptions& run_options) {
+  global_context_->runtime_workload_type = global_context_->workload_type;
   return Status::OK();
 }
 
