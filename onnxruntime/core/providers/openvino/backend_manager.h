@@ -19,7 +19,7 @@ namespace openvino_ep {
 // Singleton class that manages all the backends
 class BackendManager {
  public:
-  BackendManager( GlobalContext* global_context,
+  BackendManager(GlobalContext* global_context,
                  const onnxruntime::Node& fused_node,
                  const onnxruntime::GraphViewer& subgraph,
                  const logging::Logger& logger,
@@ -37,8 +37,10 @@ class BackendManager {
       const onnxruntime::GraphViewer& subgraph,
       const logging::Logger& logger) const;
 
-  bool ModelHasSymbolicInputDims(const onnxruntime::GraphViewer& subgraph) const;
-  bool ModelHasBatchedInputs(const ONNX_NAMESPACE::ModelProto& model_proto) const;
+  bool ModelHasSymbolicInputDims(
+       const onnxruntime::GraphViewer& subgraph) const;
+  bool ModelHasBatchedInputs(
+       const ONNX_NAMESPACE::ModelProto& model_proto) const;
 
   std::shared_ptr<ONNX_NAMESPACE::ModelProto>
   ReWriteBatchDimWithOne(const ONNX_NAMESPACE::ModelProto& model_proto);

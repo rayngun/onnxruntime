@@ -32,7 +32,8 @@ BackendManager::BackendManager(GlobalContext* global_context,
                                EPCtxHandler& ep_ctx_handle_) {
   global_context_ = global_context;
 
-   openvino_sdk_version_ = std::to_string(global_context_->OpenVINO_Version.at(0)) + "." +
+  openvino_sdk_version_ = std::to_string(
+                          global_context_->OpenVINO_Version.at(0)) + "." +
                           std::to_string(global_context_->OpenVINO_Version.at(1));
   if (ep_ctx_handle_.CheckForOVEPCtxNode(subgraph, openvino_sdk_version_)) {
     if (ep_ctx_handle_.ImportBlobFromEPCtxModel(subgraph) != Status::OK())
@@ -65,8 +66,10 @@ BackendManager::BackendManager(GlobalContext* global_context,
     i++;
   }
   subgraph_context_.subgraph_name = fused_node.Name();
-  auto model_proto = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
-  std::string device_type = openvino_ep::BackendManager::GetGlobalContext()->device_type;
+  auto model_proto = GetModelProtoFromFusedNode(
+                     fused_node, subgraph, logger);
+  std::string device_type = 
+                     openvino_ep::BackendManager::GetGlobalContext()->device_type;
 
   if (ModelHasSymbolicInputDims(subgraph)) {
     subgraph_context_.has_dynamic_input_shape = true;
@@ -88,7 +91,8 @@ BackendManager::BackendManager(GlobalContext* global_context,
         ORT_THROW(msg);
       }
       LOGS_DEFAULT(INFO) << "[OpenVINO-EP] "
-                         << "Backend created for graph " << subgraph_context_.subgraph_name;
+                         << "Backend created for graph " << 
+                         subgraph_context_.subgraph_name;
     } else {
       // Only cache model_proto in global to rewrite the model with input shapes at runtime.
       // For dynamic backend creation
@@ -149,7 +153,8 @@ BackendManager::BackendManager(GlobalContext* global_context,
           if (std::regex_search(exception_str, matches, error_code_pattern)) {
             error_code = matches[0];
           }
-          throw std::runtime_error(error_message + ", " + error_code + "\nModel needs to be recompiled\n");
+          throw std::runtime_error(error_message + ", " + 
+                                   error_code + "\nModel needs to be recompiled\n");
 #endif
         } else {
           ORT_THROW(exception_str);
@@ -332,7 +337,8 @@ BackendManager::GetModelProtoFromFusedNode(const onnxruntime::Node& fused_node,
           std::chrono::duration_cast<std::chrono::milliseconds>(
               model_proto_create_end_ - model_proto_create_start_)
               .count();
-      LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model Proto creation took: " << model_proto_create_duration << " ms.";
+      LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model Proto creation took: "
+       << model_proto_create_duration << " ms.";
     }
   };
 
@@ -356,7 +362,8 @@ BackendManager::GetModelProtoFromFusedNode(const onnxruntime::Node& fused_node,
     model_proto->set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
     subgraph.ToProto(*model_proto->mutable_graph(), true, true);
     print_model_proto_duration();
-    DumpOpenVINOEPModel(global_context_->onnx_model_path_name, model_proto.get(), fused_node);
+    DumpOpenVINOEPModel(global_context_->onnx_model_path_name, 
+                        model_proto.get(), fused_node);
     return model_proto;
   }
 }
@@ -461,7 +468,8 @@ void BackendManager::Compute(OrtKernelContext* context) {
       LOGS_DEFAULT(INFO) << "[OpenVINO-EP] "
                          << "Creating dynamic backend for key: " << key;
       LOGS_DEFAULT(INFO) << "[OpenVINO-EP] "
-                         << "Backend created for graph " << subgraph_context_.subgraph_name;
+                         << "Backend created for graph " 
+                         << subgraph_context_.subgraph_name;
       auto modelproto_with_concrete_shapes = ReWriteInputShapeInfo(*model_proto_, tensor_shapes);
       try {
         dynamic_backend = BackendFactory::MakeBackend(modelproto_with_concrete_shapes,

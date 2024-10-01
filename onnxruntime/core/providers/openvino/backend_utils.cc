@@ -19,7 +19,8 @@ namespace openvino_ep {
 namespace backend_utils {
 
 bool IsDebugEnabled() {
-  const std::string env_name = onnxruntime::GetEnvironmentVar("ORT_OPENVINO_ENABLE_DEBUG");
+  const std::string env_name = 
+        onnxruntime::GetEnvironmentVar("ORT_OPENVINO_ENABLE_DEBUG");
   if (!env_name.empty()) {
     return true;
   }
@@ -47,7 +48,8 @@ CreateOVModel(const ONNX_NAMESPACE::ModelProto& model_proto, const GlobalContext
   }
   const std::string model = model_proto.SerializeAsString();
   try {
-    auto cnn_network = global_context->ie_core.ReadModel(model, global_context->onnx_model_path_name);
+    auto cnn_network = global_context->ie_core.ReadModel(
+                       model, global_context->onnx_model_path_name);
 
     // Check for Constant Folding
     if (!global_context->is_wholly_supported_graph) {
@@ -58,7 +60,8 @@ CreateOVModel(const ONNX_NAMESPACE::ModelProto& model_proto, const GlobalContext
 
       for (auto it = results.rbegin(); it != results.rend(); ++it) {
         if (auto const_node =
-                std::dynamic_pointer_cast<ov::op::v0::Constant>((*it)->input_value(0).get_node_shared_ptr())) {
+                std::dynamic_pointer_cast<ov::op::v0::Constant>
+                ((*it)->input_value(0).get_node_shared_ptr())) {
           const_outputs_map[(*it)->get_friendly_name()] = const_node;
           results.erase(results.begin() + index);
         }
@@ -248,15 +251,19 @@ void printPerformanceCounts(const std::vector<OVProfilingInfo>& performanceMap,
         stream << std::setw(15) << std::left << "OPTIMIZED_OUT";
         break;
     }
-    stream << std::setw(30) << std::left << "layerType: " + std::string(it.node_type) + " ";
-    stream << std::setw(20) << std::left << "realTime: " + std::to_string(it.real_time.count());
-    stream << std::setw(20) << std::left << "cpu: " + std::to_string(it.cpu_time.count());
+    stream << std::setw(30) << std::left << "layerType: " + 
+              std::string(it.node_type) + " ";
+    stream << std::setw(20) << std::left << "realTime: " + 
+              std::to_string(it.real_time.count());
+    stream << std::setw(20) << std::left << "cpu: " + 
+              std::to_string(it.cpu_time.count());
     stream << " execType: " << it.exec_type << std::endl;
     if (it.real_time.count() > 0) {
       totalTime += it.real_time.count();
     }
   }
-  stream << std::setw(20) << "Total time: " + std::to_string(totalTime) << " microseconds" << std::endl;
+  stream << std::setw(20) << "Total time: " + std::to_string(totalTime)
+         << " microseconds" << std::endl;
   std::cout << std::endl;
   std::cout << "Full device name: " << deviceName << std::endl;
   std::cout << std::endl;
