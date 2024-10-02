@@ -85,13 +85,9 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
       } else if (global_context_.export_ep_ctx_blob &&
                  hw_target.find("NPU") != std::string::npos &&
                  !global_context_.has_external_weights) {
-        std::shared_ptr<ov::Model> ov_model;
-        {
-          const std::string model = model_proto->SerializeAsString();
-          if (!subgraph_context.has_dynamic_input_shape) {
-            delete model_proto.release();
-          }
-          ov_model = global_context_.ie_core.Get().read_model(model, ov::Tensor());
+        std::shared_ptr<ov::Model> ov_model = global_context_.ie_core.ReadModel(reinterpret_cast<uint64_t>(model_proto.get()));
+        if (!subgraph_context.has_dynamic_input_shape) {
+          delete model_proto.release();
         }
         exe_network_ = OVExeNetwork(global_context_.ie_core.Get().compile_model(ov_model, hw_target, device_config));
       } else if (!global_context_.has_external_weights &&

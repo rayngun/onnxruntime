@@ -71,6 +71,25 @@ std::shared_ptr<OVNetwork> OVCore::ReadModel(const std::string& model, const std
   }
 }
 
+std::shared_ptr<OVNetwork> OVCore::ReadModel(uint64_t model_proto_ptr) const {
+  try {
+    ov::frontend::FrontEndManager manager;
+    ov::frontend::FrontEnd::Ptr FE;
+    ov::frontend::InputModel::Ptr inputModel;
+
+    ov::AnyVector params{model_proto_ptr};
+    FE = manager.load_by_model(params);
+    if (FE) {
+      inputModel = FE->load(params);
+      return FE->convert(inputModel);
+    } else {
+      ORT_THROW(log_tag + "[OpenVINO-EP] Unknown exception while Reading network");
+    }
+  } catch (...) {
+    ORT_THROW(log_tag + "[OpenVINO-EP] Unknown exception while Reading network");
+  }
+}
+
 OVExeNetwork OVCore::CompileModel(std::shared_ptr<const OVNetwork>& ie_cnn_network,
                                   std::string& hw_target,
                                   ov::AnyMap& device_config,
