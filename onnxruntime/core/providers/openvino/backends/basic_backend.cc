@@ -85,7 +85,15 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
       } else if (global_context_.export_ep_ctx_blob &&
                  hw_target.find("NPU") != std::string::npos &&
                  !global_context_.has_external_weights) {
-        std::shared_ptr<ov::Model> ov_model = global_context_.ie_core.ReadModel(reinterpret_cast<uint64_t>(model_proto.get()));
+        std::shared_ptr<ov::Model> ov_model;
+        try {
+          ov_model = global_context_.ie_core.ReadModel(reinterpret_cast<uint64_t>(model_proto.get()));
+        } catch (...) {
+          // Try to load from serialized proto
+          std::string serialized_proto_model;
+          model_proto->SerializeToString(serialized_proto_model);
+          ov_model = global_context_.ie_core.Get().read_model(serialized_proto_model, ov::Tensor());
+        }
         if (!subgraph_context.has_dynamic_input_shape) {
           delete model_proto.release();
         }
