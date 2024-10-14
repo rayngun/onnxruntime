@@ -94,7 +94,7 @@ struct OpenVINOExecutionProviderInfo {
 
   OpenVINOExecutionProviderInfo() = delete;
 
-  explicit OpenVINOExecutionProviderInfo(const std::string& dev_type, const std::string& precision,
+  explicit OpenVINOExecutionProviderInfo(std::string& dev_type, const std::string& precision,
                                          size_t num_of_threads,
                                          const std::string& load_config, const std::string& cache_dir,
                                          const std::string& model_priority, int num_streams,
