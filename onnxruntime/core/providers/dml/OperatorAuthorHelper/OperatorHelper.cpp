@@ -606,7 +606,8 @@ namespace OperatorHelper
 
     std::pair<std::vector<uint32_t>, std::vector<uint32_t>> GetFusedMatMulSizesAndStrides(
         gsl::span<const uint32_t> sizes,
-        int32_t transBatch)
+        int32_t transBatch,
+        int32_t transpose)
     {
         const uint32_t dimensionCount = gsl::narrow_cast<uint32_t>(sizes.size());
         std::vector<uint32_t> newStrides(dimensionCount);
@@ -632,6 +633,11 @@ namespace OperatorHelper
             std::rotate(newStrides.begin(), newStrides.begin() + 1, newStrides.end() - 1);
         }
 
+        if (transpose && dimensionCount > 1)
+        {
+            std::swap(newStrides[dimensionCount - 2], newStrides[dimensionCount - 1]);
+            std::swap(newSizes[dimensionCount - 2], newSizes[dimensionCount - 1]);
+        }
 
         return std::make_pair(newSizes, newStrides);
     }

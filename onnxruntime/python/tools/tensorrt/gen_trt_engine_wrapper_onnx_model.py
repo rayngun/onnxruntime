@@ -38,7 +38,7 @@ class TensorRTEngineWrapperCreator:
         # Deserialize an TRT engine
         runtime = trt.Runtime(logger)
         engine = runtime.deserialize_cuda_engine(engine_buffer)
-        num_bindings = engine.num_io_tensors
+        num_bindings = engine.num_bindings
 
         input_tensors = []
         output_tensors = []

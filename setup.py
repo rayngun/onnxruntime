@@ -59,7 +59,6 @@ rocm_version = None
 is_migraphx = False
 is_rocm = False
 is_openvino = False
-is_qnn = False
 # The following arguments are mutually exclusive
 if wheel_name_suffix == "gpu":
     # TODO: how to support multiple CUDA versions?
@@ -88,8 +87,7 @@ elif parse_arg_remove_boolean(sys.argv, "--use_azure"):
     # keep the same name since AzureEP will release with CpuEP by default.
     pass
 elif parse_arg_remove_boolean(sys.argv, "--use_qnn"):
-    is_qnn = True
-    package_name = "onnxruntime-qnn" if not nightly_build else "ort-nightly-qnn"
+    package_name = "onnxruntime-qnn"
 
 if is_rocm or is_migraphx:
     package_name = "onnxruntime-rocm" if not nightly_build else "ort-rocm-nightly"
@@ -280,7 +278,7 @@ try:
                 pass
 
             _bdist_wheel.run(self)
-            if is_manylinux and not disable_auditwheel_repair and not is_openvino and not is_qnn:
+            if is_manylinux and not disable_auditwheel_repair and not is_openvino:
                 assert self.dist_dir is not None
                 file = glob(path.join(self.dist_dir, "*linux*.whl"))[0]
                 logger.info("repairing %s for manylinux1", file)
@@ -350,16 +348,6 @@ if platform.system() == "Linux" or platform.system() == "AIX":
     libs.append(providers_cuda_or_rocm)
     libs.append(providers_tensorrt_or_migraphx)
     libs.append(providers_cann)
-    # QNN
-    qnn_deps = [
-        "libQnnCpu.so",
-        "libQnnHtp.so",
-        "libQnnSaver.so",
-        "libQnnSystem.so",
-        "libHtpPrepare.so",
-        "onnxruntime_qnn_ctx_gen",
-    ]
-    dl_libs.extend(qnn_deps)
     if nightly_build:
         libs.extend(["libonnxruntime_pywrapper.so"])
 elif platform.system() == "Darwin":
@@ -506,9 +494,8 @@ packages = [
     "onnxruntime.transformers.models.llama",
     "onnxruntime.transformers.models.longformer",
     "onnxruntime.transformers.models.phi2",
-    "onnxruntime.transformers.models.sam2",
-    "onnxruntime.transformers.models.stable_diffusion",
     "onnxruntime.transformers.models.t5",
+    "onnxruntime.transformers.models.stable_diffusion",
     "onnxruntime.transformers.models.whisper",
 ]
 

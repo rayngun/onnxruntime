@@ -84,10 +84,9 @@ static OpBuilderRegistrations CreateOpBuilderRegistrations() {
     CreateDropoutOpBuilder("Dropout", op_registrations);
   }
 
-  {  // DequantizeLinear/QuantizeLinear/DynamicQuantizeLinear
-    CreateQDQOpBuilder("DequantizeLinear", op_registrations);
-    CreateQDQOpBuilder("QuantizeLinear", op_registrations);
+  {  // Quantize/Dequantize
     CreateDynamicQuantizeLinearOpBuilder("DynamicQuantizeLinear", op_registrations);
+    CreateDequantizeLinearOpBuilder("DequantizeLinear", op_registrations);
   }
 
   {  // Expand
@@ -119,10 +118,6 @@ static OpBuilderRegistrations CreateOpBuilderRegistrations() {
     CreateLogicalOpBuilder("Less", op_registrations);
     CreateLogicalOpBuilder("LessOrEqual", op_registrations);
     CreateLogicalOpBuilder("Not", op_registrations);
-  }
-
-  {  // LSTM
-    CreateLstmOpBuilder("LSTM", op_registrations);
   }
 
   {  // Max/Min

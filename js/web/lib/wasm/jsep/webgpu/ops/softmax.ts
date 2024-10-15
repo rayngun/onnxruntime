@@ -9,8 +9,7 @@ import { DataType } from '../../../wasm-common';
 import { TensorView } from '../../tensor-view';
 import { ShapeUtil } from '../../util';
 import { AttributeWithCacheKey, createAttributeWithCacheKey } from '../attribute-with-cache-key';
-import { ComputeContext } from '../types';
-import { createTransposeProgramInfo } from './transpose';
+import { ComputeContext, ProgramInfo } from '../types';
 
 import {
   getMaxComponents,
@@ -31,32 +30,19 @@ export interface SoftmaxAttributes extends AttributeWithCacheKey {
   readonly axis: number;
 }
 
-const createSoftmaxProgramInfo = (context: ComputeContext, attributes: SoftmaxAttributes) => {
-  const input = context.inputs[0];
-  const inputShape = input.dims;
-  const outputSize = ShapeUtil.size(inputShape);
+const createSoftmaxProgramInfo = (input: TensorView, attributes: SoftmaxAttributes): ProgramInfo => {
+  const shape = input.dims;
+  const outputSize = ShapeUtil.size(shape);
   const WG = 64;
-  const inputRank = inputShape.length;
-  const axis = ShapeUtil.normalizeAxis(attributes.axis, inputRank);
-  const isTransposeRequired = axis < inputShape.length - 1;
-  let transposedInput: TensorView;
-  let perm: number[] = [];
-
-  if (isTransposeRequired) {
-    perm = Array.from({ length: inputRank }, (_, i) => i);
-    perm[axis] = inputRank - 1;
-    perm[inputRank - 1] = axis;
-
-    transposedInput = context.compute(createTransposeProgramInfo(input, perm), {
-      inputs: [input],
-      outputs: [-1],
-    })[0];
-  } else {
-    transposedInput = input;
+  let axis = attributes.axis;
+  if (axis < 0) {
+    axis = shape.length + axis;
+  }
+  if (axis < shape.length - 1) {
+    throw new Error('softmax only supports last axis for now.');
   }
 
-  const transposedInputShape = transposedInput.dims;
-  const cols = transposedInputShape[inputRank - 1];
+  const cols = shape[axis];
   const rows = outputSize / cols;
   const components = getMaxComponents(cols);
   const packedCols = cols / components;
@@ -72,12 +58,12 @@ const createSoftmaxProgramInfo = (context: ComputeContext, attributes: SoftmaxAt
 
     return name;
   };
-  const x = inputVariable('x', transposedInput.dataType, transposedInput.dims, components);
-  const output = outputVariable('result', transposedInput.dataType, transposedInput.dims, components);
+  const x = inputVariable('x', input.dataType, input.dims, components);
+  const output = outputVariable('result', input.dataType, input.dims, components);
   const valueType = x.type.value;
   // 6.2.4 in wgsl spec
   const threadMaxDecl =
-    tensorTypeToWsglStorageType(transposedInput.dataType) === 'f32'
+    tensorTypeToWsglStorageType(input.dataType) === 'f32'
       ? `var threadMax = ${valueType}(-3.402823e+38f);`
       : `var threadMax = ${valueType}(-65504.0h);`;
   const getShaderSource = (shaderHelper: ShaderHelper) => `
@@ -153,33 +139,21 @@ const createSoftmaxProgramInfo = (context: ComputeContext, attributes: SoftmaxAt
           setValue(row, col, row_stride, value);
         }
       }`;
-  const result = context.compute(
-    {
-      name: 'Softmax',
-      shaderCache: { hint: `${components}`, inputDependencies: ['type'] },
-      getRunData: () => ({
-        outputs: [{ dims: transposedInputShape, dataType: transposedInput.dataType }],
-        dispatchGroup: { x: rows },
-        programUniforms: [{ type: DataType.int32, data: packedCols }],
-      }),
-      getShaderSource,
-    },
-    {
-      inputs: [transposedInput],
-      outputs: [isTransposeRequired ? -1 : 0],
-    },
-  )[0];
-
-  if (isTransposeRequired) {
-    context.compute(createTransposeProgramInfo(result, perm), {
-      inputs: [result],
-    });
-  }
+  return {
+    name: 'Softmax',
+    shaderCache: { hint: `${components}`, inputDependencies: ['type'] },
+    getRunData: () => ({
+      outputs: [{ dims: shape, dataType: input.dataType }],
+      dispatchGroup: { x: rows },
+      programUniforms: [{ type: DataType.int32, data: packedCols }],
+    }),
+    getShaderSource,
+  };
 };
 
 export const softmax = (context: ComputeContext, attributes: SoftmaxAttributes): void => {
   validateInputs(context.inputs);
-  createSoftmaxProgramInfo(context, attributes);
+  context.compute(createSoftmaxProgramInfo(context.inputs[0], attributes));
 };
 
 export const parseSoftmaxAttributes = (attributes: Record<string, unknown>): SoftmaxAttributes =>

@@ -25,8 +25,10 @@ struct QnnTensorInfo {
 
 class QnnModel {
  public:
-  QnnModel(QnnBackendManager* qnn_backend_manager)
-      : qnn_backend_manager_(qnn_backend_manager) {
+  QnnModel(const logging::Logger& logger,
+           QnnBackendManager* qnn_backend_manager)
+      : logger_(logger),
+        qnn_backend_manager_(qnn_backend_manager) {
     qnn_backend_type_ = qnn_backend_manager_->GetQnnBackendType();
   }
 
@@ -35,14 +37,13 @@ class QnnModel {
 
   Status ComposeGraph(const GraphViewer& graph_viewer,
                       const onnxruntime::Node& fused_node,
-                      const logging::Logger& logger,
                       const QnnGraph_Config_t** graph_configs = nullptr);
 
-  Status FinalizeGraphs(const logging::Logger& logger);
+  Status FinalizeGraphs();
 
-  Status SetupQnnInputOutput(const logging::Logger& logger);
+  Status SetupQnnInputOutput();
 
-  Status ExecuteGraph(const Ort::KernelContext& context, const logging::Logger& logger);
+  Status ExecuteGraph(const Ort::KernelContext& context);
 
   const OnnxTensorInfo* GetOutputInfo(const std::string& name) const {
     auto it = outputs_info_.find(name);
@@ -54,13 +55,11 @@ class QnnModel {
   }
 
   Status SetGraphInputOutputInfo(const GraphViewer& graph_viewer,
-                                 const onnxruntime::Node& fused_node,
-                                 const logging::Logger& logger);
+                                 const onnxruntime::Node& fused_node);
   Status ParseGraphInputOrOutput(ConstPointerContainer<std::vector<NodeArg*>>& input_output_defs,
                                  std::vector<std::string>& input_output_names,
                                  std::unordered_map<std::string, OnnxTensorInfo>& input_output_info_table,
                                  std::unordered_map<std::string, size_t>& input_output_index,
-                                 const logging::Logger& logger,
                                  bool is_input = false);
 
   const std::unordered_set<std::string>& GetInitializerInputs() const { return initializer_inputs_; }
@@ -108,7 +107,7 @@ class QnnModel {
  private:
   const NodeUnit& GetNodeUnit(const Node* node,
                               const std::unordered_map<const Node*, const NodeUnit*>& node_unit_map) const;
-  bool GetGraphInfoFromModel(QnnModelWrapper& model_wrapper, const logging::Logger& logger);
+  bool GetGraphInfoFromModel(QnnModelWrapper& model_wrapper);
 
   Status GetQnnTensorDataLength(const std::vector<uint32_t>& dims,
                                 Qnn_DataType_t data_type,
@@ -126,6 +125,7 @@ class QnnModel {
   }
 
  private:
+  const logging::Logger& logger_;
   std::unique_ptr<GraphInfo> graph_info_;
   QnnBackendManager* qnn_backend_manager_ = nullptr;
   // <input_name, input_index>, initializer inputs are excluded, keep the input index here

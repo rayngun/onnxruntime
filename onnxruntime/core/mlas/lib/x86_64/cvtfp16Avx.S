@@ -51,6 +51,8 @@ FUNCTION_ENTRY MlasCastF16ToF32KernelAvx
 
         test    rdx, rdx      // Check if we have any elements to convert
         jz      ExitRoutine
+
+AVX_NE_CONVERT:
         cmp     rdx, 8
         jb      ConvertMaskedVectors
         cmp     rdx, 16
@@ -73,8 +75,6 @@ Convert256Vectors:
         jz      ExitRoutine     // If we are done, exit
         cmp     rdx, 16         // If the vector is big enough, we go again
         jae     Convert256Vectors
-        cmp	rdx, 8           // Check if we have enough elements to convert
-        jb      ConvertMaskedVectors
 
 
 

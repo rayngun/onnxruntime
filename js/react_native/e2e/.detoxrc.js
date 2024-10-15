@@ -6,7 +6,7 @@ module.exports = {
       config: 'test/jest.config.js',
     },
     jest: {
-      setupTimeout: 240000,
+      setupTimeout: 120000,
     },
   },
   apps: {
@@ -38,8 +38,7 @@ module.exports = {
     simulator: {
       type: 'ios.simulator',
       device: {
-        type: 'iPhone 14',
-        os: 'iOS 16.4',
+        type: 'iPhone 13',
       },
     },
     attached: {

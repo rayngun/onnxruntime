@@ -41,7 +41,7 @@ stages:
 
   - job: Build_Ios_Pod_For_React_Native
     pool:
-      vmImage: 'macOS-13'
+      vmImage: 'macOS-12'
 
     timeoutInMinutes: 90
 
@@ -52,6 +52,7 @@ stages:
 
     steps:
     - template: use-xcode-version.yml
+
     - task: UsePythonVersion@0
       displayName: Use python 3.9
       inputs:
@@ -98,7 +99,9 @@ stages:
   jobs:
   - job: ReactNative_CI
     pool:
-      vmImage: 'macOS-13'
+      # We need macOS-12 to run the Android emulator for now.
+      # https://github.com/actions/runner-images/issues/7671
+      vmImage: 'macOS-12'
     variables:
       runCodesignValidationInjection: false
     timeoutInMinutes: 90
@@ -106,7 +109,7 @@ stages:
     - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
       displayName: Clean Agent Directories
       condition: always()
-    - template: use-xcode-version.yml
+
     - task: UsePythonVersion@0
       displayName: Use python 3.9
       inputs:
@@ -115,9 +118,9 @@ stages:
         architecture: "x64"
 
     - task: JavaToolInstaller@0
-      displayName: Use jdk 17
+      displayName: Use jdk 11
       inputs:
-        versionSpec: '17'
+        versionSpec: '11'
         jdkArchitectureOption: 'x64'
         jdkSourceOption: 'PreInstalled'
 
@@ -301,7 +304,7 @@ stages:
         scheme: 'OnnxruntimeModuleTest'
         packageApp: false
         destinationPlatformOption: 'iOS'
-        destinationSimulators: 'iPhone 14,OS=16.4'
+        destinationSimulators: 'iPhone 13,OS=latest'
         workingDirectory: '$(Build.SourcesDirectory)/js/react_native/ios'
         xcprettyArgs: '--output build/reports/test-results.xml'
         publishJUnitResults: true
@@ -315,11 +318,6 @@ stages:
         testRunTitle: 'React Native iOS Instrumented Test results'
       condition: succeededOrFailed()
       displayName: Publish React Native iOS Instrumented Test Results
-
-    - script: |
-        xcrun simctl list devices
-      displayName: List iOS Simulators
-      continueOnError: true
 
     - script: |
         JEST_JUNIT_OUTPUT_FILE=$(Build.SourcesDirectory)/js/react_native/e2e/ios-test-results.xml \
