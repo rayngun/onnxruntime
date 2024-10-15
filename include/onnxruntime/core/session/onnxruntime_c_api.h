@@ -626,32 +626,32 @@ typedef struct OrtMIGraphXProviderOptions {
 } OrtMIGraphXProviderOptions;
 
 /** \brief OpenVINO Provider Options
- *
- * \see OrtApi::SessionOptionsAppendExecutionProvider_OpenVINO
+ *  \brief These options are deprecated, for the latest OpenVINO Provider Options use the mapped API
+ * \see OrtApi::SessionOptionsAppendExecutionProvider_OpenVINO_V2()
  */
 typedef struct OrtOpenVINOProviderOptions {
 #ifdef __cplusplus
 OrtOpenVINOProviderOptions() : device_type{},
-                                 precision{},
+                                 enable_npu_fast_compile{},
+                                 device_id{},
                                  num_of_threads{},
-                                 num_streams{},
-                                 context{},
                                  cache_dir{},
+                                 context{},
                                  enable_opencl_throttling{},
-                                 enable_qdq_optimizer{} {}
+                                 enable_dynamic_shapes{} {}
 #endif
   /** \brief Device type string
    *
-   * Valid settings are one of: "CPU_FP32", "CPU_FP16", "GPU_FP32", "GPU_FP16"
+   * Valid settings are one of: "CPU", "GPU"
    */
   const char* device_type;  ///< values can be CPU, GPU, NPU, Any valid Hetero combination, Any valid Multi or Auto devices combination
-  const char* precision; ///< values can be FP32, FP16, ACCURACY based on the device_type chosen
+  unsigned char enable_npu_fast_compile;  ///< 0 = disabled, nonzero = enabled
+  const char* device_id;
   size_t num_of_threads;  ///< 0 = Use default number of threads
-  size_t num_streams;  ///< 0 = Use default number of streams
+  const char* cache_dir;  ///< Any valid string path on the hardware target
   void* context;  ///< OpenCL Context 
-  const char* cache_dir;  ///< Any valid string path on the hardware target 
   unsigned char enable_opencl_throttling;  ///< 0 = disabled, nonzero = enabled
-  unsigned char enable_qdq_optimizer; ///< 0 = disabled, nonzero = enabled
+  unsigned char enable_dynamic_shapes; ///< 0 = disabled, nonzero = enabled
 } OrtOpenVINOProviderOptions;
 
 struct OrtApi;
