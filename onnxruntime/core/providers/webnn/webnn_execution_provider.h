@@ -40,8 +40,6 @@ class WebNNExecutionProvider : public IExecutionProvider {
 #endif
 
   std::shared_ptr<KernelRegistry> GetKernelRegistry() const override;
-  std::unique_ptr<onnxruntime::IDataTransfer> GetDataTransfer() const override;
-  std::vector<AllocatorPtr> CreatePreferredAllocators() override;
 
  private:
   emscripten::val wnn_context_ = emscripten::val::undefined();

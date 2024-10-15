@@ -38,10 +38,6 @@ void VerifyOutput(const std::string& output_name,
       EXPECT_TRUE(SpanEq(expected_tensor.DataAsSpan<int64_t>(), tensor.DataAsSpan<int64_t>()))
           << " mismatch for " << output_name;
       break;
-    case ONNX_NAMESPACE::TensorProto_DataType_UINT16:
-      EXPECT_TRUE(SpanEq(expected_tensor.DataAsSpan<uint16_t>(), tensor.DataAsSpan<uint16_t>()))
-          << " mismatch for " << output_name;
-      break;
     case ONNX_NAMESPACE::TensorProto_DataType_UINT8:
       EXPECT_TRUE(SpanEq(expected_tensor.DataAsSpan<uint8_t>(), tensor.DataAsSpan<uint8_t>()))
           << " mismatch for " << output_name;
@@ -57,11 +53,6 @@ void VerifyOutput(const std::string& output_name,
     case ONNX_NAMESPACE::TensorProto_DataType_FLOAT: {
       EXPECT_THAT(expected_tensor.DataAsSpan<float>(),
                   ::testing::Pointwise(::testing::FloatNear(fp32_abs_err), tensor.DataAsSpan<float>()));
-      break;
-    }
-    case ONNX_NAMESPACE::TensorProto_DataType_FLOAT16: {
-      EXPECT_THAT(expected_tensor.DataAsSpan<MLFloat16>(),
-                  ::testing::Pointwise(::testing::FloatNear(fp32_abs_err), tensor.DataAsSpan<MLFloat16>()));
       break;
     }
     default:

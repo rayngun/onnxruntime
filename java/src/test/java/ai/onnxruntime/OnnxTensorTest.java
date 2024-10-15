@@ -12,11 +12,8 @@ import ai.onnxruntime.platform.Fp16Conversions;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.SplittableRandom;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -96,108 +93,30 @@ public class OnnxTensorTest {
   }
 
   @Test
-  public void testArrayCreation() throws OrtException {
+  public void testBufferCreation() throws OrtException {
     OrtEnvironment env = OrtEnvironment.getEnvironment();
 
-    // Test creating a value from a single dimensional array
+    // Test creating a value from an array
+    // Arrays result in tensors allocated by ORT, so they do not have a backing java.nio.Buffer
     float[] arrValues = new float[] {0, 1, 2, 3, 4};
     try (OnnxTensor t = OnnxTensor.createTensor(env, arrValues)) {
-      Assertions.assertTrue(t.ownsBuffer());
-      Assertions.assertTrue(t.getBufferRef().isPresent());
-      FloatBuffer buf = (FloatBuffer) t.getBufferRef().get();
+      // array creation isn't backed by buffers
+      assertFalse(t.ownsBuffer());
+      assertFalse(t.getBufferRef().isPresent());
+      FloatBuffer buf = t.getFloatBuffer();
       float[] output = new float[arrValues.length];
       buf.get(output);
       Assertions.assertArrayEquals(arrValues, output);
 
-      // Can modify the tensor through this buffer.
+      // Can't modify the tensor through this buffer.
       buf.put(0, 25);
-      Assertions.assertArrayEquals(new float[] {25, 1, 2, 3, 4}, (float[]) t.getValue());
+      Assertions.assertArrayEquals(arrValues, output);
     }
-
-    // Test creating a value from a multidimensional float array
-    float[][][] arr3dValues =
-        new float[][][] {
-          {{0, 1, 2}, {3, 4, 5}},
-          {{6, 7, 8}, {9, 10, 11}},
-          {{12, 13, 14}, {15, 16, 17}},
-          {{18, 19, 20}, {21, 22, 23}}
-        };
-    try (OnnxTensor t = OnnxTensor.createTensor(env, arr3dValues)) {
-      Assertions.assertArrayEquals(new long[] {4, 2, 3}, t.getInfo().getShape());
-      Assertions.assertTrue(t.ownsBuffer());
-      Assertions.assertTrue(t.getBufferRef().isPresent());
-      float[][][] output = (float[][][]) t.getValue();
-      Assertions.assertArrayEquals(arr3dValues, output);
-
-      // Can modify the tensor through the buffer.
-      FloatBuffer buf = (FloatBuffer) t.getBufferRef().get();
-      buf.put(0, 25);
-      buf.put(12, 32);
-      buf.put(13, 33);
-      buf.put(23, 35);
-      arr3dValues[0][0][0] = 25;
-      arr3dValues[2][0][0] = 32;
-      arr3dValues[2][0][1] = 33;
-      arr3dValues[3][1][2] = 35;
-      output = (float[][][]) t.getValue();
-      Assertions.assertArrayEquals(arr3dValues, output);
-    }
-
-    // Test creating a value from a multidimensional int array
-    int[][][] iArr3dValues =
-        new int[][][] {
-          {{0, 1, 2}, {3, 4, 5}},
-          {{6, 7, 8}, {9, 10, 11}},
-          {{12, 13, 14}, {15, 16, 17}},
-          {{18, 19, 20}, {21, 22, 23}}
-        };
-    try (OnnxTensor t = OnnxTensor.createTensor(env, iArr3dValues)) {
-      Assertions.assertArrayEquals(new long[] {4, 2, 3}, t.getInfo().getShape());
-      Assertions.assertTrue(t.ownsBuffer());
-      Assertions.assertTrue(t.getBufferRef().isPresent());
-      int[][][] output = (int[][][]) t.getValue();
-      Assertions.assertArrayEquals(iArr3dValues, output);
-
-      // Can modify the tensor through the buffer.
-      IntBuffer buf = (IntBuffer) t.getBufferRef().get();
-      buf.put(0, 25);
-      iArr3dValues[0][0][0] = 25;
-      output = (int[][][]) t.getValue();
-      Assertions.assertArrayEquals(iArr3dValues, output);
-    }
-
-    // Test creating a value from a ragged array throws
-    int[][][] ragged =
-        new int[][][] {
-          {{0, 1, 2}, {3, 4, 5}},
-          {{6, 7, 8}},
-          {{12, 13}, {15, 16, 17}},
-          {{18, 19, 20}, {21, 22, 23}}
-        };
-    try (OnnxTensor t = OnnxTensor.createTensor(env, ragged)) {
-      Assertions.fail("Can't create tensors from ragged arrays");
-    } catch (OrtException e) {
-      Assertions.assertTrue(e.getMessage().contains("ragged"));
-    }
-
-    // Test creating a value from a non-array, non-primitive type throws.
-    List<Integer> list = new ArrayList<>(5);
-    list.add(5);
-    try (OnnxTensor t = OnnxTensor.createTensor(env, list)) {
-      Assertions.fail("Can't create tensors from lists");
-    } catch (OrtException e) {
-      Assertions.assertTrue(e.getMessage().contains("Cannot convert"));
-    }
-  }
-
-  @Test
-  public void testBufferCreation() throws OrtException {
-    OrtEnvironment env = OrtEnvironment.getEnvironment();
 
     // Test creating a value from a non-direct byte buffer
     // Non-direct byte buffers are allocated on the Java heap and must be copied into off-heap
-    // direct byte buffers which can be directly passed to ORT
-    float[] arrValues = new float[] {0, 1, 2, 3, 4};
+    // direct byte buffers
+    // which can be directly passed to ORT
     FloatBuffer nonDirectBuffer = FloatBuffer.allocate(5);
     nonDirectBuffer.put(arrValues);
     nonDirectBuffer.rewind();
@@ -416,12 +335,10 @@ public class OnnxTensorTest {
     String modelPath = TestHelpers.getResourcePath("/java-fp32-to-fp16.onnx").toString();
     SplittableRandom rng = new SplittableRandom(1);
 
-    int dim1 = 10, dim2 = 5;
-    float[][] input = new float[dim1][dim2];
-    float[][] expectedOutput = new float[dim1][dim2];
+    float[][] input = new float[10][5];
     FloatBuffer floatBuf =
-        ByteBuffer.allocateDirect(4 * dim1 * dim2).order(ByteOrder.nativeOrder()).asFloatBuffer();
-    ShortBuffer shortBuf = ShortBuffer.allocate(dim1 * dim2);
+        ByteBuffer.allocateDirect(4 * 10 * 5).order(ByteOrder.nativeOrder()).asFloatBuffer();
+    ShortBuffer shortBuf = ShortBuffer.allocate(10 * 5);
 
     // Generate data
     for (int i = 0; i < input.length; i++) {
@@ -430,8 +347,6 @@ public class OnnxTensorTest {
         input[i][j] = Float.intBitsToFloat(bits);
         floatBuf.put(input[i][j]);
         shortBuf.put(Fp16Conversions.floatToFp16(input[i][j]));
-        expectedOutput[i][j] =
-            Fp16Conversions.fp16ToFloat(Fp16Conversions.floatToFp16(input[i][j]));
       }
     }
     floatBuf.rewind();
@@ -439,31 +354,25 @@ public class OnnxTensorTest {
 
     try (OrtSession.SessionOptions opts = new OrtSession.SessionOptions();
         OrtSession session = env.createSession(modelPath, opts);
-        OnnxTensor tensor = OnnxTensor.createTensor(env, floatBuf, new long[] {dim1, dim2});
+        OnnxTensor tensor = OnnxTensor.createTensor(env, floatBuf, new long[] {10, 5});
         OrtSession.Result result = session.run(Collections.singletonMap("input", tensor))) {
       OnnxTensor output = (OnnxTensor) result.get(0);
 
       // Check outbound Java side cast to fp32 works
       FloatBuffer castOutput = output.getFloatBuffer();
-      float[] expectedFloatArr = new float[dim1 * dim2];
+      float[] expectedFloatArr = new float[10 * 5];
       Fp16Conversions.convertFp16BufferToFloatBuffer(shortBuf).get(expectedFloatArr);
-      float[] actualFloatArr = new float[dim1 * dim2];
+      float[] actualFloatArr = new float[10 * 5];
       castOutput.get(actualFloatArr);
       Assertions.assertArrayEquals(expectedFloatArr, actualFloatArr);
 
       // Check bits are correct
       ShortBuffer outputBuf = output.getShortBuffer();
-      short[] expectedShortArr = new short[dim1 * dim2];
+      short[] expectedShortArr = new short[10 * 5];
       shortBuf.get(expectedShortArr);
-      short[] actualShortArr = new short[dim1 * dim2];
+      short[] actualShortArr = new short[10 * 5];
       outputBuf.get(actualShortArr);
       Assertions.assertArrayEquals(expectedShortArr, actualShortArr);
-
-      // Check outbound fp16 -> float[] conversion
-      float[][] floats = (float[][]) output.getValue();
-      for (int i = 0; i < dim1; i++) {
-        Assertions.assertArrayEquals(expectedOutput[i], floats[i]);
-      }
     }
   }
 
@@ -473,12 +382,10 @@ public class OnnxTensorTest {
     String modelPath = TestHelpers.getResourcePath("/java-fp32-to-bf16.onnx").toString();
     SplittableRandom rng = new SplittableRandom(1);
 
-    int dim1 = 10, dim2 = 5;
-    float[][] input = new float[dim1][dim2];
-    float[][] expectedOutput = new float[dim1][dim2];
+    float[][] input = new float[10][5];
     FloatBuffer floatBuf =
-        ByteBuffer.allocateDirect(4 * dim1 * dim2).order(ByteOrder.nativeOrder()).asFloatBuffer();
-    ShortBuffer shortBuf = ShortBuffer.allocate(dim1 * dim2);
+        ByteBuffer.allocateDirect(4 * 10 * 5).order(ByteOrder.nativeOrder()).asFloatBuffer();
+    ShortBuffer shortBuf = ShortBuffer.allocate(10 * 5);
 
     // Generate data
     for (int i = 0; i < input.length; i++) {
@@ -487,8 +394,6 @@ public class OnnxTensorTest {
         input[i][j] = Float.intBitsToFloat(bits);
         floatBuf.put(input[i][j]);
         shortBuf.put(Fp16Conversions.floatToBf16(input[i][j]));
-        expectedOutput[i][j] =
-            Fp16Conversions.bf16ToFloat(Fp16Conversions.floatToBf16(input[i][j]));
       }
     }
     floatBuf.rewind();
@@ -496,31 +401,25 @@ public class OnnxTensorTest {
 
     try (OrtSession.SessionOptions opts = new OrtSession.SessionOptions();
         OrtSession session = env.createSession(modelPath, opts);
-        OnnxTensor tensor = OnnxTensor.createTensor(env, floatBuf, new long[] {dim1, dim2});
+        OnnxTensor tensor = OnnxTensor.createTensor(env, floatBuf, new long[] {10, 5});
         OrtSession.Result result = session.run(Collections.singletonMap("input", tensor))) {
       OnnxTensor output = (OnnxTensor) result.get(0);
 
       // Check outbound Java side cast to fp32 works
       FloatBuffer castOutput = output.getFloatBuffer();
-      float[] expectedFloatArr = new float[dim1 * dim2];
+      float[] expectedFloatArr = new float[10 * 5];
       Fp16Conversions.convertBf16BufferToFloatBuffer(shortBuf).get(expectedFloatArr);
-      float[] actualFloatArr = new float[dim1 * dim2];
+      float[] actualFloatArr = new float[10 * 5];
       castOutput.get(actualFloatArr);
       Assertions.assertArrayEquals(expectedFloatArr, actualFloatArr);
 
       // Check bits are correct
       ShortBuffer outputBuf = output.getShortBuffer();
-      short[] expectedShortArr = new short[dim1 * dim2];
+      short[] expectedShortArr = new short[10 * 5];
       shortBuf.get(expectedShortArr);
-      short[] actualShortArr = new short[dim1 * dim2];
+      short[] actualShortArr = new short[10 * 5];
       outputBuf.get(actualShortArr);
       Assertions.assertArrayEquals(expectedShortArr, actualShortArr);
-
-      // Check outbound bf16 -> float[] conversion
-      float[][] floats = (float[][]) output.getValue();
-      for (int i = 0; i < dim1; i++) {
-        Assertions.assertArrayEquals(expectedOutput[i], floats[i]);
-      }
     }
   }
 

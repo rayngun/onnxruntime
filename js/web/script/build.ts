@@ -56,6 +56,7 @@ const DEFAULT_DEFINE = {
   'BUILD_DEFS.DISABLE_JSEP': 'false',
   'BUILD_DEFS.DISABLE_WASM': 'false',
   'BUILD_DEFS.DISABLE_WASM_PROXY': 'false',
+  'BUILD_DEFS.DISABLE_TRAINING': 'true',
   'BUILD_DEFS.DISABLE_DYNAMIC_IMPORT': 'false',
 
   'BUILD_DEFS.IS_ESM': 'false',
@@ -252,7 +253,7 @@ async function buildBundle(options: esbuild.BuildOptions) {
  *
  * The distribution code is split into multiple files:
  *  - [output-name][.min].[m]js
- *  - ort-wasm-simd-threaded[.jsep].mjs
+ *  - ort[-training]-wasm-simd-threaded[.jsep].mjs
  */
 async function buildOrt({
   isProduction = false,
@@ -627,6 +628,16 @@ async function main() {
         'BUILD_DEFS.DISABLE_JSEP': 'true',
         'BUILD_DEFS.DISABLE_WASM': 'true',
         'BUILD_DEFS.DISABLE_WASM_PROXY': 'true',
+      },
+    });
+    // ort.training.wasm[.min].[m]js
+    await addAllWebBuildTasks({
+      outputName: 'ort.training.wasm',
+      define: {
+        ...DEFAULT_DEFINE,
+        'BUILD_DEFS.DISABLE_TRAINING': 'false',
+        'BUILD_DEFS.DISABLE_JSEP': 'true',
+        'BUILD_DEFS.DISABLE_WEBGL': 'true',
       },
     });
   }

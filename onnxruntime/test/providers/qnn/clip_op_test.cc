@@ -21,8 +21,7 @@ static void RunClipTest(const TestInputDef<DataType>& input_def,
                         const std::vector<TestInputDef<DataType>>& min_max_defs,
                         ExpectedEPNodeAssignment expected_ep_assignment,
                         bool on_cpu_backend = true,
-                        int opset = 13,
-                        bool enable_fp16_precision = true) {
+                        int opset = 13) {
   ProviderOptions provider_options;
 
 #if defined(_WIN32)
@@ -30,12 +29,6 @@ static void RunClipTest(const TestInputDef<DataType>& input_def,
 #else
   provider_options["backend_path"] = on_cpu_backend ? "libQnnCpu.so" : "libQnnHtp.so";
 #endif
-
-  if (!on_cpu_backend && enable_fp16_precision) {
-    provider_options["enable_htp_fp16_precision"] = "1";
-  } else {
-    provider_options["enable_htp_fp16_precision"] = "0";
-  }
 
   RunQnnModelTest(BuildOpTestCase<DataType, DataType>("Clip", {input_def}, min_max_defs, {}),
                   provider_options,
@@ -87,9 +80,7 @@ TEST_F(QnnHTPBackendTests, Clip_f32) {
                      {TestInputDef<float>({}, true, {-5.0f}),
                       TestInputDef<float>({}, true, {5.0f})},
                      ExpectedEPNodeAssignment::All,
-                     on_cpu_backend,
-                     13,
-                     false);
+                     on_cpu_backend);
 }
 
 // Test Clip with int32 on HTP
