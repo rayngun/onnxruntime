@@ -141,16 +141,8 @@ Status ModelBuilder::RegisterInitializers() {
           ORT_RETURN_IF_ERROR(onnxruntime::utils::UnpackInitializerData(tensor, unpacked_tensor));
           tensor_ptr = reinterpret_cast<std::byte*>(unpacked_tensor.data());
         }
-        if (data_type == ONNX_NAMESPACE::TensorProto_DataType_INT4 ||
-            data_type == ONNX_NAMESPACE::TensorProto_DataType_UINT4) {
-          // For WebNN int4 and uint4 tensors are stored in Uint8Array,
-          // so we need to adjust the number of elements.
-          num_elements = (static_cast<size_t>(num_elements) + 1) / 2;
-        }
         switch (data_type) {
           case ONNX_NAMESPACE::TensorProto_DataType_BOOL:
-          case ONNX_NAMESPACE::TensorProto_DataType_INT4:
-          case ONNX_NAMESPACE::TensorProto_DataType_UINT4:
           case ONNX_NAMESPACE::TensorProto_DataType_UINT8:
             view = emscripten::val{emscripten::typed_memory_view(num_elements,
                                                                  reinterpret_cast<uint8_t*>(tensor_ptr))};

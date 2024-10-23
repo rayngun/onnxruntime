@@ -32,7 +32,7 @@ bool BaseOpBuilder::IsOpSupported(const InitializedTensorSet& initializers, cons
   if (!HasSupportedInputs(initializers, node, wnn_limits, logger))
     return false;
 
-  if (!HasSupportedOutputs(node, wnn_limits, logger))
+  if (!HasSupportedOutputsImpl(node, wnn_limits, logger))
     return false;
 
   if (!HasSupportedOpSet(node, logger))

@@ -226,7 +226,7 @@ export class WebNNBackend {
     return id;
   }
 
-  // Register a WebNN Constant operand from external data.
+  // Register WebNN Constant operands from external data.
   public registerMLConstant(
     externalFilePath: string,
     dataOffset: number,
@@ -277,8 +277,6 @@ export class WebNNBackend {
       case 'int8':
         bufferView = new Int8Array(buffer);
         break;
-      case 'int4':
-      case 'uint4':
       case 'uint8':
         bufferView = new Uint8Array(buffer);
         break;
