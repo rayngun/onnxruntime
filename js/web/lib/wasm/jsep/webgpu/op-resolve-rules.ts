@@ -20,7 +20,6 @@ import { gatherND, parseGatherNDAttributes } from './ops/gather-nd';
 import { gatherBlockQuantized, parseGatherBlockQuantizedAttributes } from './ops/gather-block-quantized';
 import { gatherElements, parseGatherElementsAttributes } from './ops/gather-elements';
 import { gemm, parseGemmAttributes } from './ops/gemm';
-import { gridSample, parseGridSampleAttributes } from './ops/grid-sample';
 import { groupQueryAttention } from './ops/group-query-attention';
 import { instanceNorm } from './ops/instance-norm';
 import { layerNorm } from './ops/layer-norm';
@@ -108,7 +107,6 @@ export const WEBGPU_OP_RESOLVE_RULES: Map<string, OperatorImplementation> = new 
   ['GlobalMaxPool', [pool.globalMaxPool, pool.parseGlobalMaxPoolAttributes]],
   ['Greater', [binaryOps.greater]],
   ['GreaterOrEqual', [binaryOps.greaterOrEqual]],
-  ['GridSample', [gridSample, parseGridSampleAttributes]],
   ['GroupQueryAttention', [groupQueryAttention]],
   ['HardSigmoid', [unaryOps.hardSigmoid, unaryOps.parseHardSigmoidAttributes]],
   ['InstanceNormalization', [instanceNorm]],
