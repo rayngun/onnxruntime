@@ -79,6 +79,7 @@ MatMul::MatMul(const OpKernelInfo& info) : XnnpackKernel(info, /*enable_caches*/
 }
 
 Status MatMul::PrePack(const Tensor& tensor, int input_idx, AllocatorPtr alloc,
+                       bool /*save_prepacked_initializers*/,
                        /*out*/ bool& is_packed,
                        /*out*/ PrePackedWeights* /*Not used*/) {
   is_packed = false;
