@@ -118,6 +118,7 @@ std::vector<SupportedOp> supported_op_mode = {
     {"CumSum", V_2022_1, {"CPU", "GPU"}},
     {"DepthToSpace", V_2020_4, {"CPU", "GPU"}},
     {"DequantizeLinear", V_2021_4, {"CPU", "GPU"}},
+    {"DequantizeLinear", V_2024_3, {"CPU", "GPU", "NPU"}},
     {"DequantizeLinear", V_2024_4, {"CPU", "GPU", "NPU"}},
     {"Div", V_2020_4, {"CPU", "GPU"}},
     {"Dropout", V_2020_4, {"CPU", "GPU"}},
