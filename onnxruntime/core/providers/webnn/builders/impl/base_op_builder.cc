@@ -32,7 +32,7 @@ bool BaseOpBuilder::IsOpSupported(const InitializedTensorSet& initializers, cons
   if (!HasSupportedInputs(initializers, node, wnn_limits, logger))
     return false;
 
-  if (!HasSupportedOutputsImpl(node, wnn_limits, logger))
+  if (!HasSupportedOutputs(node, wnn_limits, logger))
     return false;
 
   if (!HasSupportedOpSet(node, logger))
@@ -45,7 +45,7 @@ bool BaseOpBuilder::HasSupportedInputs(const InitializedTensorSet& initializers,
                                        const logging::Logger& logger) const {
   const auto node_name = MakeString("Node [", node.Name(), "] type [", node.OpType(), "]");
   for (const auto* input : node.InputDefs()) {
-    if (!IsTensorShapeSupported(*input, node_name, logger, allow_empty_tensor_as_input_)) {
+    if (!IsTensorShapeSupported(*input, node_name, logger)) {
       return false;
     }
   }
