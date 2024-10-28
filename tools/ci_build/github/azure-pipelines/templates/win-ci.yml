@@ -130,6 +130,21 @@ stages:
 
       - template: telemetry-steps.yml
 
+      - task: PipAuthenticate@1
+        displayName: 'Pip Authenticate'
+        inputs:
+          artifactFeeds: 'Lotus'
+
+      - ${{ if eq(parameters['buildJava'], 'true') }}:
+        - task: JavaToolInstaller@0
+          inputs:
+            versionSpec: "11"
+            jdkArchitectureOption: ${{ parameters.buildArch }}
+            jdkSourceOption: 'PreInstalled'
+
+
+      - template: telemetry-steps.yml
+
       # The private ADO project
       - ${{ if eq(variables['System.CollectionId'], 'bc038106-a83b-4dab-9dd3-5a41bc58f34c') }}:
         - task: PipAuthenticate@1
@@ -380,12 +395,10 @@ stages:
             addToPath: true
             architecture: ${{ parameters.buildArch }}
 
-        # The private ADO project
-        - ${{ if eq(variables['System.CollectionId'], 'bc038106-a83b-4dab-9dd3-5a41bc58f34c') }}:
-          - task: PipAuthenticate@1
-            displayName: 'Pip Authenticate'
-            inputs:
-              artifactFeeds: 'Lotus'
+        - task: PipAuthenticate@1
+          displayName: 'Pip Authenticate'
+          inputs:
+            artifactFeeds: 'Lotus'
 
         - task: NodeTool@0
           condition: and(succeeded(), eq('${{ parameters.buildNodejs}}', true))
