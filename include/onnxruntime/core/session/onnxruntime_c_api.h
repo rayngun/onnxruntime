@@ -626,8 +626,13 @@ typedef struct OrtMIGraphXProviderOptions {
 } OrtMIGraphXProviderOptions;
 
 /** \brief OpenVINO Provider Options
- *
- * \see OrtApi::SessionOptionsAppendExecutionProvider_OpenVINO
+ *  \brief This Struct is frozen since ORT 1.13.0. Its maintained part of Legacy API for compatibility.
+ *  \brief For latest OpenVINO Provider Options update to the ProviderOptions map.
+ *  \brief Latest OpenVINO Provider Options are listed in the
+ *  \htmlonly
+ *  <a href="https://onnxruntime.ai/docs/execution-providers/OpenVINO-ExecutionProvider.html#summary-of-options">onnxruntime document.</a>
+ *  \endhtmlonly
+ * \see OrtApi::SessionOptionsAppendExecutionProvider()
  */
 typedef struct OrtOpenVINOProviderOptions {
 #ifdef __cplusplus
@@ -647,9 +652,9 @@ typedef struct OrtOpenVINOProviderOptions {
   const char* device_type;
   unsigned char enable_npu_fast_compile;
   const char* device_id;
-  size_t num_of_threads;  ///< 0 = Use default number of threads
-  const char* cache_dir;  // path is set to empty by default
-  void* context;
+  size_t num_of_threads;                   ///< 0 = Use default number of threads
+  const char* cache_dir;                   ///< Any valid string path on the hardware target
+  void* context;                           ///< OpenCL Context
   unsigned char enable_opencl_throttling;  ///< 0 = disabled, nonzero = enabled
   unsigned char enable_dynamic_shapes;     ///< 0 = disabled, nonzero = enabled
 } OrtOpenVINOProviderOptions;
