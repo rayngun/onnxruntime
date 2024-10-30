@@ -107,6 +107,10 @@ static OpBuilderRegistrations CreateOpBuilderRegistrations() {
     CreateGatherOpBuilder("Gather", op_registrations);
   }
 
+  {  // GatherElements
+    CreateGatherElementsOpBuilder("GatherElements", op_registrations);
+  }
+
   {  // GatherND
     CreateGatherNDOpBuilder("GatherND", op_registrations);
   }
@@ -189,6 +193,10 @@ static OpBuilderRegistrations CreateOpBuilderRegistrations() {
 
   {  // Resize
     CreateResizeOpBuilder("Resize", op_registrations);
+  }
+
+  {  // ScatterElements
+    CreateScatterElementsOpBuilder("ScatterElements", op_registrations);
   }
 
   {  // ScatterND
