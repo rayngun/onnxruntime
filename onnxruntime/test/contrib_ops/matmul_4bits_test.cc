@@ -509,9 +509,6 @@ void RunTest(int64_t M, int64_t N, int64_t K, int64_t block_size, int64_t accura
 #ifdef USE_WEBGPU
     execution_providers.push_back(DefaultWebGpuExecutionProvider());
 #endif
-#ifdef USE_WEBGPU
-    execution_providers.push_back(DefaultWebGpuExecutionProvider());
-#endif
 
     RunTest<MLFloat16>(opts, std::move(execution_providers));
   } else {
@@ -560,7 +557,11 @@ TEST(MatMulNBits, Float16Large) {
   // machines we tested on. All consumer-grade machines from Nvidia/AMD/Intel seem to pass these tests with an
   // absolute error of 0.08, but the A10 has errors going as high as 0.22. Ultimately, given the large number
   // of elements in this test, ULPs should probably be used instead of absolute/relative tolerances.
-  float abs_error = 0.3f;
+  float abs_error = 0.05f;
+  if (DefaultDmlExecutionProvider() != nullptr) {
+    // it means the ep is dml in runtime, the abs_error is changed to 0.3f
+    abs_error = 0.3f;
+  }
 #elif USE_WEBGPU
   // See Intel A770 to pass these tests with an absolute error of 0.08.
   float abs_error = 0.08f;

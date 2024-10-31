@@ -85,10 +85,14 @@ static void TestLayerNorm(const std::vector<int64_t>& x_dims,
   }
 #elif USE_ROCM
   test.CompareWithCPU(kRocmExecutionProvider);
-#elif USE_DML
-  test.CompareWithCPU(kDmlExecutionProvider);
 #elif USE_WEBGPU
   test.CompareWithCPU(kWebGpuExecutionProvider);
+#endif
+
+#ifdef USE_DML
+  if (DefaultDmlExecutionProvider() != nullptr) {
+    test.CompareWithCPU(kDmlExecutionProvider);
+  }
 #endif
 }
 
