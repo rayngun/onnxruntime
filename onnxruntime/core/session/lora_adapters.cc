@@ -52,6 +52,19 @@ void LoraAdapter::MemoryMap(const std::filesystem::path& file_path) {
 
 static std::unique_ptr<IDataTransfer> GetDataTransfer(const OrtMemoryInfo& mem_info) {
   std::unique_ptr<IDataTransfer> data_transfer;
+  bool is_dml = false;
+  Status CopyTensor(const Tensor& src, Tensor& dst) const {
+    return data_transfer->CopyTensor(src, dst);
+  }
+  Status Sync() const {
+    if (is_dml) {
+      return ep->Sync();
+    } else {
+      return Status::OK();
+    }
+  }
+};
+}  // namespace
 
   if (strcmp(mem_info.name, onnxruntime::CPU) == 0) {
     return data_transfer;
@@ -64,6 +77,17 @@ static std::unique_ptr<IDataTransfer> GetDataTransfer(const OrtMemoryInfo& mem_i
       data_transfer = cuda_provider_info->CreateGPUDataTransfer();
     }
 #endif
+  } else if (strcmp(mem_info.name, onnxruntime::DML) == 0) {
+#ifdef USE_DML
+    auto ep_factory = onnxruntime::DMLProviderFactoryCreator::Create(ConfigOptions{}, 0, false, false, false);
+    dt.ep = ep_factory->CreateProvider();
+    dt.is_dml = true;
+    dt.data_transfer = dt.ep->GetDataTransfer();
+#else
+    status = ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "DML provider is not enabled in this build");
+#endif
+  } else {
+    status = ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Unsupported device allocator");
   }
 
   return data_transfer;
