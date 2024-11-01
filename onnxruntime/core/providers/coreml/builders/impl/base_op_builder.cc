@@ -13,6 +13,14 @@ using namespace CoreML::Specification;
 namespace onnxruntime {
 namespace coreml {
 
+// Once all ops are supportted FP16, we can remove it. Before that, we keep a set of ops to
+// filter suppported ones.
+static std::set<std::string> Float16Ops = {
+    "Add", "ArgMax", "AveragePool", "BatchNormalization", "Cast", "Clip", "Concat", "Conv", "ConvTranspose",
+    "DepthToSpace", "Div", "Gelu", "Gemm", "GlobalAveragePool", "GlobalMaxPool", "GridSample", "GroupNormalization",
+    "InstanceNormalization", "LayerNormalization", "LeakyRelu", "MatMul", "MaxPool", "Mul", "PRelu", "Pow",
+    "Reciprocal", "Relu", "Reshape", "Resize", "Sigmoid", "Slice", "Split", "Sqrt", "Sub", "Tanh", "Transpose"};
+
 namespace {
 // TODO, move this to shared_library
 bool HasExternalInitializer(const InitializedTensorSet& initializers, const Node& node,
