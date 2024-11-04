@@ -82,7 +82,7 @@ static OpBuilderRegistrations CreateOpBuilderRegistrations() {
   }
 
   {  // CumSum
-    CreateCumSumOpBuilder("CumSum", op_registrations);
+    CreateConcatOpBuilder("CumSum", op_registrations);
   }
 
   {  // Dropout
