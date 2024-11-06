@@ -208,15 +208,20 @@ std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators()
 
 common::Status OpenVINOExecutionProvider::SetEpDynamicOptions(gsl::span<const char* const> keys,
                                                               gsl::span<const char* const> values) {
-  if ((std::find(keys.begin(), keys.end(), "ep.dynamic.workload_type") != keys.end()) &&
-      (std::find(values.begin(), values.end(), "Efficient") != values.end())) {
-    backend_manager_->dynamic_workload_type = "EFFICIENT";
-    LOGS_DEFAULT(VERBOSE) << "[OpenVINO-EP]" << backend_manager_->dynamic_workload_type << " mode is set for OV inference";
-  }
-  if ((std::find(keys.begin(), keys.end(), "ep.dynamic.workload_type") != keys.end()) &&
-      (std::find(values.begin(), values.end(), "Default") != values.end())) {
-    backend_manager_->dynamic_workload_type = "DEFAULT";
-    LOGS_DEFAULT(VERBOSE) << "[OpenVINO-EP]" << backend_manager_->dynamic_workload_type << " mode is set for OV inference";
+  for (auto key : keys) {
+    if (strcmp(key, "ep.dynamic.workload_type") == 0) {
+      for (auto val : values) {
+        if (strcmp(val, "Efficient") == 0) {
+          backend_manager_->dynamic_workload_type = "EFFICIENT";
+          LOGS_DEFAULT(VERBOSE) << "[OpenVINO-EP]" << backend_manager_->dynamic_workload_type
+                                << " mode is set for OV inference";
+        } else if (strcmp(val, "Default") == 0) {
+          backend_manager_->dynamic_workload_type = "DEFAULT";
+          LOGS_DEFAULT(VERBOSE) << "[OpenVINO-EP]" << backend_manager_->dynamic_workload_type
+                                << " mode is set for OV inference";
+        }
+      }
+    }
   }
   return Status::OK();
 }
