@@ -206,8 +206,8 @@ std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators()
 }
 #endif
 
-common::Status OpenVINOExecutionProvider::SetEpDynamicOptions(gsl::span<const char* const> keys,
-                                                              gsl::span<const char* const> values) {
+common::Status OpenVINOExecutionProvider::SetEpDynamicOptions(
+  gsl::span<const char* const> keys, gsl::span<const char* const> values) {
   for (auto key : keys) {
     if (strcmp(key, "ep.dynamic.workload_type") == 0) {
       for (auto val : values) {
