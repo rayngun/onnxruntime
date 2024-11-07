@@ -94,6 +94,7 @@ class ComputeContextImpl implements ComputeContext {
     contextDataOffset: number,
   ) {
     this.adapterInfo = backend.adapterInfo;
+    this.deviceInfo = backend.deviceInfo;
 
     // extract context data
     const ptrSize = module.PTR_SIZE;
