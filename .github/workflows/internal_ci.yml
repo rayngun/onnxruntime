@@ -1,9 +1,6 @@
 name : Trigger Internal ci
 
 on:
-  push:
-    branches:
-      - '**'  # Triggers on push  j to any branch let' see ggg hhh hh g hhg
   pull_request:
     branches:
       - '**'  # Triggers on a PR to any branch
@@ -11,50 +8,24 @@ on:
 jobs:
   build:
 
-    runs-on: [self-hosted, Linux, X64]  # Use specific runner labels fr
+    runs-on: [self-hosted, Linux, X64]
     env:
       BUILD_SOURCESDIRECTORY: ${{ github.workspace }}
       BUILD_BINARIESDIRECTORY: ${{ github.workspace }}/build
-      # OPENVINO_VERSION: '2024.3.0'  # Define your OpenVINO version
-      # PROXY_HTTP: 'http://proxy-dmz.intel.com:911/'   # Set your HTTP proxy
-      # PROXY_HTTPS: 'http://proxy-dmz.intel.com:912/'
     steps:
-    - uses: actions/checkout@v4  #checkout to your repository
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
 
     - name: Set up Python
       uses: actions/setup-python@v4  # Use the setup-python action
       with:
        python-version: '3.10'
 
-    # - name: Set up Docker permissions
-    #   run: |
-    #     sudo groupadd -f docker
-    #     sudo usermod -aG docker $USER
-    #     sudo chown $USER:docker /var/run/docker.sock
-    #     sudo chmod 666 /var/run/docker.sock
-    #   shell: bash
-    - name: Move models directory
-      run: |
-       if [ -d "/home/ubuntu/actions_runner/_work/onnxruntime/models" ]; then
-        sudo mv /home/ubuntu/actions_runner/_work/onnxruntime/models /home/ubuntu/actions_runner/_work/onnxruntime/onnxruntime/
-       else
-        echo "Models directory not found at the specified path"
-        exit 1
-       fi
-
     - name: Create build directory
       run: |
          mkdir -p ${{ env.BUILD_BINARIESDIRECTORY }}
          chmod -R 777 ${{ env.BUILD_BINARIESDIRECTORY }}
-
-    # - name: Update Docker Build Command in Script
-    #   run: |
-    #        docker_build_command_new='BUILD_ARGS+=" --build-arg OPENVINO_VERSION=${OPENVINO_VERSION} --build-arg http_proxy=${PROXY_HTTP} --build-arg https_proxy=${PROXY_HTTPS}"'
-    #        sed -i "/--build-arg OPENVINO_VERSION=\${OPENVINO_VERSION}/c${docker_build_command_new}" tools/ci_build/github/linux/run_dockerbuild.sh
-
-    #        docker_run_command_new='$DOCKER_CMD run $RUNTIME --rm $DOCKER_RUN_PARAMETER -e http_proxy=${PROXY_HTTP} -e https_proxy=${PROXY_HTTPS} \\'
-    #        sed -i "/\$DOCKER_CMD run \$RUNTIME --rm \$DOCKER_RUN_PARAMETER/c${docker_run_command_new}" tools/ci_build/github/linux/run_dockerbuild.sh
-    #   shell: bash
 
     - name: Running Internal CI
       run: |
