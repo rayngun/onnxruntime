@@ -30,6 +30,7 @@ class BackendManager {
   GlobalContext& GetGlobalContext();
   Status ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphViewer& subgraph,
                                        const logging::Logger& logger);
+  void SetDynamicWorkloadType(const std::string &value);
 
  private:
   std::unique_ptr<ONNX_NAMESPACE::ModelProto> GetModelProtoFromFusedNode(

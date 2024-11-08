@@ -206,4 +206,19 @@ std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators()
 }
 #endif
 
+common::Status OpenVINOExecutionProvider::SetEpDynamicOptions(
+  gsl::span<const char* const> keys, gsl::span<const char* const> values) {
+  for (auto key : keys) {
+    if (strcmp(key, "ep.dynamic.workload_type") == 0) {
+      for (auto val : values) {
+        if (strcmp(val, "Efficient") == 0) {
+          backend_manager_->SetDynamicWorkloadType("EFFICIENT");
+        } else if (strcmp(val, "Default") == 0) {
+          backend_manager_->SetDynamicWorkloadType("DEFAULT");
+        }
+      }
+    }
+  }
+  return Status::OK();
+}
 }  // namespace onnxruntime

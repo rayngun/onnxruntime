@@ -225,6 +225,12 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
   return Status::OK();
 }
 
+void BackendManager::SetDynamicWorkloadType(const std::string& value) {
+  auto ov_execution_network = concrete_backend_->GetOVCompiledModel();
+  ov_execution_network.set_property({{"WORKLOAD_TYPE", value}});
+  LOGS_DEFAULT(VERBOSE) << "[OpenVINO-EP] " << value << " workload type mode is set for OV inference";
+}
+
 bool BackendManager::ModelHasBatchedInputs(const ONNX_NAMESPACE::ModelProto& model_proto) const {
   bool has_batched_inputs = true;
 
