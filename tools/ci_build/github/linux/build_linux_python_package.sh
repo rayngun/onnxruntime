@@ -21,15 +21,7 @@ do case "${parameter_Option}"
 in
 #GPU|CPU|NPU.
 d) BUILD_DEVICE=${OPTARG};;
-p)
-  # Check if OPTARG is empty or starts with a hyphen, indicating a missing or invalid argument for -p
-  if [[ -z "${OPTARG}" || "${OPTARG}" == -* ]]; then
-    echo "ERROR: Option -p requires a valid argument, not another option."
-    exit 1
-  else
-    PYTHON_EXES=("${OPTARG}") # Use the provided argument for -p
-  fi
-  ;;
+p) PYTHON_EXES=("${OPTARG}");;
 x) EXTRA_ARG=${OPTARG};;
 c) BUILD_CONFIG=${OPTARG};;
 e) ENABLE_CACHE=true;;
