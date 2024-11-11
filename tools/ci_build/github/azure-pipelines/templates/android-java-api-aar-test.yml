@@ -107,7 +107,9 @@ jobs:
         --test_platform espresso \
         --app_path "debug/app-debug.apk" \
         --test_path "androidTest/debug/app-debug-androidTest.apk" \
-        --devices "Samsung Galaxy S23-13.0" "Google Pixel 3-9.0"
+        --devices "Samsung Galaxy S23-13.0" "Google Pixel 3-9.0" \
+        --build_tag "${{ parameters.packageName }}"
+
     displayName: Run E2E tests using Browserstack
     workingDirectory: $(Build.BinariesDirectory)/android_test/android/app/build/outputs/apk
     timeoutInMinutes: 15
