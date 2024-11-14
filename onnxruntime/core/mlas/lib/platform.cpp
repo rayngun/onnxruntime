@@ -573,6 +573,9 @@ Return Value:
         this->SymmQgemmDispatch = &MlasSymmQgemmS8DispatchSdot;
         this->ConvSymU8S8Dispatch = &MlasConvSymU8DispatchDot;
         this->ConvSymS8S8Dispatch = &MlasConvSymS8DispatchDot;
+
+        // MlasSQNBitGemmDispatchNeon has a dependency on dot product instructions
+        this->QNBitGemmDispatch = &MlasSQNBitGemmDispatchNeon;
     }
 
 #if defined(__linux__)

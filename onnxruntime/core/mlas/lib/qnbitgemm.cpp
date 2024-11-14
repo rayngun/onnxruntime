@@ -402,7 +402,7 @@ SQ4BitGemm_CompFp32(
         float* c_blk = C + n;
         const float* bias = (Bias == nullptr) ? nullptr : Bias + n;
 
-        GetMlasPlatform().QNBitGemmDispatch->SQ4BitBlkDequantBForSgemm_CompFp32(
+        GetMlasPlatform().QNBitGemmDispatch->Q4BitBlkDequantBForSgemm_CompFp32(
             BlkLen,
             dequant_b, b_col, b_col_scale, b_col_zp, CountN, K, k_blks
         );
@@ -808,7 +808,7 @@ GetQNBitGemm(QNBitGemmVariant variant)
 {
     switch (variant) {
         case HQNBitGemmVariant_BitWidth4_CompFp16:
-            return HQ4BitGemm_CompFp16;
+            return nullptr;
         default:
             return nullptr;
     }

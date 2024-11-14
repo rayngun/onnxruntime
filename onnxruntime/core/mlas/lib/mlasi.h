@@ -1050,13 +1050,6 @@ extern const MLAS_QNBIT_GEMM_DISPATCH MlasSQNBitGemmDispatchAvx512;
 extern const MLAS_QNBIT_GEMM_DISPATCH MlasSQNBitGemmDispatchAvx512vnni;
 
 //
-// Rotary embedding dispatch structure.
-//
-struct MLAS_ROPE_DISPATCH;
-extern const MLAS_ROPE_DISPATCH MlasRopeDispatchNeon;
-
-
-//
 // Quantized depthwise convolution kernels.
 //
 
