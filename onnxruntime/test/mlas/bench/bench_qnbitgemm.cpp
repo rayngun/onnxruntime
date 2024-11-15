@@ -17,16 +17,16 @@
 #include "core/util/thread_utils.h"
 #include "core/platform/env_var_utils.h"
 
-template <size_t BlkBitWidth>
-void RunSQNBitGemmBenchmark(size_t BlkLen,
-                            size_t M, size_t N, size_t K,
-                            size_t Threads,
-                            bool Symmetric,
-                            bool HasBias,
-                            MLAS_QNBIT_GEMM_COMPUTE_TYPE ComputeType,
-                            benchmark::State& state) {
+template <typename AType, size_t BlkBitWidth>
+void RunQNBitGemmBenchmark(size_t BlkLen,
+                           size_t M, size_t N, size_t K,
+                           size_t Threads,
+                           bool Symmetric,
+                           bool HasBias,
+                           MLAS_QNBIT_GEMM_COMPUTE_TYPE ComputeType,
+                           benchmark::State& state) {
   if (!MlasIsQNBitGemmAvailable(BlkBitWidth, BlkLen, ComputeType)) {
-    state.SkipWithMessage("SQNBitGemm is not available with the given configuration on the current machine.");
+    state.SkipWithMessage("QNBitGemm is not available with the given configuration on the current machine.");
     return;
   }
 
@@ -77,7 +77,7 @@ void RunSQNBitGemmBenchmark(size_t BlkLen,
                                 tp.get());
   }
 
-  MLAS_QNBIT_GEMM_DATA_PARAMS<float> params{};
+  MLAS_QNBIT_GEMM_DATA_PARAMS<AType> params{};
   params.A = A.data();
   params.lda = K;
   if (PackedQuantBData != nullptr)
@@ -121,14 +121,16 @@ static void QNBitGemmArgs(benchmark::internal::Benchmark* b) {
   b->ArgNames({"BlkLen", "M", "N", "K", "Threads", "Symmetric", "HasBias", "ComputeType"});
 
   b->ArgsProduct({
-      {128},                                                 // BlkLen
-      {1},                                                   // M
-      {4096, 11008},                                         // N
-      {4096, 11008},                                         // K
-      {1, 8},                                                // Threads
-      {int64_t{false}, int64_t{true}},                       // Symmetric
-      {int64_t{false}, int64_t{true}},                       // HasBias
-      {int64_t{SQNBIT_CompFp32}, int64_t{SQNBIT_CompInt8}},  // ComputeType
+      {128},                            // BlkLen
+      {1, 4096},                        // M
+      {4096, 11008},                    // N
+      {4096, 11008},                    // K
+      {1, 8},                           // Threads
+      {int64_t{false}, int64_t{true}},  // Symmetric
+      {int64_t{false}, int64_t{true}},  // HasBias
+      std::is_same_v<AType, MLAS_FP16>
+          ? std::vector<int64_t>{int64_t{HQNBIT_CompFp16}}
+          : std::vector<int64_t>{int64_t{SQNBIT_CompFp32}, int64_t{SQNBIT_CompInt8}},  // ComputeType
   });
 }
 
@@ -140,19 +142,19 @@ template <typename AType, size_t BlkBitWidth>
 void QNBITGEMM_ENV(benchmark::State& state) {
   using onnxruntime::ParseEnvironmentVariableWithDefault;
 
-  const auto BlkLen = ParseEnvironmentVariableWithDefault<size_t>("ORT_SQNBITGEMM_BLKLEN", 32);
-  const auto M = ParseEnvironmentVariableWithDefault<size_t>("ORT_SQNBITGEMM_M", 1);
-  const auto N = ParseEnvironmentVariableWithDefault<size_t>("ORT_SQNBITGEMM_N", 4096);
-  const auto K = ParseEnvironmentVariableWithDefault<size_t>("ORT_SQNBITGEMM_K", 4096);
-  const auto Threads = ParseEnvironmentVariableWithDefault<size_t>("ORT_SQNBITGEMM_THREADS", 1);
-  const auto Symmetric = ParseEnvironmentVariableWithDefault<bool>("ORT_SQNBITGEMM_SYMMETRIC", true);
-  const auto HasBias = ParseEnvironmentVariableWithDefault<bool>("ORT_SQNBITGEMM_HAS_BIAS", false);
-  const auto ComputeType = ParseEnvironmentVariableWithDefault<int32_t>("ORT_SQNBITGEMM_COMPUTE_TYPE",
+  const auto BlkLen = ParseEnvironmentVariableWithDefault<size_t>("ORT_QNBITGEMM_BLKLEN", 32);
+  const auto M = ParseEnvironmentVariableWithDefault<size_t>("ORT_QNBITGEMM_M", 1);
+  const auto N = ParseEnvironmentVariableWithDefault<size_t>("ORT_QNBITGEMM_N", 4096);
+  const auto K = ParseEnvironmentVariableWithDefault<size_t>("ORT_QNBITGEMM_K", 4096);
+  const auto Threads = ParseEnvironmentVariableWithDefault<size_t>("ORT_QNBITGEMM_THREADS", 1);
+  const auto Symmetric = ParseEnvironmentVariableWithDefault<bool>("ORT_QNBITGEMM_SYMMETRIC", true);
+  const auto HasBias = ParseEnvironmentVariableWithDefault<bool>("ORT_QNBITGEMM_HAS_BIAS", false);
+  const auto ComputeType = ParseEnvironmentVariableWithDefault<int32_t>("ORT_QNBITGEMM_COMPUTE_TYPE",
                                                                         static_cast<int32_t>(SQNBIT_CompFp32));
 
-  RunSQNBitGemmBenchmark<BlkBitWidth>(BlkLen, M, N, K, Threads, Symmetric, HasBias,
-                                      static_cast<MLAS_QNBIT_GEMM_COMPUTE_TYPE>(ComputeType),
-                                      state);
+  RunQNBitGemmBenchmark<AType, BlkBitWidth>(BlkLen, M, N, K, Threads, Symmetric, HasBias,
+                                            static_cast<MLAS_QNBIT_GEMM_COMPUTE_TYPE>(ComputeType),
+                                            state);
 
   std::ostringstream s;
   s << "BlkBitWidth:" << BlkBitWidth << "/BlkLen:" << BlkLen

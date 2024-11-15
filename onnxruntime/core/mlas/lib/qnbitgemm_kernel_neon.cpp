@@ -20,7 +20,7 @@ Abstract:
 #include <cassert>
 
 #include "qnbitgemm.h"
-#include "sqnbitgemm_kernel_neon.h"
+#include "qnbitgemm_kernel_neon.h"
 #include "sqnbitgemm_q8_block.h"
 
 namespace sqnbitgemm_neon

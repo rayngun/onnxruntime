@@ -81,6 +81,7 @@ class MlasNeonFp16CastTest : public MlasTestBase {
 
 class MlasNeonFp16PrepackTest : public MlasTestBase {
  private:
+  std::random_device rd_;  // a seed source for the random number engine
   unsigned int seed_;
   std::mt19937 gen_;  // mersenne_twister_engine seeded with rd()
   std::uniform_int_distribution<> distrib_;
@@ -172,7 +173,7 @@ class MlasNeonFp16PrepackTest : public MlasTestBase {
 
  public:
   MlasNeonFp16PrepackTest()
-      : seed_(19287), gen_(seed_), distrib_(0, 255) {
+      : seed_(rd_()), gen_(seed_), distrib_(0, 255) {
   }
 
   static const char* GetTestSuiteName() {
@@ -196,6 +197,7 @@ class MlasNeonFp16PrepackTest : public MlasTestBase {
 
 class MlasNeonFp16DequantBTest : public MlasTestBase {
  private:
+  std::random_device rd_;  // a seed source for the random number engine
   unsigned int seed_;
   std::mt19937 gen_;  // mersenne_twister_engine seeded with rd()
   std::uniform_int_distribution<> distrib_;
@@ -316,7 +318,7 @@ class MlasNeonFp16DequantBTest : public MlasTestBase {
 
  public:
   MlasNeonFp16DequantBTest()
-      : seed_(19287), gen_(seed_), distrib_(0, 255), _distribFp(0.5f, 2.0f) {
+      : seed_(rd_()), gen_(seed_), distrib_(0, 255), _distribFp(0.5f, 2.0f) {
   }
 
   static const char* GetTestSuiteName() {
@@ -351,6 +353,7 @@ class MlasNeonFp16DequantBTest : public MlasTestBase {
 
 class MlasNeonFp16HQ4BitGemmKernelTest : public MlasTestBase {
  private:
+  std::random_device rd_;  // a seed source for the random number engine
   unsigned int seed_;
   std::mt19937 gen_;  // mersenne_twister_engine seeded with rd()
   MatrixGuardBuffer<MLAS_FP16> A_, B_, C_, ref_, bias_;
@@ -401,7 +404,7 @@ class MlasNeonFp16HQ4BitGemmKernelTest : public MlasTestBase {
     for (size_t m = 0; m < M; ++m) {
       for (size_t n = 0; n < N; ++n) {
         size_t i = m * Ldc + n;
-        ASSERT_TRUE(FloatEqual(target[i], ref[i], 0.02f, 0.055f))
+        ASSERT_TRUE(FloatEqual(target[i], ref[i], 0.015f, 0.03f))
             << " seed " << seed_
             << " v0 " << target[i] << " v1 " << ref[i]
             << " m " << m << " n " << n;
@@ -436,7 +439,7 @@ class MlasNeonFp16HQ4BitGemmKernelTest : public MlasTestBase {
 
  public:
   MlasNeonFp16HQ4BitGemmKernelTest()
-      : seed_(19287), gen_(seed_) {
+      : seed_(rd_()), gen_(seed_) {
   }
 
   static const char* GetTestSuiteName() {
