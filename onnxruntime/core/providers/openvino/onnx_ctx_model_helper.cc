@@ -108,7 +108,7 @@ Status EPCtxHandler::ImportBlobFromEPCtxModel(const GraphViewer& graph_viewer, b
   return Status::OK();
 }
 
-const std::string &EPCtxHandler::GetModelBlobStream() const {
+const std::string& EPCtxHandler::GetModelBlobStream() const {
   static std::string empty;
   if (ep_cache_context_attribute_ != nullptr) {
     return ep_cache_context_attribute_->s();

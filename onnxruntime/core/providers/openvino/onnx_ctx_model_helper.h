@@ -33,7 +33,7 @@ class EPCtxHandler {
   Status ImportBlobFromEPCtxModel(const GraphViewer& graph_viewer, bool& ep_context_embed_mode);
   bool CheckForOVEPCtxNode(const GraphViewer& graph_viewer, std::string openvino_sdk_version) const;
   bool IsValidOVEPCtxGraph() const { return is_valid_ep_ctx_graph_; }
-  const std::string &GetModelBlobStream() const;
+  const std::string& GetModelBlobStream() const;
 
  private:
   bool is_valid_ep_ctx_graph_{false};
