@@ -128,7 +128,7 @@ TEST(CoreMLExecutionProviderTest, ArgMaxCastTest) {
                             feeds,
                             verification_params);
   RunAndVerifyOutputsWithEP(model_file_name, CurrentTestName(),
-                            MakeCoreMLExecutionProvider(COREML_FLAG_CREATE_MLPROGRAM),
+                            MakeCoreMLExecutionProvider("MLProgram"),
                             feeds,
                             verification_params);
 #else
@@ -170,7 +170,7 @@ TEST(CoreMLExecutionProviderTest, ArgMaxUnsupportedCastTest) {
                             verification_params);
 
   RunAndVerifyOutputsWithEP(model_file_name, CurrentTestName(),
-                            MakeCoreMLExecutionProvider(COREML_FLAG_CREATE_MLPROGRAM),
+                            MakeCoreMLExecutionProvider("MLProgram"),
                             feeds,
                             verification_params);
 #else

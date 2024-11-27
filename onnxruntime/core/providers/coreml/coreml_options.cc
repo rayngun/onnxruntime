@@ -63,14 +63,11 @@ void CoreMLOptions::ValidateAndParseProviderOption(const ProviderOptions& option
       {"MLProgram", COREML_FLAG_CREATE_MLPROGRAM},
       {"NeuralNetwork", COREML_FLAG_USE_NONE},
   };
-  const std::unordered_set<std::string_view> valid_options = {
+  std::unordered_set<std::string> valid_options = {
       kCoremlProviderOption_MLComputeUnits,
       kCoremlProviderOption_ModelFormat,
       kCoremlProviderOption_RequireStaticInputShapes,
       kCoremlProviderOption_EnableOnSubgraphs,
-      kCoremlProviderOption_SpecializationStrategy,
-      kCoremlProviderOption_ProfileComputePlan,
-      kCoremlProviderOption_AllowLowPrecisionAccumulationOnGPU,
   };
   // Validate the options
   for (const auto& option : options) {
@@ -93,16 +90,6 @@ void CoreMLOptions::ValidateAndParseProviderOption(const ProviderOptions& option
       require_static_shape_ = option.second == "1";
     } else if (kCoremlProviderOption_EnableOnSubgraphs == option.first) {
       enable_on_subgraph_ = option.second == "1";
-    } else if (kCoremlProviderOption_SpecializationStrategy == option.first) {
-      if (option.second != "Default" && option.second != "FastPrediction") {
-        ORT_THROW("Invalid value for option ", option.first, ": ", option.second,
-                  ". Valid values are Default and FastPrediction.");
-      }
-      strategy_ = option.second;
-    } else if (kCoremlProviderOption_ProfileComputePlan == option.first) {
-      profile_compute_plan_ = option.second == "1";
-    } else if (kCoremlProviderOption_AllowLowPrecisionAccumulationOnGPU == option.first) {
-      allow_low_precision_accumulation_on_gpu_ = option.second == "1";
     }
   }
 }
