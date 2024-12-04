@@ -73,7 +73,7 @@ export const createTransposeProgramInfo = (inputTensor: TensorView, permAttr: nu
   const outputShape = getOutputShape(inputTensor.dims, perm);
   let newInputShape = inputTensor.dims;
   let newOutputShape = outputShape;
-  const transposeAsReshape = isTransposeReshape(perm, inputTensor.dims);
+  const transposeAsReshape = inputRank < 2 || isTransposeReshape(perm, inputTensor.dims);
   let getShaderSource;
   if (transposeAsReshape) {
     getShaderSource = (shaderHelper: ShaderHelper) => {
