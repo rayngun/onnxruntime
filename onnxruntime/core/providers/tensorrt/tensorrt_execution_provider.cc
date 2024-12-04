@@ -1726,8 +1726,10 @@ TensorrtExecutionProvider::TensorrtExecutionProvider(const TensorrtExecutionProv
   }
 
   trt_version_ = getInferLibVersion();
+  CUDA_CALL_THROW(cudaRuntimeGetVersion(&cuda_version_));
 
   LOGS_DEFAULT(VERBOSE) << "[TensorRT EP] TensorRT version is " << trt_version_;
+  LOGS_DEFAULT(VERBOSE) << "[TensorRT EP] CUDA version is " << cuda_version_;
 
   LOGS_DEFAULT(VERBOSE) << "[TensorRT EP] TensorRT provider options: "
                         << "device_id: " << device_id_
