@@ -656,6 +656,68 @@ Status QnnBackendManager::GetMaxSpillFillBufferSize(unsigned char* buffer,
     return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Unsupported context binary info version.");
   }
 
+  for (uint32_t i = 0; i < graph_count; ++i) {
+    if (graphs_info[i].version == QNN_SYSTEM_CONTEXT_GRAPH_INFO_VERSION_3) {
+      auto htp_graph_info = reinterpret_cast<QnnHtpSystemContext_GraphBlobInfo_t*>(graphs_info[i].graphInfoV3.graphBlobInfo);
+      if (htp_graph_info->version == QNN_SYSTEM_CONTEXT_HTP_GRAPH_INFO_BLOB_VERSION_V1) {
+        auto spill_fill_buffer_size = htp_graph_info->contextBinaryGraphBlobInfoV1.spillFillBufferSize;
+        max_spill_fill_buffer_size = spill_fill_buffer_size > max_spill_fill_buffer_size ? spill_fill_buffer_size : max_spill_fill_buffer_size;
+      } else {
+        LOGS(*logger_, VERBOSE) << "Unknown context binary graph info blob version.";
+      }
+    } else if (graphs_info[i].version == QNN_SYSTEM_CONTEXT_GRAPH_INFO_VERSION_2 ||
+               graphs_info[i].version == QNN_SYSTEM_CONTEXT_GRAPH_INFO_VERSION_1) {
+      LOGS(*logger_, VERBOSE) << "Skip retrieve spill file buffer size, it is not supported with graph info v1 & v2.";
+    } else {
+      LOGS(*logger_, VERBOSE) << "Unknown context binary graph info version.";
+    }
+  }
+
+  LOGS(*logger_, VERBOSE) << "Get max spill fill buffer size completed.";
+  return Status::OK();
+}
+
+Status QnnBackendManager::LoadCachedQnnContextFromBuffer(char* buffer, uint64_t buffer_length,
+                                                         std::string node_name,
+                                                         QnnModelLookupTable& qnn_models,
+                                                         int64_t max_spill_fill_size) {
+  bool result = nullptr == qnn_sys_interface_.systemContextCreate ||
+                nullptr == qnn_sys_interface_.systemContextGetBinaryInfo ||
+                nullptr == qnn_sys_interface_.systemContextFree;
+  ORT_RETURN_IF(result, "Failed to get valid function pointer.");
+
+  QnnSystemContext_Handle_t sys_ctx_handle = nullptr;
+  auto rt = qnn_sys_interface_.systemContextCreate(&sys_ctx_handle);
+  ORT_RETURN_IF(QNN_SUCCESS != rt, "Failed to create system handle.");
+
+  const QnnSystemContext_BinaryInfo_t* binary_info = nullptr;
+  Qnn_ContextBinarySize_t binary_info_size{0};
+  rt = qnn_sys_interface_.systemContextGetBinaryInfo(sys_ctx_handle,
+                                                     static_cast<void*>(buffer),
+                                                     buffer_length,
+                                                     &binary_info,
+                                                     &binary_info_size);
+  ORT_RETURN_IF(QNN_SUCCESS != rt, "Failed to get context binary info.");
+
+  // binary_info life cycle is here
+  // Binary info to graph info
+  // retrieve Qnn graph info from binary info
+  ORT_RETURN_IF(nullptr == binary_info, "Qnn cached binary info is nullptr.");
+  uint32_t graph_count = 0;
+  QnnSystemContext_GraphInfo_t* graphs_info = nullptr;
+  if (binary_info->version == QNN_SYSTEM_CONTEXT_BINARY_INFO_VERSION_3) {
+    graph_count = binary_info->contextBinaryInfoV3.numGraphs;
+    graphs_info = binary_info->contextBinaryInfoV3.graphs;
+  } else if (binary_info->version == QNN_SYSTEM_CONTEXT_BINARY_INFO_VERSION_2) {
+    graph_count = binary_info->contextBinaryInfoV2.numGraphs;
+    graphs_info = binary_info->contextBinaryInfoV2.graphs;
+  } else if (binary_info->version == QNN_SYSTEM_CONTEXT_BINARY_INFO_VERSION_1) {
+    graph_count = binary_info->contextBinaryInfoV1.numGraphs;
+    graphs_info = binary_info->contextBinaryInfoV1.graphs;
+  } else {
+    return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Unsupported context binary info version.");
+  }
+
   ORT_RETURN_IF(graph_count < 1 || graphs_info == nullptr, "Failed to get graph info from Qnn cached context.");
   LOGS(*logger_, VERBOSE) << "Graph count from QNN context: " << graph_count;
 
