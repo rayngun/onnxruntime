@@ -58,6 +58,8 @@ class BaseOpBuilder : public IOpBuilder {
   bool HasSupportedOpSet(const Node& node, const logging::Logger& logger) const;
   bool HasSupportedInputs(const Node& node, const emscripten::val& wnn_limits, const logging::Logger& logger) const;
   bool HasSupportedOutputs(const Node& node, const emscripten::val& wnn_limits, const logging::Logger& logger) const;
+
+  const bool allow_empty_tensor_as_input_;  // Some operators can handle ignoring an empty tensor as input.
 };
 
 }  // namespace webnn
