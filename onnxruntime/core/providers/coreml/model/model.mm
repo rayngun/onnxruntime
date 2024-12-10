@@ -368,13 +368,13 @@ class Execution {
   NSString* coreml_model_path_{nil};
   NSString* compiled_model_path_{nil};
   const logging::Logger& logger_;
-  uint32_t coreml_compute_unit_{0};
+  CoreMLOptions coreml_options_;
   MLModel* model_{nil};
 };
 
-Execution::Execution(const std::string& path, const logging::Logger& logger, uint32_t coreml_compute_unit)
+Execution::Execution(const std::string& path, const logging::Logger& logger, const CoreMLOptions& coreml_options)
     : logger_(logger),
-      coreml_compute_unit_(coreml_compute_unit) {
+      coreml_options_(coreml_options) {
   @autoreleasepool {
     coreml_model_path_ = util::Utf8StringToNSString(path.c_str());
   }
@@ -443,12 +443,12 @@ Status Execution::LoadModel() {
       compiled_model_path_ = [compileUrl path];
 
       MLModelConfiguration* config = [[MLModelConfiguration alloc] init];
-
-      if (coreml_compute_unit_ & COREML_FLAG_USE_CPU_ONLY) {
+      uint32_t coreml_compute_unit = coreml_options_.ComputeUnits();
+      if (coreml_compute_unit & COREML_FLAG_USE_CPU_ONLY) {
         config.computeUnits = MLComputeUnitsCPUOnly;
-      } else if (coreml_compute_unit_ & COREML_FLAG_USE_CPU_AND_GPU) {
+      } else if (coreml_compute_unit & COREML_FLAG_USE_CPU_AND_GPU) {
         config.computeUnits = MLComputeUnitsCPUAndGPU;
-      } else if (coreml_compute_unit_ & COREML_FLAG_ONLY_ENABLE_DEVICE_WITH_ANE) {
+      } else if (coreml_compute_unit & COREML_FLAG_ONLY_ENABLE_DEVICE_WITH_ANE) {
         config.computeUnits = MLComputeUnitsCPUAndNeuralEngine;  // Apple Neural Engine
       } else {
         config.computeUnits = MLComputeUnitsAll;
