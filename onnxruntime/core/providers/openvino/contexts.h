@@ -13,7 +13,7 @@ namespace onnxruntime {
 namespace openvino_ep {
 
 // Holds context applicable to the entire EP instance.
-struct GlobalContext {
+struct SessionContext {
   OVCore ie_core;
   bool is_wholly_supported_graph = false;
   bool enable_opencl_throttling = false;
