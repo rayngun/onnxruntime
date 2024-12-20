@@ -198,7 +198,7 @@ class OpenVINOExecutionProvider : public IExecutionProvider {
   std::vector<AllocatorPtr> CreatePreferredAllocators() override;
 #endif
  private:
-  std::unique_ptr<openvino_ep::GlobalContext> global_context_;
+  std::unique_ptr<openvino_ep::SessionContext> session_context_;
   std::shared_ptr<openvino_ep::BackendManager> backend_manager_;
   openvino_ep::EPCtxHandler ep_ctx_handle_{};
 };
