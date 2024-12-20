@@ -40,17 +40,17 @@ struct static_cast_int64 {
 };
 
 std::shared_ptr<const OVNetwork>
-CreateOVModel(const ONNX_NAMESPACE::ModelProto& model_proto, const GlobalContext& global_context,
+CreateOVModel(const ONNX_NAMESPACE::ModelProto& model_proto, const SessionContext& session_context,
               std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map) {
   if (IsCILogEnabled()) {
     std::cout << "CreateNgraphFunc" << std::endl;
   }
   const std::string model = model_proto.SerializeAsString();
   try {
-    auto ov_model = global_context.ie_core.ReadModel(model, global_context.onnx_model_path_name);
+    auto ov_model = session_context.ie_core.ReadModel(model, session_context.onnx_model_path_name);
 
     // Check for Constant Folding
-    if ((global_context.device_type != "NPU") && !global_context.is_wholly_supported_graph) {
+    if ((session_context.device_type != "NPU") && !session_context.is_wholly_supported_graph) {
       ov::pass::ConstantFolding pass_const_obj;
       pass_const_obj.run_on_model(ov_model);
       auto& results = const_cast<ov::ResultVector&>(ov_model.get()->get_results());
@@ -129,13 +129,13 @@ GetOutputTensor(Ort::KernelContext& context,
   return context.GetOutput(index, output_shape.get(), num_dims);
 }
 
-int GetFirstAvailableDevice(GlobalContext& global_context) {
+int GetFirstAvailableDevice(SessionContext& session_context) {
   int i = 0;
   // Get the first available VAD-M device and set the device to busy
   while (i < 8) {
-    bool device = global_context.deviceAvailableList[i];
+    bool device = session_context.deviceAvailableList[i];
     if (device) {
-      global_context.deviceAvailableList[i] = false;
+      session_context.deviceAvailableList[i] = false;
       break;
     }
     i++;
@@ -144,9 +144,9 @@ int GetFirstAvailableDevice(GlobalContext& global_context) {
   // make all remaining devices free
   if (i == 8) {
     i = 0;
-    global_context.deviceAvailableList[i] = false;
+    session_context.deviceAvailableList[i] = false;
     for (int j = 1; j < 8; j++) {
-      global_context.deviceAvailableList[j] = true;
+      session_context.deviceAvailableList[j] = true;
     }
   }
   return i;
