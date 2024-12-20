@@ -33,6 +33,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
     return;
 
   // OV Config
+
   ov::AnyMap device_config;
   PopulateConfigValue(device_config);
 
@@ -133,6 +134,41 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
   inferRequestsQueue_ = std::unique_ptr<InferRequestsQueue>(new InferRequestsQueue(exe_network_, num_infer_req));
 }
 
+  std::map<std::string, std::vector<std::string>>BasicBackend:: parse_input_shapes(const std::string& parameter_string)
+  {
+    std::map<std::string, std::vector<std::string>> return_value;
+    std:: string search_string = parameter_string;
+    auto start_pos = search_string.find_first_of('[');    //input_1[1,23,4,5],inpu2[1,2,3,4]
+    auto input_name = search_string.substr(0,start_pos);
+    while(start_pos != std::string::npos) {
+      auto end_pos = search_string.find_first_of(']');
+      if(end_pos == std::string::npos){
+        break;
+      }
+      if(start_pos){
+        input_name = search_string.substr(0,start_pos);
+      }
+      auto input_value = search_string.substr(start_pos+1,end_pos - start_pos - 1);
+      if(!input_name.empty()) {
+        return_value[input_name].push_back(input_value);
+      } else{
+        ORT_THROW("Please provide with a valid input name in the shape parameter");
+      }
+      search_string = search_string.substr(end_pos+1);
+      if(search_string.empty() || search_string.front() != ',') {
+        break;
+      }
+      if(search_string.front()==',') {
+        search_string = search_string.substr(1);
+      }
+      start_pos = search_string.find_first_of('[');
+    }
+    if(!search_string.empty()) {
+      ORT_THROW("CANNOT PARSE INPUT PARAMETER STRING: "+ parameter_string);
+    }
+    return return_value;
+  }
+
 bool BasicBackend::ValidateSubgraph(std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map) {
   if (const_outputs_map.size() == subgraph_context_.output_names.size())
     subgraph_context_.is_constant = true;
@@ -188,6 +224,23 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
       global_context_.ie_core.Get().set_property("NPU", ov::intel_npu::bypass_umd_caching(true));
     }
 #endif
+  }
+
+  if(!global_context_.reshape_input.empty())
+  {
+    //input1 => ["123","256,"76..457]
+    //input2=>[]
+    //shape_map=> should be in global context
+
+    global_context_.Shape_map = parse_input_shapes(global_context_.reshape_input);
+
+    for(const auto&[key,vec] : global_context_.Shape_map) {
+      if (vec.size()>1) {
+        ORT_THROW("shape command line parameter doesn't support multiple shapes for one input.");
+      }
+    }
+
+
   }
 
   if (!global_context_.load_config.empty()) {

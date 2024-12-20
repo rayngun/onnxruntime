@@ -48,6 +48,7 @@ class BasicBackend : public IBackend {
   void EnableStreams();
   void SetNumThreads(ov::AnyMap& device_config);
   void StartAsyncInference(Ort::KernelContext& context, std::shared_ptr<OVInferRequest> infer_request);
+  std::map<std::string, std::vector<std::string>> parse_input_shapes(const std::string&);
 
 #ifdef IO_BUFFER_ENABLED
   void StartRemoteAsyncInference(Ort::KernelContext& context, std::shared_ptr<OVInferRequest> infer_request);

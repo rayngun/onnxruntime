@@ -83,6 +83,7 @@ struct OpenVINOExecutionProviderInfo {
   std::map<std::string, ov::AnyMap> load_config_{};
   std::string cache_dir_{""};
   std::string model_priority_{""};
+  std:: string reshape_input_{""};
   int num_streams_{1};
   void* context_{NULL};
   bool enable_opencl_throttling_{false};
@@ -98,6 +99,7 @@ struct OpenVINOExecutionProviderInfo {
                                          size_t num_of_threads,
                                          const std::map<std::string, ov::AnyMap>& load_config,
                                          const std::string& cache_dir,
+                                         const std::string& reshape_input,
                                          const std::string& model_priority, int num_streams,
                                          void* context, bool enable_opencl_throttling,
                                          bool disable_dynamic_shapes, bool export_ep_ctx_blob,

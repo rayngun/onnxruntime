@@ -42,6 +42,7 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
   const std::map<std::string, ov::AnyMap> load_config_;
   std::string cache_dir_;
   std::string model_priority_;
+  std::string reshape_input_;
   int num_streams_;
   void* context_;
   bool enable_opencl_throttling_;
@@ -74,7 +75,7 @@ std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
   }
 
   OpenVINOExecutionProviderInfo info(device_type_, precision_, num_of_threads_, load_config_,
-                                     cache_dir_, model_priority_, num_streams_, context_, enable_opencl_throttling_,
+                                     cache_dir_, model_priority_, reshape_input_, num_streams_, context_, enable_opencl_throttling_,
                                      disable_dynamic_shapes_, so_export_ep_ctx_blob, enable_qdq_optimizer_,
                                      so_disable_cpu_fallback, so_epctx_embed_mode);
   return std::make_unique<OpenVINOExecutionProvider>(info);
@@ -115,6 +116,7 @@ struct OpenVINO_Provider : Provider {
                                                     // dump and load the blobs for the model caching/kernel caching
                                                     // (GPU) feature. If blob files are already present,
                                                     // it will be directly loaded.
+    std:: string reshape_input = "";                // Sets the range for models with dynamic input shape.
     std::string model_priority = "DEFAULT";         // High-level OpenVINO model priority hint
                                                     // Defines what model should be provided with more performant
                                                     // bounded resource first
@@ -201,6 +203,10 @@ struct OpenVINO_Provider : Provider {
 
     if (provider_options_map.find("cache_dir") != provider_options_map.end()) {
       cache_dir = provider_options_map.at("cache_dir");
+    }
+
+    if(provider_options_map.find("reshape_input")!= provider_options_map.end()) {
+      reshape_input = provider_options_map.at("reshape_input");
     }
 
     if (provider_options_map.find("load_config") != provider_options_map.end()) {
