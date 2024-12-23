@@ -102,6 +102,11 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
             delete model_proto.release();
           }
           ov_model = global_context_.ie_core.Get().read_model(model, ov::Tensor());
+          if(!global_context.Shape_map.empty())
+          {
+            ov_model.Get()->Reshape(global_context.Shape_map);
+          }
+
         }
         exe_network_ = OVExeNetwork(global_context_.ie_core.Get().compile_model(ov_model, hw_target, device_config));
       } else if (!global_context_.has_external_weights &&
@@ -117,6 +122,9 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
                                                             subgraph_context_.subgraph_name);
       } else {  // For all other types use ov::Model Type
         auto ov_model = CreateOVModel(*model_proto, global_context_, const_outputs_map_);
+        if(!global_context.Shape_map.empty()) {
+            ov_model.Get()->Reshape(global_context.Shape_map);
+          }
         exe_network_ = global_context_.ie_core.CompileModel(
             ov_model, hw_target, device_config, subgraph_context_.subgraph_name);
       }

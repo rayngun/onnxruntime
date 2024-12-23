@@ -121,6 +121,35 @@ OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
     return "";
   }(graph_viewer);
 
+   if(!global_context_->Shape_map.empty()) {
+
+   const auto& graph_inputs = graph_viewer.GetInputs();
+   for (const auto& [input_name, expected_shape] : global_context_->Shape_map) {
+         bool found = false;
+
+         for(const auto* input : graph_inputs){
+          if(input->Name()==input_name) {
+             found = true;
+             const auto& shape_proto = input->Shape();
+
+             if(shape_proto) {
+              int actual_size = shape_proto->dim_size();
+              if(actual_size != static_cast<int>(expected_shape.size())){
+                ORT_THROW("THE INPUT SHAPE DOES NOT MATCH FOR THE GIVEN INPUT NAME");
+              }
+             }
+             break;
+          }
+
+         }
+
+      if (!found) {
+            ORT_THROW("PLEASE PROVIDE WITH A VALID INPUT NAME");
+        }
+   }
+   }
+
+
   openvino_ep::GetCapability obj(graph_viewer,
                                  global_context_->device_type,
                                  global_context_->enable_qdq_optimizer);
