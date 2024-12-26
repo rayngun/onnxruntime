@@ -7,6 +7,7 @@
 #include <sstream>
 #include <fstream>
 #include <utility>
+#include<iostream>
 
 #include "core/providers/shared_library/provider_api.h"
 #include "core/providers/openvino/backend_utils.h"
@@ -101,10 +102,35 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
           if (!subgraph_context.has_dynamic_input_shape) {
             delete model_proto.release();
           }
+          std::cout<<" the flow is reahcing at line no 105 basic_backend.cc"<<std::endl;
           ov_model = global_context_.ie_core.Get().read_model(model, ov::Tensor());
           if(!global_context.Shape_map.empty())
           {
-            ov_model.Get()->Reshape(global_context.Shape_map);
+            std::map<std::string,ov::PartialShape>result;
+            for(const auto&item  : global_context.Shape_map) {
+              const std:: string & input_name = item.first;
+              const std::vector<std::string>&dimensions = item.second;
+
+              std::vector<ov::Dimension> ov_dimensions;
+              for (const std::string& dim : dimensions) {
+            // Check for range in the format "start..end"
+            size_t range_pos = dim.find("..");
+            if (range_pos != std::string::npos) {
+                // Parse the start and end of the range
+                int start = std::stoi(dim.substr(0, range_pos));
+                int end = std::stoi(dim.substr(range_pos + 2));
+                ov_dimensions.emplace_back(start, end); // Add range dimension
+            } else {
+                // Parse as a static dimension
+                ov_dimensions.emplace_back(std::stoi(dim));
+            }
+        }
+
+        // Add the constructed PartialShape to the result map
+        result[input_name] = ov::PartialShape(ov_dimensions);
+            }
+
+            ov_model.get()->reshape(result);
           }
 
         }
@@ -122,9 +148,37 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
                                                             subgraph_context_.subgraph_name);
       } else {  // For all other types use ov::Model Type
         auto ov_model = CreateOVModel(*model_proto, global_context_, const_outputs_map_);
-        if(!global_context.Shape_map.empty()) {
-            ov_model.Get()->Reshape(global_context.Shape_map);
-          }
+
+          // Shape map is not empty
+        //     if(!global_context.Shape_map.empty())
+        //   {
+        //     std::map<std::string,ov::PartialShape>result;
+        //     for(const auto&item  : global_context.Shape_map) {
+        //       const std:: string & input_name = item.first;
+        //       const std::vector<std::string>&dimensions = item.second;
+
+        //       std::vector<ov::Dimension> ov_dimensions;
+        //       for (const std::string& dim : dimensions) {
+        //     // Check for range in the format "start..end"
+        //     size_t range_pos = dim.find("..");
+        //     if (range_pos != std::string::npos) {
+        //         // Parse the start and end of the range
+        //         int start = std::stoi(dim.substr(0, range_pos));
+        //         int end = std::stoi(dim.substr(range_pos + 2));
+        //         ov_dimensions.emplace_back(start, end); // Add range dimension
+        //     } else {
+        //         // Parse as a static dimension
+        //         ov_dimensions.emplace_back(std::stoi(dim));
+        //     }
+        // }
+
+        // // Add the constructed PartialShape to the result map
+        // result[input_name] = ov::PartialShape(ov_dimensions);
+        //     }
+
+        //     ov_model.get()->reshape(result);
+        //   }
+
         exe_network_ = global_context_.ie_core.CompileModel(
             ov_model, hw_target, device_config, subgraph_context_.subgraph_name);
       }
@@ -142,40 +196,40 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
   inferRequestsQueue_ = std::unique_ptr<InferRequestsQueue>(new InferRequestsQueue(exe_network_, num_infer_req));
 }
 
-  std::map<std::string, std::vector<std::string>>BasicBackend:: parse_input_shapes(const std::string& parameter_string)
-  {
-    std::map<std::string, std::vector<std::string>> return_value;
-    std:: string search_string = parameter_string;
-    auto start_pos = search_string.find_first_of('[');    //input_1[1,23,4,5],inpu2[1,2,3,4]
-    auto input_name = search_string.substr(0,start_pos);
-    while(start_pos != std::string::npos) {
-      auto end_pos = search_string.find_first_of(']');
-      if(end_pos == std::string::npos){
-        break;
-      }
-      if(start_pos){
-        input_name = search_string.substr(0,start_pos);
-      }
-      auto input_value = search_string.substr(start_pos+1,end_pos - start_pos - 1);
-      if(!input_name.empty()) {
-        return_value[input_name].push_back(input_value);
-      } else{
-        ORT_THROW("Please provide with a valid input name in the shape parameter");
-      }
-      search_string = search_string.substr(end_pos+1);
-      if(search_string.empty() || search_string.front() != ',') {
-        break;
-      }
-      if(search_string.front()==',') {
-        search_string = search_string.substr(1);
-      }
-      start_pos = search_string.find_first_of('[');
-    }
-    if(!search_string.empty()) {
-      ORT_THROW("CANNOT PARSE INPUT PARAMETER STRING: "+ parameter_string);
-    }
-    return return_value;
-  }
+  // std::map<std::string, std::vector<std::string>>BasicBackend:: parse_input_shapes(const std::string& parameter_string)
+  // {
+  //   std::map<std::string, std::vector<std::string>> return_value;
+  //   std:: string search_string = parameter_string;
+  //   auto start_pos = search_string.find_first_of('[');    //input_1[1,23,4,5],inpu2[1,2,3,4]
+  //   auto input_name = search_string.substr(0,start_pos);
+  //   while(start_pos != std::string::npos) {
+  //     auto end_pos = search_string.find_first_of(']');
+  //     if(end_pos == std::string::npos){
+  //       break;
+  //     }
+  //     if(start_pos){
+  //       input_name = search_string.substr(0,start_pos);
+  //     }
+  //     auto input_value = search_string.substr(start_pos+1,end_pos - start_pos - 1);
+  //     if(!input_name.empty()) {
+  //       return_value[input_name].push_back(input_value);
+  //     } else{
+  //       ORT_THROW("Please provide with a valid input name in the shape parameter");
+  //     }
+  //     search_string = search_string.substr(end_pos+1);
+  //     if(search_string.empty() || search_string.front() != ',') {
+  //       break;
+  //     }
+  //     if(search_string.front()==',') {
+  //       search_string = search_string.substr(1);
+  //     }
+  //     start_pos = search_string.find_first_of('[');
+  //   }
+  //   if(!search_string.empty()) {
+  //     ORT_THROW("CANNOT PARSE INPUT PARAMETER STRING: "+ parameter_string);
+  //   }
+  //   return return_value;
+  // }
 
 bool BasicBackend::ValidateSubgraph(std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map) {
   if (const_outputs_map.size() == subgraph_context_.output_names.size())
@@ -233,23 +287,32 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
     }
 #endif
   }
+   //std::cout<<"My code reaches at line no 289 first"<<std::endl;
+  // if(!global_context_.reshape_input.empty())
+  // {
+  //   //input1 => ["123","256,"76..457]
+  //   //input2=>[]
+  //   //shape_map=> should be in global context
+  //   std::cout<<"My code reaches at line no 294 first"<<std::endl;
 
-  if(!global_context_.reshape_input.empty())
-  {
-    //input1 => ["123","256,"76..457]
-    //input2=>[]
-    //shape_map=> should be in global context
+  //   global_context_.Shape_map = parse_input_shapes(global_context_.reshape_input);
 
-    global_context_.Shape_map = parse_input_shapes(global_context_.reshape_input);
+  //   for(const auto&[key,vec] : global_context_.Shape_map) {
+  //      if (vec.size()>1) {
+  //        ORT_THROW("shape command line parameter doesn't support multiple shapes for one input.");
+  //      }
+  //      std::cout<<key<<std::endl;
+  //      for(int i=0; i<vec.size(); i++)
+  //      {
+  //       std::cout<<vec[i]<<std::endl;
+  //      }
+  //   }
 
-    for(const auto&[key,vec] : global_context_.Shape_map) {
-      if (vec.size()>1) {
-        ORT_THROW("shape command line parameter doesn't support multiple shapes for one input.");
-      }
-    }
+  // }
+  // else{
+  //   std::cout<<"global_context reshape input string in empty boy"<<std::endl;
 
-
-  }
+  // }
 
   if (!global_context_.load_config.empty()) {
     const std::map<std::string, ov::AnyMap>& target_config = global_context_.load_config;

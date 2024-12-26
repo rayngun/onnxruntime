@@ -2,6 +2,7 @@
 // Licensed under the MIT License
 
 #include <map>
+#include<iostream>
 #include <utility>
 #include "core/providers/shared_library/provider_api.h"
 #include "core/providers/openvino/openvino_provider_factory.h"
@@ -14,7 +15,7 @@ namespace onnxruntime {
 struct OpenVINOProviderFactory : IExecutionProviderFactory {
   OpenVINOProviderFactory(const std::string& device_type, const std::string& precision,
                           size_t num_of_threads,
-                          const std::map<std::string, ov::AnyMap>& load_config, const std::string& cache_dir,
+                          const std::map<std::string, ov::AnyMap>& load_config, const std::string& cache_dir, const std::map<std::string, std::vector<std::string>>& Shape_map,
                           const std::string& model_priority, int num_streams, void* context,
                           bool enable_opencl_throttling, bool disable_dynamic_shapes,
                           bool enable_qdq_optimizer, const ConfigOptions& config_options)
@@ -23,13 +24,15 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
         num_of_threads_(num_of_threads),
         load_config_(load_config),
         cache_dir_(cache_dir),
+        Shape_map_(Shape_map),
         model_priority_(model_priority),
         num_streams_(num_streams),
         context_(context),
         enable_opencl_throttling_(enable_opencl_throttling),
         disable_dynamic_shapes_(disable_dynamic_shapes),
         enable_qdq_optimizer_(enable_qdq_optimizer),
-        config_options_(config_options) {}
+        config_options_(config_options)
+         {}
 
   ~OpenVINOProviderFactory() override {}
 
@@ -41,8 +44,8 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
   size_t num_of_threads_;
   const std::map<std::string, ov::AnyMap> load_config_;
   std::string cache_dir_;
+  std::map<std::string, std::vector<std::string>> Shape_map_;
   std::string model_priority_;
-  std::string reshape_input_;
   int num_streams_;
   void* context_;
   bool enable_opencl_throttling_;
@@ -75,7 +78,7 @@ std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
   }
 
   OpenVINOExecutionProviderInfo info(device_type_, precision_, num_of_threads_, load_config_,
-                                     cache_dir_, model_priority_, reshape_input_, num_streams_, context_, enable_opencl_throttling_,
+                                     cache_dir_, Shape_map_, model_priority_,  num_streams_, context_, enable_opencl_throttling_,
                                      disable_dynamic_shapes_, so_export_ep_ctx_blob, enable_qdq_optimizer_,
                                      so_disable_cpu_fallback, so_epctx_embed_mode);
   return std::make_unique<OpenVINOExecutionProvider>(info);
@@ -116,7 +119,8 @@ struct OpenVINO_Provider : Provider {
                                                     // dump and load the blobs for the model caching/kernel caching
                                                     // (GPU) feature. If blob files are already present,
                                                     // it will be directly loaded.
-    std:: string reshape_input = "";                // Sets the range for models with dynamic input shape.
+    std::map<std::string, std::vector<std::string>> Shape_map;// Sets the range for models with dynamic input shape.
+    //std:: string reshape_input = "";                // Sets the range for models with dynamic input shape.
     std::string model_priority = "DEFAULT";         // High-level OpenVINO model priority hint
                                                     // Defines what model should be provided with more performant
                                                     // bounded resource first
@@ -205,9 +209,135 @@ struct OpenVINO_Provider : Provider {
       cache_dir = provider_options_map.at("cache_dir");
     }
 
-    if(provider_options_map.find("reshape_input")!= provider_options_map.end()) {
-      reshape_input = provider_options_map.at("reshape_input");
+  //   if(provider_options_map.find("reshape_input")!= provider_options_map.end()) {
+
+  //     auto parse_input_shapes = [](const std::string& parameter_string) {
+  //     std::map<std::string, std::vector<std::string>> return_value;
+  //     std::string search_string = parameter_string;
+  //     auto start_pos = search_string.find_first_of('['); // Find first '['
+
+  //     while (start_pos != std::string::npos) {
+  //       // Extract the input name up to '['
+  //       auto input_name = search_string.substr(0, start_pos);
+  //       if (input_name.empty()) {
+  //           ORT_THROW("Please provide a valid input name in the shape parameter");
+  //       }
+
+  //       // Find the closing ']' after '['
+  //       auto end_pos = search_string.find_first_of(']');
+  //       if (end_pos == std::string::npos) {
+  //           ORT_THROW("Mismatched brackets in input shape parameter");
+  //       }
+
+  //       // Extract the shape between '[' and ']'
+  //       auto input_value = search_string.substr(start_pos + 1, end_pos - start_pos - 1);
+  //       return_value[input_name].push_back(input_value);
+
+  //       // Move to the next part of the string after ']'
+  //       search_string = search_string.substr(end_pos + 1);
+
+  //       // Handle comma separation
+  //       if (!search_string.empty() && search_string.front() == ',') {
+  //           search_string = search_string.substr(1); // Skip the comma
+  //       }
+
+  //       // Find the next '['
+  //       start_pos = search_string.find_first_of('[');
+  //     }
+
+  //   // If any unmatched content remains, throw an error
+  //   if (!search_string.empty()) {
+  //       ORT_THROW("Cannot parse input parameter string: " + parameter_string);
+  //   }
+
+  //   return return_value;
+  // };
+  //     Shape_map = parse_input_shapes(provider_options_map.at("reshape_input"));
+  //     for(const auto&[key,vec] : Shape_map) {
+  //      if (vec.size()>1) {
+  //        ORT_THROW("shape command line parameter doesn't support multiple shapes for one input.");
+  //      }
+  //      std::cout<<key<<std::endl;
+  //      for(int i=0; i<vec.size(); i++)
+  //      {
+  //       std::cout<<vec[i]<<std::endl;
+  //      }
+  //   }
+  //   }
+
+  if (provider_options_map.find("reshape_input") != provider_options_map.end()) {
+    auto parse_input_shapes = [](const std::string& parameter_string) {
+        std::map<std::string, std::vector<std::string>> return_value;
+        std::string search_string = parameter_string;
+
+        auto start_pos = search_string.find_first_of('['); // Find first '['
+        while (start_pos != std::string::npos) {
+            // Extract the input name up to '['
+            auto input_name = search_string.substr(0, start_pos);
+            input_name = input_name.substr(0, input_name.find_last_not_of(' ') + 1); // Trim trailing spaces
+            if (input_name.empty()) {
+                ORT_THROW("Please provide a valid input name in the shape parameter");
+            }
+
+            // Find the closing ']' after '['
+            auto end_pos = search_string.find_first_of(']');
+            if (end_pos == std::string::npos) {
+                ORT_THROW("Mismatched brackets in input shape parameter");
+            }
+
+            // Extract the shape between '[' and ']'
+            auto input_value = search_string.substr(start_pos + 1, end_pos - start_pos - 1);
+
+            // Split dimensions by ',' and add them to the vector
+            std::vector<std::string> dimensions;
+            size_t dim_start = 0, dim_end = 0;
+            while ((dim_end = input_value.find(',', dim_start)) != std::string::npos) {
+                dimensions.push_back(input_value.substr(dim_start, dim_end - dim_start));
+                dim_start = dim_end + 1;
+            }
+            // Add the last dimension
+            dimensions.push_back(input_value.substr(dim_start));
+
+            // Add to the map
+            return_value[input_name] = dimensions;
+
+            // Move to the next part of the string after ']'
+            search_string = search_string.substr(end_pos + 1);
+
+            // Handle comma separation
+            if (!search_string.empty() && search_string.front() == ',') {
+                search_string = search_string.substr(1); // Skip the comma
+            }
+
+            // Find the next '['
+            start_pos = search_string.find_first_of('[');
+        }
+
+        // If any unmatched content remains, throw an error
+        if (!search_string.empty()) {
+            ORT_THROW("Cannot parse input parameter string: " + parameter_string);
+        }
+
+        return return_value;
+    };
+
+    // Parse the reshape_input string
+    Shape_map = parse_input_shapes(provider_options_map.at("reshape_input"));
+
+    // Validate and print the parsed shapes
+    for (const auto& [key, vec] : Shape_map) {
+        if (vec.empty()) {
+            ORT_THROW("Shape vector for input " + key + " is empty.");
+        }
+        std::cout << "Input: " << key << std::endl;
+        std::cout << "Dimensions: ";
+        for (const auto& dim : vec) {
+            std::cout << dim << " ";
+        }
+        std::cout << std::endl;
     }
+}
+
 
     if (provider_options_map.find("load_config") != provider_options_map.end()) {
       auto parse_config = [&](const std::string& config_str) -> std::map<std::string, ov::AnyMap> {
@@ -357,6 +487,7 @@ struct OpenVINO_Provider : Provider {
                                                      num_of_threads,
                                                      load_config,
                                                      cache_dir,
+                                                     Shape_map,
                                                      model_priority,
                                                      num_streams,
                                                      context,

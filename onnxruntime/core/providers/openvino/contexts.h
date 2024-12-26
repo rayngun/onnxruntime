@@ -28,7 +28,6 @@ struct GlobalContext {
   std::string precision_str;
   std::string model_precision;
   std::string cache_dir;
-  std:: string reshape_input;
   std::map<std::string, std::vector<std::string>> Shape_map;
   std::map<std::string, ov::AnyMap> load_config;
   std::string model_priority = "DEFAULT";

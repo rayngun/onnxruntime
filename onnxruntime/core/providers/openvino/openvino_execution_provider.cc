@@ -29,6 +29,7 @@ OpenVINOExecutionProvider::OpenVINOExecutionProvider(const OpenVINOExecutionProv
   global_context_->device_type = info.device_type_;
   global_context_->precision_str = info.precision_;
   global_context_->cache_dir = info.cache_dir_;
+  global_context_->Shape_map = info.Shape_map_;
   global_context_->load_config = info.load_config_;
   global_context_->model_priority = info.model_priority_;
   global_context_->num_streams = info.num_streams_;
@@ -134,6 +135,13 @@ OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
 
              if(shape_proto) {
               int actual_size = shape_proto->dim_size();
+              std::cout<<"The actual size is"<<actual_size<<std::endl;
+              std::cout<<"The expected shaoe size is"<<expected_shape.size()<<std::endl;
+              std::vector<std::string>dummy = expected_shape;
+              for(int i=0; i<dummy.size(); i++)
+              {
+                std::cout<<dummy[i]<<" "<<std::endl;
+              }
               if(actual_size != static_cast<int>(expected_shape.size())){
                 ORT_THROW("THE INPUT SHAPE DOES NOT MATCH FOR THE GIVEN INPUT NAME");
               }
@@ -144,9 +152,12 @@ OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
          }
 
       if (!found) {
-            ORT_THROW("PLEASE PROVIDE WITH A VALID INPUT NAME");
+            ORT_THROW("PLEASE PROVIDE WITH A VALID INPUT NAME" + input_name);
         }
    }
+   }
+   else{
+    std::cout<<"this is empty abhi i am in openvino executrion provider at line no 153"<<std::endl;
    }
 
 
