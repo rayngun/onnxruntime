@@ -625,6 +625,50 @@ static void AddQDQNodeUnit(onnxruntime::Graph& dst_graph,
   KeepInitsInDstGraph(initializers_to_keep, src_graph, &target_node);
 }
 
+// Keep track of inputs across multiple calls
+static std::vector<const NodeArg*> accumulated_inputs;
+static void AddInitializerAsInput(onnxruntime::Graph& dst_graph,
+                                  const onnxruntime::GraphViewer& src_graph,
+                                  const std::string& initializer_name) {
+    // Get the initializer from source graph
+    const auto& src_initializers = src_graph.GetAllInitializedTensors();
+    auto init_iter = src_initializers.find(initializer_name);
+
+    if (init_iter == src_initializers.end()) {
+      // Initializer not found
+      return;
+    }
+
+    const ONNX_NAMESPACE::TensorProto* tensor_proto = init_iter->second;
+
+    // Create TypeProto for the initializer
+    std::unique_ptr<ONNX_NAMESPACE::TypeProto> type_proto = ONNX_NAMESPACE::TypeProto::Create();
+    auto* tensor_type = type_proto->mutable_tensor_type();
+    tensor_type->set_elem_type(tensor_proto->data_type());
+
+    for (int i = 0; i < tensor_proto->dims_size(); ++i) {
+        tensor_type->mutable_shape()->add_dim()->set_dim_value(tensor_proto->dims().Get(i));
+    }
+
+    // Create NodeArg for the initializer
+    auto& input_arg = dst_graph.GetOrCreateNodeArg(initializer_name, type_proto.get());
+
+    // Check if input already exists in accumulated inputs
+    bool input_exists = false;
+    for (const auto* existing_input : accumulated_inputs) {
+        if (existing_input->Name() == initializer_name) {
+            input_exists = true;
+            break;
+        }
+    }
+
+    if (!input_exists) {
+        // Add to accumulated inputs
+        accumulated_inputs.push_back(&input_arg);
+    }
+}
+
+
 // Creates a new model without the DQ/Q operators in the src graph.
 Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
                                        const logging::Logger& logger,
@@ -665,7 +709,8 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
     dst_graph_outputs.push_back(&ep_graph_output_arg);
   }
 
-  dst_graph.SetInputs(dst_graph_inputs);
+  // Will set inputs after deciding fate oif all internal and external initializers
+  // dst_graph.SetInputs(dst_graph_inputs);
   dst_graph.SetOutputs(dst_graph_outputs);
 
   // TODO(sspintel): add Graph::SetName() provider api
@@ -723,9 +768,8 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
     seen_node_units.insert(node_unit);
   }
 
-  //
-  // Copy initializers to dst graph.
-  //
+
+  //  Copy initializers to dst graph.
 
   std::unordered_set<std::string> current_scope_initializer_set;
 
@@ -739,25 +783,54 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
   std::sort(const_inits.begin(), const_inits.end());
 
   for (auto& it : const_inits) {
-    if (initializers_to_keep.count(it))
-      dst_graph.AddInitializedTensor(*(initializers.at(it)));
-    current_scope_initializer_set.insert(it);
+      const auto* initializer_tensor = initializers.at(it);
+
+      // Check if the initializer has external data
+      if (initializer_tensor->has_data_location() &&
+          initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL) {
+          // Add initializer with external data as input
+          AddInitializerAsInput(dst_graph, src_graph, it);
+      } else {
+          // Add as an initialized tensor if it does not have external data
+          if (initializers_to_keep.count(it)) {
+              dst_graph.AddInitializedTensor(*initializer_tensor);
+          }
+      }
+
+      current_scope_initializer_set.insert(it);
   }
 
-  // handle outer scope value which is a constant initializer
+  // Handle outer-scope constant initializers
   for (auto& node_idx : src_graph.GetNodesInTopologicalOrder()) {
-    const auto& node = src_graph.GetNode(node_idx);
-    for (const auto& input : node->InputDefs()) {
-      if (current_scope_initializer_set.find(input->Name()) != current_scope_initializer_set.end()) {
-        continue;
+      const auto& node = src_graph.GetNode(node_idx);
+      for (const auto& input : node->InputDefs()) {
+          if (current_scope_initializer_set.find(input->Name()) != current_scope_initializer_set.end()) {
+              continue;
+          }
+
+          if (src_graph.IsConstantInitializer(input->Name(), true)) {
+              const auto* initializer_tensor = src_graph.GetConstantInitializer(input->Name(), true);
+
+              // Check if the initializer has external data
+              if (initializer_tensor->has_data_location() &&
+                  initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL) {
+                  // Add initializer as input if it has external data
+                  AddInitializerAsInput(dst_graph, src_graph, input->Name());
+              } else {
+                  // Add as an initialized tensor if it does not have external data
+                  if (initializers_to_keep.count(input->Name())) {
+                      dst_graph.AddInitializedTensor(*initializer_tensor);
+                  }
+              }
+
+              current_scope_initializer_set.insert(input->Name());
+          }
       }
-      if (src_graph.IsConstantInitializer(input->Name(), true)) {
-        if (initializers_to_keep.count(input->Name()))
-          dst_graph.AddInitializedTensor(*(src_graph.GetConstantInitializer(input->Name(), true)));
-        current_scope_initializer_set.insert(input->Name());
-      }
-    }
   }
+  accumulated_inputs.insert(accumulated_inputs.end(), dst_graph_inputs.begin(), dst_graph_inputs.end());
+
+  // Set all inputs (original inputs amnd initializers as inputs) of the destination Graph
+  dst_graph.SetInputs(accumulated_inputs);
 
   // Validate graph, remove unnecessary initializers, and run type/shape inference.
   ORT_RETURN_IF_ERROR(dst_graph.Resolve());
