@@ -668,6 +668,55 @@ static void AddInitializerAsInput(onnxruntime::Graph& dst_graph,
     }
 }
 
+bool writeString(std::ofstream& outfile, const std::string& str) {
+    size_t size = str.size();
+    outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
+    if (!outfile.good()) return false;
+
+    outfile.write(str.c_str(), size);
+    return outfile.good();
+}
+
+bool writeStringVector(std::ofstream& outfile, const std::vector<std::string>& vec) {
+    size_t size = vec.size();
+    outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
+    if (!outfile.good()) return false;
+
+    for (const auto& str : vec) {
+        if (!writeString(outfile, str)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Main function to dump the map to a binary file
+bool dumpMetaDataMapToBinary(const std::unordered_map<std::string, std::vector<std::string>>& map, const std::string& filename) {
+
+  std::ofstream outfile(filename, std::ios::binary);
+  if (!outfile.is_open()) {
+      ORT_THROW("Error: Could not open file for writing metadata.");
+      return false;
+  }
+
+  // Write the size of the map
+  size_t map_size = map.size();
+  outfile.write(reinterpret_cast<const char*>(&map_size), sizeof(map_size));
+  if (!outfile.good()) {
+      ORT_THROW("Error: Failed to write map size.");
+      return false;
+  }
+
+  // Write each key-value pair
+  for (const auto& pair : map) {
+      if (!writeString(outfile, pair.first) || !writeStringVector(outfile, pair.second)) {
+          ORT_THROW("Error: Failed to write map data.");
+          return false;
+      }
+  }
+
+  return true;
+}
 
 // Creates a new model without the DQ/Q operators in the src graph.
 Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
@@ -783,6 +832,12 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
   }
   std::sort(const_inits.begin(), const_inits.end());
 
+  // initialize map for creating metadata for initilizers with external weights
+  std::unordered_map<std::string, std::vector<std::string>> metadata_map;
+
+  // metadata structure: initializer_name as key
+  // and [location, offset, length] as value
+
   for (auto& it : const_inits) {
       const auto* initializer_tensor = initializers.at(it);
 
@@ -790,6 +845,21 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
       if (initializer_tensor->has_data_location() &&
           initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL) {
             if (enable_ovep_weight_sharing) {
+
+              // Cast away const to access mutable_external_data
+              struct ONNX_NAMESPACE::TensorProto* non_const_initializer_tensor = const_cast<ONNX_NAMESPACE::TensorProto*>(initializer_tensor);
+
+              // get meta data about the initilizers with external data
+              struct ONNX_NAMESPACE::StringStringEntryProtos* external_data =  non_const_initializer_tensor->mutable_external_data();
+
+              std::vector<std::string> init_info;
+              // init_info structure: [location, offset, length]
+
+              for (int i = 0 ; i < external_data->size() ; i++) {
+                init_info.push_back(*external_data->at(i).mutable_value());
+              }
+
+              metadata_map.emplace(initializer_tensor->name(), init_info);
               // Add initializer with external data as input
               AddInitializerAsInput(dst_graph, src_graph, it);
             } else if (initializers_to_keep.count(it)) {
@@ -816,11 +886,24 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
 
           if (src_graph.IsConstantInitializer(input->Name(), true)) {
               const auto* initializer_tensor = src_graph.GetConstantInitializer(input->Name(), true);
-
               // Check if the initializer has external data
               if (initializer_tensor->has_data_location() &&
                   initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL) {
                     if (enable_ovep_weight_sharing) {
+
+                      // Cast away const to access mutable_external_data
+                      struct ONNX_NAMESPACE::TensorProto* non_const_initializer_tensor = const_cast<ONNX_NAMESPACE::TensorProto*>(initializer_tensor);
+
+                      // get meta data about the initilizers with external data
+                      struct ONNX_NAMESPACE::StringStringEntryProtos* external_data =  non_const_initializer_tensor->mutable_external_data();
+
+                      std::vector<std::string> init_info;
+                      for (int i = 0 ; i < external_data->size() ; i++) {
+                        init_info.push_back(*external_data->at(i).mutable_value());
+                      }
+
+                      metadata_map.emplace(initializer_tensor->name(), init_info);
+
                       // Add initializer as input if it has external data
                       AddInitializerAsInput(dst_graph, src_graph, input->Name());
                     } else if (initializers_to_keep.count(input->Name())) {
@@ -838,6 +921,15 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
           }
       }
   }
+
+  if (enable_ovep_weight_sharing) {
+    // creating bin file of metadata_map and dumping the bin file
+    dumpMetaDataMapToBinary(metadata_map, "metadata.bin");
+    LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Metadata for external initializer dumped.";
+  } else{
+    ORT_THROW("Unable to write metadata to file.");
+  }
+
   accumulated_inputs.insert(accumulated_inputs.end(), dst_graph_inputs.begin(), dst_graph_inputs.end());
 
   // Set all inputs (original inputs amnd initializers as inputs) of the destination Graph
