@@ -921,13 +921,13 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
           }
       }
   }
-
   if (enable_ovep_weight_sharing) {
     // creating bin file of metadata_map and dumping the bin file
-    dumpMetaDataMapToBinary(metadata_map, "metadata.bin");
-    LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Metadata for external initializer dumped.";
-  } else{
-    ORT_THROW("Unable to write metadata to file.");
+    if (dumpMetaDataMapToBinary(metadata_map, "metadata.bin")) {
+      LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Metadata for external initializer dumped.";
+    } else {
+      ORT_THROW("Error: Unable to write metadat to file.");
+    }
   }
 
   accumulated_inputs.insert(accumulated_inputs.end(), dst_graph_inputs.begin(), dst_graph_inputs.end());
