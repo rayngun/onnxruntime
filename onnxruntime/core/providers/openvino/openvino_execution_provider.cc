@@ -168,13 +168,14 @@ OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
 
   global_context_->is_wholly_supported_graph = obj.IsWhollySupportedGraph();
   global_context_->has_external_weights = obj.HasExternalWeights();
-
+  std::cout<<"hi i am at line no 171 at openvino execution provider.cc "<<std::endl;
   return result;
 }
 
 common::Status OpenVINOExecutionProvider::Compile(
     const std::vector<FusedNodeAndGraph>& fused_nodes,
     std::vector<NodeComputeInfo>& node_compute_funcs) {
+      std::cout<<"i am at line no 178 in openivino execution providr.cc in the compile function"<<std::endl;
   for (const FusedNodeAndGraph& fused_node_graph : fused_nodes) {
     const GraphViewer& graph_body_viewer = fused_node_graph.filtered_graph;
     const Node& fused_node = fused_node_graph.fused_node;
@@ -193,6 +194,8 @@ common::Status OpenVINOExecutionProvider::Compile(
                                                       graph_body_viewer,
                                                       *GetLogger(),
                                                       ep_ctx_handle_);
+
+    std::cout<<"At line no 198 in openvino execution provider.cc"<<std::endl;
     backend_manager_ = backend_manager;
     compute_info.create_state_func =
         [backend_manager](ComputeContext* context, FunctionState* state) {
@@ -207,6 +210,7 @@ common::Status OpenVINOExecutionProvider::Compile(
     compute_info.compute_func = [](FunctionState state, const OrtApi* /* api */, OrtKernelContext* context) {
       auto function_state = static_cast<OpenVINOEPFunctionState*>(state);
       try {
+        std::cout<<"call from line no 210 of openvino execution provideer.cc"<<std::endl;
         function_state->backend_manager->Compute(context);
       } catch (const std::exception& ex) {
         return common::Status(common::ONNXRUNTIME, common::FAIL, ex.what());

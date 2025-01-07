@@ -30,6 +30,8 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
 
   is_ep_ctx_graph_ = ep_ctx_handle.IsValidOVEPCtxGraph();
 
+  std::cout<<"Hi i am in basic_backend.cc line no 330"<<std::endl;
+
   if (ValidateSubgraph(const_outputs_map_))
     return;
 
@@ -104,32 +106,40 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
           }
           std::cout<<" the flow is reahcing at line no 105 basic_backend.cc"<<std::endl;
           ov_model = global_context_.ie_core.Get().read_model(model, ov::Tensor());
+
+          std::cout<<" the flow is reahcing at line no 110 basic_backend.cc"<<std::endl;
+
           if(!global_context.Shape_map.empty())
-          {
+          { std::cout<<" the flow is reahcing at line no 111 basic_backend.cc"<<std::endl;
             std::map<std::string,ov::PartialShape>result;
             for(const auto&item  : global_context.Shape_map) {
               const std:: string & input_name = item.first;
-              const std::vector<std::string>&dimensions = item.second;
+              const std::vector<std::string>&dimensions = item.second; //[1,2,3,4]
 
               std::vector<ov::Dimension> ov_dimensions;
-              for (const std::string& dim : dimensions) {
-            // Check for range in the format "start..end"
-            size_t range_pos = dim.find("..");
+              for (const std::string& dim : dimensions) {    //["1","2",3","44..55"]
+            // Check for range in the format "start..end"     [1,2,3,?]
+                                                              // [1,2,3,44..54]
+            size_t range_pos = dim.find("..");   //23..44     [1,2,3,44..54] {1,2,3,(44,55)}
             if (range_pos != std::string::npos) {
                 // Parse the start and end of the range
                 int start = std::stoi(dim.substr(0, range_pos));
                 int end = std::stoi(dim.substr(range_pos + 2));
+                std::cout<<start<<" "<<end<<std::endl;
                 ov_dimensions.emplace_back(start, end); // Add range dimension
             } else {
                 // Parse as a static dimension
-                ov_dimensions.emplace_back(std::stoi(dim));
-            }
+                ov_dimensions.emplace_back(std::stoi(dim));  //[1,2,3,33..44]
+                }
         }
 
         // Add the constructed PartialShape to the result map
-        result[input_name] = ov::PartialShape(ov_dimensions);
+        result[input_name] = ov::PartialShape(ov_dimensions); //ov::PartialShape(1,2,3,ov.Dimension(44,55))   //Result looks something like this
+                                                               //result = {
+                                                               //   "input_1" => ov::PartialShape({1, 2, 3, ov::Dimension(44, 55)})
+                                                                //}
             }
-
+            std::cout<<"Reshape property is being called as per the execpectatioms in basic_backend.cc"<<std::endl;
             ov_model.get()->reshape(result);
           }
 
@@ -470,6 +480,7 @@ void BasicBackend::SetNumThreads(ov::AnyMap& device_config) {
 // an Infer Request indexed by infer_req_idx
 void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferRequestPtr infer_request) {
   try {
+    std::cout<<" i have reached here in start async inferencer"<<std::endl;
     auto graph_input_info = exe_network_.Get().inputs();
     int input_idx = 0;
     for (auto input_info_iter = graph_input_info.begin();
@@ -535,8 +546,19 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           }
           FillInputBlob(std::move(graph_input_blob), batch_slice_idx, std::move(input_name), context, subgraph_context_);
         } else {
+          std::cout<<" I am at line no 549 where we are going to fill inputs for NPU"<<std::endl;
           auto tensor = context.GetInput(subgraph_context_.input_names.at(input_name));
           ort_tensor_key_t ort_tensor_key{input_name};
+          std::cout << "Input Name: " << input_name << std::endl;
+          const auto& input_jatin = graph_input_info.at(input_idx);
+          const auto& tensor_shape = input_jatin.get_shape();
+
+          std::cout << "Input Dimensions: ";
+          for (size_t dim : tensor_shape) {
+          std::cout << dim << " ";  // Print each dimension
+          }
+          std::cout << std::endl;
+
           auto it = ort_ov_tensor_map.find(ort_tensor_key);
           if ((it == ort_ov_tensor_map.end()) ||
               (it != ort_ov_tensor_map.end() && (it->second.ort_ptr != tensor.GetTensorRawData()))) {
@@ -547,7 +569,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
 
             ov_tensor_data.ort_ptr = tensor.GetTensorRawData();
             ort_ov_tensor_map[ort_tensor_key] = ov_tensor_data;
-
+            std::cout<<"I am at line no 562 in basic backend.cc where the inputs gets filled"<<std::endl;
             try {
               infer_request->SetTensor(std::move(input_name), ov_tensor_data.tensor_ptr);
             } catch (const char* msg) {
@@ -802,6 +824,7 @@ void BasicBackend::Infer(OrtKernelContext* ctx) {
   LOGS_DEFAULT(INFO) << log_tag << "In Infer";
 
   if (subgraph_context_.is_constant) {
+    std::cout<<"am i at line no 811 in basic_backend.cc"<<std::endl;
     for (const auto& item : const_outputs_map_) {
       std::string out_name = item.first;
       std::shared_ptr<ov::Node> node = item.second;
@@ -824,8 +847,10 @@ void BasicBackend::Infer(OrtKernelContext* ctx) {
 
   } else {
     // Requesting for an idle infer_request from a pool of infer_requests_
+    std::cout<<"graph toh cnstant nahi hai has per line no 834 in basic_backend.cc"<<std::endl;
     OVInferRequestPtr infer_request;
-    infer_request = inferRequestsQueue_->getIdleRequest();
+    infer_request = inferRequestsQueue_->getIdleRequest(); //what does this function do exactly
+    std::cout<<"graph at line no 837 after infer_request objcetc"<<std::endl;
 #ifdef IO_BUFFER_ENABLED
     if ((global_context_.device_type.find("GPU") != std::string::npos) &&
         (global_context_.context != nullptr) && global_context_.is_wholly_supported_graph) {

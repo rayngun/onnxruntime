@@ -35,6 +35,8 @@ BackendManager::BackendManager(const GlobalContext& global_context,
                                const onnxruntime::GraphViewer& subgraph,
                                const logging::Logger& logger,
                                EPCtxHandler& ep_ctx_handle_) {
+
+  std::cout<<" hi i am at line no 39 in backend manager.cc"<<std::endl;
   global_context_ = global_context;
 
   openvino_sdk_version_ = std::to_string(global_context_.OpenVINO_Version.at(0)) + "." +
@@ -72,22 +74,26 @@ BackendManager::BackendManager(const GlobalContext& global_context,
   subgraph_context_.subgraph_name = fused_node.Name();
   std::unique_ptr<onnx::ModelProto> model_proto;
   if (!ep_ctx_handle_.IsValidOVEPCtxGraph()) {
+    std::cout<<" At line no 77 in backend manager.cc which check for valid OVEP CTX GRAPH"<<std::endl;
     model_proto = GetModelProtoFromFusedNode(fused_node, subgraph, logger);
   }
   std::string device_type = openvino_ep::BackendManager::GetGlobalContext().device_type;
-
-  if (ModelHasSymbolicInputDims(subgraph)) {
+  int a=2;
+  if (ModelHasSymbolicInputDims(subgraph) && a==5) {     //SET IT AS FALSE BECAUSE IT WANT TO TREATED AS
     subgraph_context_.has_dynamic_input_shape = true;
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model has symbolic input dims";
     ORT_ENFORCE(!global_context_.enable_qdq_optimizer,
                 "QDQ stripping should not be enabled for models with dynamic input shapes. "
                 "Set enable_qdq_optimizer to False");
+     std::cout<<"line no 88 of backendmanager.cc"<<std::endl;
     if ((GetGlobalContext().device_type.find("CPU") != std::string::npos ||
-         GetGlobalContext().device_type.find("GPU") != std::string::npos) &&
+         GetGlobalContext().device_type.find("GPU") != std::string::npos) &&    // Make this conditon for NPU
         !GetGlobalContext().disable_dynamic_shapes) {
+      std::cout<<"lin no 92 of bakcendmanager.cc"<<std::endl;
       LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Starting backend initialization. "
                          << "Creating backend Dynamic Shapes";
       try {
+        std::cout<<"I am in the try catch block of backned_manager.cc"<<std::endl;
         concrete_backend_ = BackendFactory::MakeBackend(model_proto,
                                                         GetGlobalContext(),
                                                         subgraph_context_,
@@ -100,6 +106,7 @@ BackendManager::BackendManager(const GlobalContext& global_context,
     } else {
       // Only cache model_proto in global to rewrite the model with input shapes at runtime.
       // For dynamic backend creation
+      std::cout<<"AT line no 109 in backend_manager.cc"<<std::endl;
       model_proto_ = std::move(model_proto);
     }
   } else {
@@ -108,7 +115,7 @@ BackendManager::BackendManager(const GlobalContext& global_context,
                        << subgraph_context_.subgraph_name;
 
     subgraph_context_.has_dynamic_input_shape = false;
-
+    std::cout<<"Model does not have symbolic input dims "<<std::endl;
     // OV NPU plugin is supported with fallback to OV CPU upon compilation failures.
     try {
       concrete_backend_ = BackendFactory::MakeBackend(model_proto,
@@ -165,6 +172,7 @@ BackendManager::BackendManager(const GlobalContext& global_context,
       }
     }
   }
+
   if (global_context_.export_ep_ctx_blob && !ep_ctx_handle_.IsValidOVEPCtxGraph()) {
     auto status = onnxruntime::openvino_ep::BackendManager::ExportCompiledBlobAsEPCtxNode(subgraph,
                                                                                           logger);
@@ -180,16 +188,24 @@ BackendManager::BackendManager(const GlobalContext& global_context,
 // the EPContext node.
 Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphViewer& graph_body_viewer,
                                                      const logging::Logger& logger) {
-  if (GetGlobalContext().disable_dynamic_shapes && subgraph_context_.has_dynamic_input_shape) {
-    std::string exception_str =
-        "Exporting dynamically compiled models at runtime is not supported. "
-        "Cannot export blobs of dynamic models that request static shape inference. "
-        "To export this model, set disable_dynamic_shapes to False";
-    ORT_THROW(exception_str);
+
+  bool z = GetGlobalContext().disable_dynamic_shapes;
+  if(z==false)
+  {
+    std::cout<<"disable dynamic shape is set to false";
   }
+   if (GetGlobalContext().disable_dynamic_shapes && subgraph_context_.has_dynamic_input_shape) {
+     std::string exception_str =
+         "Exporting dynamically compiled models at runtime is not supported. "
+         "Cannot export blobs of dynamic models that request static shape inference. "
+         "To export this model, set disable_dynamic_shapes to False";
+     ORT_THROW(exception_str);
+   }
 
   std::string model_blob_str;
+  std::cout<<" The code seems to reach herre at line no 206"<<std::endl;
   auto compiled_model = concrete_backend_->GetOVCompiledModel();
+  std::cout<<" The mdoel seems to fail before line no 307 even if try to avoid 197"<<std::endl;
   std::string graph_name = "";
   // Epctx file path from SO is mapped to cache_dir variable for OVEP for readability
   if (!global_context_.cache_dir.empty()) {
@@ -455,12 +471,15 @@ void BackendManager::Compute(OrtKernelContext* context) {
   // if disable_dynamic_shapes is set to true then execution of dynamic model is done
   // by rewriting the model to static shaped model at runtime based on input shape.
   // disable_dynamic_shapes is always set to true for OV NPU plugin.
+  std::cout<<"am i even in the line no 474 of backend_mananger.cc"<<std::endl;
   if (subgraph_context_.has_dynamic_input_shape &&
       !GetGlobalContext().disable_dynamic_shapes &&
       (GetGlobalContext().device_type.find("CPU") != std::string::npos ||
        GetGlobalContext().device_type.find("GPU") != std::string::npos)) {
+        std::cout<<"hi i am at line no 478 in compute in backend manager.cc"<<std::endl;
     concrete_backend_->Infer(context);
   } else if (subgraph_context_.has_dynamic_input_shape) {
+    std::cout<<" hi i am at line no 480 in backend_manager.cc"<<std::endl;
     std::vector<std::vector<int64_t>> tensor_shapes = GetInputTensorShapes(ctx);
     auto key = MakeMapKeyString(tensor_shapes, GetGlobalContext().device_type);
     std::shared_ptr<IBackend> dynamic_backend;
@@ -510,6 +529,7 @@ void BackendManager::Compute(OrtKernelContext* context) {
 
     dynamic_backend->Infer(context);
   } else {
+    std::cout<<"hi i am here at line no 532"<<std::endl;
     concrete_backend_->Infer(context);
   }
 #ifdef OPENVINO_FIL_ENABLED

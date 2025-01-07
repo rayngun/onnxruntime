@@ -320,7 +320,7 @@ struct OpenVINO_Provider : Provider {
 
         return return_value;
     };
-
+  // input_1 => ["1","2223..445","556","78"]
     // Parse the reshape_input string
     Shape_map = parse_input_shapes(provider_options_map.at("reshape_input"));
 
