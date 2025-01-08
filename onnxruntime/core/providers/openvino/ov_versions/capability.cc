@@ -2,6 +2,7 @@
 // Licensed under the MIT License
 #include <map>
 #include <unordered_set>
+#include <type_traits>
 
 #include "core/providers/shared_library/provider_api.h"
 #include "core/providers/openvino/backend_utils.h"
@@ -26,10 +27,12 @@ namespace onnxruntime {
 namespace openvino_ep {
 
 // Constructor
-GetCapability::GetCapability(const GraphViewer& graph_viewer_param,
+GetCapability::GetCapability(const EPCtxHandler& ep_ctx_handler,
+                             const GraphViewer& graph_viewer_param,
                              const std::string device_type_param,
-                             const bool enable_qdq_optimizer)
-    : graph_viewer_(graph_viewer_param), device_type_(device_type_param) {
+                             const bool enable_qdq_optimizer) : ep_ctx_handler_(ep_ctx_handler),
+                                                                graph_viewer_(graph_viewer_param),
+                                                                device_type_(device_type_param) {
   bool npu_qdq_optimizer_enabled = false;
   if (device_type_.find("NPU") != std::string::npos) {
     device_type_ = "CPU";
@@ -56,6 +59,42 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
     return result;
   }
 
+  auto Iterable2String = []<typename U, typename V>(U& strings, const V& node_args) {
+    constexpr bool has_name = requires(V v) {
+      (*v.begin())->Name();
+    };
+    for (const auto& arg : node_args) {
+      if constexpr (has_name) {
+        strings.push_back(arg->Name());
+      } else {
+        strings.push_back(arg);
+      }
+    }
+  };
+
+  // Check for EpContext nodes
+  const auto& nodes = graph_viewer_.GetNodesInTopologicalOrder();
+  for (const auto node_index : nodes) {
+    const auto& node = *graph_viewer_.GetNode(node_index);
+    if (ep_ctx_handler_.CheckForOVEPCtxNode(node)) {
+      std::vector<std::string> inputs;
+      std::vector<std::string> outputs;
+
+      Iterable2String(inputs, node.InputDefs());
+      Iterable2String(outputs, node.OutputDefs());
+
+      auto sub_graph = IndexedSubGraph::Create();
+      sub_graph->Nodes().push_back(node_index);
+      auto meta_def = IndexedSubGraph_MetaDef::Create();
+      meta_def->name() = node.Name();
+      meta_def->domain() = kMSDomain;
+      meta_def->inputs() = inputs;
+      meta_def->outputs() = outputs;
+      sub_graph->SetMetaDef(std::move(meta_def));
+      result.push_back(ComputeCapability::Create(std::move(sub_graph)));
+    }
+  }
+
   // This is a list of initializers that nGraph considers as constants. Example weights, reshape shape etc.
   std::unordered_set<std::string> ng_required_initializers;
 
@@ -75,16 +114,13 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
     std::vector<std::string> inputs;
     std::vector<std::string> outputs;
     // Fill inputs with names
-    std::for_each(graph_viewer_.GetInputs().begin(), graph_viewer_.GetInputs().end(),
-                  [&inputs](const NodeArg* node_arg) { inputs.push_back(node_arg->Name()); });
+    Iterable2String(inputs, graph_viewer_.GetInputs());
 
     /* In scenarios, when there are no inputs or all inputs being initializers,
          ConstantFolding optimization in onnxruntime pre-computes the value.*/
     if (inputs.empty()) {
       return result;
     }
-
-    const std::vector<NodeIndex>& nodes = graph_viewer_.GetNodesInTopologicalOrder();
 
     const Node* node = graph_viewer_.GetNode(nodes[0]);
 
@@ -105,12 +141,10 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
     }
 
     // Initializers need to be part of meta_def->inputs
-    std::for_each(ng_required_initializers.begin(), ng_required_initializers.end(),
-                  [&inputs](const std::string& initializer) { inputs.push_back(initializer); });
+    Iterable2String(inputs, ng_required_initializers);
 
     // Fill outputs with names
-    std::for_each(graph_viewer_.GetOutputs().begin(), graph_viewer_.GetOutputs().end(),
-                  [&outputs](const NodeArg* node_arg) { outputs.push_back(node_arg->Name()); });
+    Iterable2String(outputs, graph_viewer_.GetOutputs());
 
     // Create and add this graph to result.
     AppendClusterToSubGraph(graph_viewer_.GetNodesInTopologicalOrder(), inputs, outputs, result);

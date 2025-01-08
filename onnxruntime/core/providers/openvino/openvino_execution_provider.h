@@ -169,10 +169,11 @@ struct OpenVINOExecutionProviderInfo {
 };
 
 struct OpenVINOEPFunctionState {
+  OpenVINOEPFunctionState(openvino_ep::BackendManager& bm) : backend_manager(bm) {}
   AllocateFunc allocate_func = nullptr;
   DestroyFunc destroy_func = nullptr;
   AllocatorHandle allocator_handle = nullptr;
-  std::shared_ptr<openvino_ep::BackendManager> backend_manager;
+  openvino_ep::BackendManager& backend_manager;
 };
 
 // Logical device representation.
@@ -194,13 +195,17 @@ class OpenVINOExecutionProvider : public IExecutionProvider {
   const void* GetExecutionHandle() const noexcept override {
     return nullptr;
   }
+
+  const InlinedVector<const Node*> GetEpContextNodes() const override;
+
 #ifdef USE_OVEP_NPU_MEMORY
   std::vector<AllocatorPtr> CreatePreferredAllocators() override;
 #endif
  private:
-  std::unique_ptr<openvino_ep::SessionContext> session_context_;
-  std::shared_ptr<openvino_ep::BackendManager> backend_manager_;
-  openvino_ep::EPCtxHandler ep_ctx_handle_{};
+  openvino_ep::SessionContext session_context_;
+  std::list<openvino_ep::BackendManager> backend_managers_;  // EP session owns the backend objects
+
+  openvino_ep::EPCtxHandler ep_ctx_handle_;
 };
 
 }  // namespace onnxruntime
