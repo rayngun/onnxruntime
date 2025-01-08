@@ -23,11 +23,9 @@ using namespace backend_utils;
 BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_proto,
                            SessionContext& session_context,
                            const SubGraphContext& subgraph_context,
-                           EPCtxHandler& ep_ctx_handle)
+                           ptr_stream_t& model_stream)
     : session_context_(session_context), subgraph_context_(subgraph_context) {
   std::string& hw_target = session_context_.device_type;
-
-  is_ep_ctx_graph_ = ep_ctx_handle.IsValidOVEPCtxGraph();
 
   if (ValidateSubgraph(const_outputs_map_))
     return;
@@ -61,13 +59,12 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
   try {
     std::string dev_prec = session_context.device_type + "_" + session_context_.precision_str;
 
-    if (session_context.is_wholly_supported_graph) {  // Full graph is supported
+    if (subgraph_context_.is_wholly_supported_graph) {  // Full graph is supported
 #if defined(IO_BUFFER_ENABLED)
-      if (is_ep_ctx_graph_) {
-        std::istringstream model_stream(ep_ctx_handle.GetModelBlobString());
-        exe_network_ = session_context_.ie_core.ImportModel(model_stream,
-                                                           remote_context_,
-                                                           subgraph_context_.subgraph_name);
+      if (subgraph_context_.is_ep_ctx_graph) {
+        exe_network_ = session_context_.ie_core.ImportModel(*model_stream,
+                                                            remote_context_,
+                                                            subgraph_context_.subgraph_name);
       } else if ((session_context.device_type.find("GPU") != std::string::npos) &&
                  (session_context_.context != nullptr)) {
         LOGS_DEFAULT(INFO) << log_tag << "IO Buffering Enabled";
@@ -82,28 +79,28 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
             ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
       }
 #else  // !IO_BUFFER_ENABLED
-      std::string prec_str = (session_context_.precision_str != "ACCURACY") ? session_context_.precision_str : session_context_.model_precision;
-      if (is_ep_ctx_graph_) {
+      std::string prec_str = (session_context_.precision_str != "ACCURACY") ? session_context_.precision_str : subgraph_context_.model_precision;
+      if (subgraph_context_.is_ep_ctx_graph) {
         // If the blob is held in an EPContext node, then skip FE+Compile
         // and directly move on to creating a backend with the executable blob
-        exe_network_ = session_context_.ie_core.ImportModel(ep_ctx_handle.GetModelBlobStream(),
-                                                           hw_target,
-                                                           device_config,
-                                                           session_context_.ep_context_embed_mode,
-                                                           subgraph_context_.subgraph_name);
+        exe_network_ = session_context_.ie_core.ImportModel(*model_stream,
+                                                            hw_target,
+                                                            device_config,
+                                                            subgraph_context_.subgraph_name);
+        model_stream.reset();  // Delete stream after it is no longer needed
       } else if (session_context_.export_ep_ctx_blob &&
                  hw_target.find("NPU") != std::string::npos &&
-                 !session_context_.has_external_weights) {
+                 !subgraph_context_.has_external_weights) {
         std::shared_ptr<ov::Model> ov_model;
         {
           const std::string model = model_proto->SerializeAsString();
-          if (!subgraph_context.has_dynamic_input_shape) {
+          if (!subgraph_context_.has_dynamic_input_shape) {
             delete model_proto.release();
           }
           ov_model = session_context_.ie_core.Get().read_model(model, ov::Tensor());
         }
         exe_network_ = OVExeNetwork(session_context_.ie_core.Get().compile_model(ov_model, hw_target, device_config));
-      } else if (!session_context_.has_external_weights &&
+      } else if (!subgraph_context_.has_external_weights &&
                  (!subgraph_context_.has_dynamic_input_shape) &&
                  ((hw_target.find("AUTO") == std::string::npos) ||
                   (session_context_.OpenVINO_Version.at(0) >= 2024 && session_context_.OpenVINO_Version.at(1) > 2))) {
@@ -111,17 +108,17 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
         // Inputs with static dimenstions
         const std::string model = model_proto->SerializeAsString();
         exe_network_ = session_context_.ie_core.CompileModel(model,
-                                                            hw_target,
-                                                            device_config,
-                                                            subgraph_context_.subgraph_name);
+                                                             hw_target,
+                                                             device_config,
+                                                             subgraph_context_.subgraph_name);
       } else {  // For all other types use ov::Model Type
-        auto ov_model = CreateOVModel(*model_proto, session_context_, const_outputs_map_);
+        auto ov_model = CreateOVModel(*model_proto, session_context_, subgraph_context_, const_outputs_map_);
         exe_network_ = session_context_.ie_core.CompileModel(
             ov_model, hw_target, device_config, subgraph_context_.subgraph_name);
       }
 #endif
     } else {  // Full graph is not supported
-      auto ov_model = CreateOVModel(*model_proto, session_context_, const_outputs_map_);
+      auto ov_model = CreateOVModel(*model_proto, session_context_, subgraph_context_, const_outputs_map_);
       exe_network_ = session_context_.ie_core.CompileModel(
           ov_model, hw_target, device_config, subgraph_context_.subgraph_name);
     }
@@ -159,8 +156,8 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
       device_config.emplace(ov::hint::inference_precision(ov::element::undefined));
       device_config.emplace(ov::hint::execution_mode(ov::hint::ExecutionMode::ACCURACY));
     } else {
-      if (session_context_.model_precision != "")
-        device_config.emplace(ov::hint::inference_precision(session_context_.model_precision));
+      if (!subgraph_context_.model_precision.empty())
+        device_config.emplace(ov::hint::inference_precision(subgraph_context_.model_precision));
     }
   }
 #ifndef NDEBUG
@@ -281,7 +278,7 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
     } else {
       if (target_config.count(session_context_.device_type)) {
         auto supported_properties = session_context_.ie_core.Get().get_property(session_context_.device_type,
-                                                                               ov::supported_properties);
+                                                                                ov::supported_properties);
         set_target_properties(session_context_.device_type,
                               target_config.at(session_context_.device_type), supported_properties);
       }
@@ -291,7 +288,7 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
 
 void BasicBackend::EnableCaching(ov::AnyMap& device_config) {
   // cache_dir argument has no effect when working with an embed-mode EPContext Graph
-  if (is_ep_ctx_graph_) return;
+  if (subgraph_context_.is_ep_ctx_graph) return;
 
   if (!session_context_.cache_dir.empty() && !session_context_.export_ep_ctx_blob) {
     LOGS_DEFAULT(INFO) << log_tag << "Enables Caching";
@@ -300,7 +297,7 @@ void BasicBackend::EnableCaching(ov::AnyMap& device_config) {
       device_property = std::make_pair("CACHE_DIR", session_context_.cache_dir);
       device_config.emplace(ov::device::properties("GPU", device_property));
     } else {
-      session_context_.ie_core.SetCache(session_context_.cache_dir);
+      session_context_.ie_core.SetCache(session_context_.cache_dir.string());
     }
   }
 }
