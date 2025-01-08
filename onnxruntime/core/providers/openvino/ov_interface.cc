@@ -109,22 +109,13 @@ OVExeNetwork OVCore::CompileModel(const std::string& onnx_model,
   }
 }
 
-OVExeNetwork OVCore::ImportModel(const std::string& model_string,
+OVExeNetwork OVCore::ImportModel(std::istream& model_stream,
                                  std::string hw_target,
                                  const ov::AnyMap& device_config,
-                                 bool embed_mode,
                                  std::string name) {
   try {
     ov::CompiledModel obj;
-    if (embed_mode) {
-      std::istringstream model_stream(model_string);
-      obj = oe.import_model(model_stream, hw_target, device_config);
-    } else {
-      std::ifstream modelStream(model_string, std::ios_base::binary | std::ios_base::in);
-      obj = oe.import_model(modelStream,
-                            hw_target,
-                            {});
-    }
+    obj = oe.import_model(model_stream, hw_target, device_config);
 #ifndef NDEBUG
     printDebugInfo(obj);
 #endif

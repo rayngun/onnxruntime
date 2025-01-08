@@ -14,7 +14,7 @@ std::shared_ptr<IBackend>
 BackendFactory::MakeBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_proto,
                             SessionContext& session_context,
                             const SubGraphContext& subgraph_context,
-                            EPCtxHandler& ep_ctx_handle) {
+                            ptr_stream_t& model_stream) {
   std::string type = session_context.device_type;
   if (type == "CPU" || type.find("GPU") != std::string::npos ||
       type.find("NPU") != std::string::npos ||
@@ -23,7 +23,7 @@ BackendFactory::MakeBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_p
       type.find("AUTO") != std::string::npos) {
     std::shared_ptr<IBackend> concrete_backend_;
     try {
-      concrete_backend_ = std::make_shared<BasicBackend>(model_proto, session_context, subgraph_context, ep_ctx_handle);
+      concrete_backend_ = std::make_shared<BasicBackend>(model_proto, session_context, subgraph_context, model_stream);
     } catch (std::string const& msg) {
       ORT_THROW(msg);
     }

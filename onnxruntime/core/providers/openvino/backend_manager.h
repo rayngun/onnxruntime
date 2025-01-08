@@ -51,9 +51,8 @@ class BackendManager {
   std::shared_ptr<IBackend> concrete_backend_;
   std::map<std::string, std::shared_ptr<IBackend>> backend_map_;
   SubGraphContext subgraph_context_;
+  EPCtxHandler& ep_ctx_handle_;
   SessionContext session_context_;
-  EPCtxHandler ep_ctx_handle_{};
-  std::string openvino_sdk_version_{};
 };
 
 }  // namespace openvino_ep
