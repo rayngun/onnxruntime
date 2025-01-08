@@ -54,10 +54,9 @@ class OVCore {
                             ov::AnyMap& device_config,
                             const std::string& name);
   // OV Interface for Import model Stream
-  OVExeNetwork ImportModel(const std::string& model_string,
+  OVExeNetwork ImportModel(std::istream& model_stream,
                            std::string hw_target,
                            const ov::AnyMap& device_config,
-                           bool embed_mode,
                            std::string name);
 #ifdef IO_BUFFER_ENABLED
   OVExeNetwork CompileModel(std::shared_ptr<const OVNetwork>& model,

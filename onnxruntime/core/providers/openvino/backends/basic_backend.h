@@ -32,7 +32,7 @@ class BasicBackend : public IBackend {
   BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_proto,
                SessionContext& session_context,
                const SubGraphContext& subgraph_context,
-               EPCtxHandler& ep_ctx_handle);
+               ptr_stream_t& model_stream);
 
   void Infer(OrtKernelContext* context) override;
   ov::CompiledModel& GetOVCompiledModel() override {
@@ -61,7 +61,6 @@ class BasicBackend : public IBackend {
   OVExeNetwork exe_network_;
   std::map<std::string, std::shared_ptr<ov::Node>> const_outputs_map_;
   std::unique_ptr<InferRequestsQueue> inferRequestsQueue_;
-  bool is_ep_ctx_graph_{false};
 #if defined IO_BUFFER_ENABLED
   OVRemoteContextPtr remote_context_;
 #endif
