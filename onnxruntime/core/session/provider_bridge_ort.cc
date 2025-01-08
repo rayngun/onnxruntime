@@ -1068,6 +1068,11 @@ struct ProviderHostImpl : ProviderHost {
                                           const logging::Logger& logger) override {
     return std::make_unique<Model>(model_proto, model_path, local_registries, logger);
   }
+  std::unique_ptr<Model> Model__construct(const std::string& graph_name,
+                                          bool is_onnx_domain_only,
+                                          const logging::Logger& logger) override {
+    return std::make_unique<Model>(graph_name, is_onnx_domain_only, logger);
+  }
   void Model__operator_delete(Model* p) override { delete p; }
   Graph& Model__MainGraph(Model* p) override { return p->MainGraph(); }
   std::unique_ptr<ONNX_NAMESPACE::ModelProto> Model__ToProto(Model* p) override { return std::make_unique<ONNX_NAMESPACE::ModelProto>(p->ToProto()); }

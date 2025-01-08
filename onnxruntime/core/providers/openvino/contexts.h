@@ -7,6 +7,7 @@
 #include <map>
 #include <unordered_map>
 #include <string>
+#include <filesystem>
 #include "core/providers/openvino/ov_interface.h"
 
 namespace onnxruntime {
@@ -15,19 +16,16 @@ namespace openvino_ep {
 // Holds context applicable to the entire EP instance.
 struct SessionContext {
   OVCore ie_core;
-  bool is_wholly_supported_graph = false;
   bool enable_opencl_throttling = false;
   bool disable_dynamic_shapes = false;
   bool ep_context_embed_mode = true;
   bool export_ep_ctx_blob = false;
   bool enable_qdq_optimizer = false;
   bool disable_cpu_fallback = false;
-  bool has_external_weights = false;
   size_t num_of_threads;
   std::string device_type;
   std::string precision_str;
-  std::string model_precision;
-  std::string cache_dir;
+  std::filesystem::path cache_dir;
   std::map<std::string, ov::AnyMap> load_config;
   std::string model_priority = "DEFAULT";
   int num_streams;
@@ -38,6 +36,7 @@ struct SessionContext {
   void* context = 0;
   bool use_api_2;
   std::vector<int> OpenVINO_Version = {};  // Ov Major and OV minor version from OV headers
+  std::string openvino_sdk_version;
 };
 
 // Holds context specific to subgraph.
@@ -51,6 +50,10 @@ struct SubGraphContext {
   std::vector<int> input_indexes;
   std::unordered_map<std::string, int> input_names;
   std::unordered_map<std::string, int> output_names;
+  bool is_wholly_supported_graph = false;
+  bool has_external_weights = false;
+  std::string model_precision;
+  bool is_ep_ctx_graph = false;
 };
 
 }  // namespace openvino_ep
