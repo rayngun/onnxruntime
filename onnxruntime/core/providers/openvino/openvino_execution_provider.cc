@@ -29,6 +29,7 @@ OpenVINOExecutionProvider::OpenVINOExecutionProvider(const OpenVINOExecutionProv
   global_context_->device_type = info.device_type_;
   global_context_->precision_str = info.precision_;
   global_context_->cache_dir = info.cache_dir_;
+  global_context_->Shape_map = info.Shape_map_;
   global_context_->load_config = info.load_config_;
   global_context_->model_priority = info.model_priority_;
   global_context_->num_streams = info.num_streams_;
@@ -120,6 +121,29 @@ OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
     }
     return "";
   }(graph_viewer);
+
+  if(!global_context_->Shape_map.empty()) {
+   const auto& graph_inputs = graph_viewer.GetInputs();
+   for (const auto& [input_name, expected_shape] : global_context_->Shape_map) {
+         bool found = false;
+         for(const auto* input : graph_inputs){
+          if(input->Name()==input_name) {
+             found = true;
+             const auto& shape_proto = input->Shape();
+             if(shape_proto) {
+              int actual_size = shape_proto->dim_size();
+              if(actual_size != static_cast<int>(expected_shape.size())) {
+                ORT_THROW("The input shape does not match for the given input name");
+              }
+             }
+             break;
+          }
+         }
+      if (!found) {
+            ORT_THROW(input_name+" Does not match with any input name in the onnx model");
+        }
+   }
+   }
 
   openvino_ep::GetCapability obj(graph_viewer,
                                  global_context_->device_type,

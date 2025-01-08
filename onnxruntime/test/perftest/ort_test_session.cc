@@ -774,6 +774,8 @@ select from 'TF8', 'TF16', 'UINT8', 'FLOAT', 'ITENSOR'. \n)");
         ov_options[key] = value;
       } else if (key == "context") {
         ov_options[key] = value;
+      } else if(key == "reshape_input") {
+        ov_options[key] = value;
       } else if (key == "num_streams") {
         if (std::stoi(value) <= 0 && std::stoi(value) > 8) {
           ORT_THROW("[ERROR] [OpenVINO] The value for the key 'num_streams' should be in the range of 1-8 \n");

@@ -91,7 +91,46 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
                                                            device_config,
                                                            global_context_.ep_context_embed_mode,
                                                            subgraph_context_.subgraph_name);
-      } else if (global_context_.export_ep_ctx_blob &&
+      } else if (!global_context.Shape_map.empty() &&
+                  hw_target.find("NPU") != std::string::npos) {
+        std::shared_ptr<ov::Model> ov_model;
+        {
+          const std::string model = model_proto->SerializeAsString();
+          ov_model = global_context_.ie_core.Get().read_model(model, ov::Tensor());
+          std::map<std::string,ov::PartialShape>result;
+          for(const auto&item  : global_context.Shape_map) {
+              const std:: string & input_name = item.first;
+              const std::vector<std::string>&dimensions = item.second;
+              std::vector<ov::Dimension> ov_dimensions;
+              for (const std::string& dim : dimensions) {
+                   size_t range_pos = dim.find("..");
+                   if (range_pos != std::string::npos) {
+                       std::string start_str = dim.substr(0, range_pos);  // Parse the start and end of the range
+                       std::string end_str = dim.substr(range_pos + 2);
+                       if (!std::all_of(start_str.begin(), start_str.end(), ::isdigit) ||
+                           !std::all_of(end_str.begin(), end_str.end(), ::isdigit)) {
+                           ORT_THROW("Invalid input shape '" + dim + "' for " + input_name);
+                       }
+                       int start = std::stoi(start_str);
+                       int end = std::stoi(end_str);
+                       if (start > end) {
+                           ORT_THROW("Provide a valid input shape for " + input_name);
+                       }
+                       ov_dimensions.emplace_back(end); // Add range dimension
+                    } else {
+                      if (!std::all_of(dim.begin(), dim.end(), ::isdigit)) {
+                          ORT_THROW("Invalid input shape '" + dim + "' for " + input_name);
+                         }
+                       ov_dimensions.emplace_back(std::stoi(dim));  //[1,2,3,33..44]
+                    }
+              }
+            result[input_name] = ov::PartialShape(ov_dimensions);
+          }
+          ov_model.get()->reshape(result);
+      }
+        exe_network_ = OVExeNetwork(global_context_.ie_core.Get().compile_model(ov_model, hw_target, device_config));
+      }
+       else if (global_context_.export_ep_ctx_blob &&
                  hw_target.find("NPU") != std::string::npos &&
                  !global_context_.has_external_weights) {
         std::shared_ptr<ov::Model> ov_model;

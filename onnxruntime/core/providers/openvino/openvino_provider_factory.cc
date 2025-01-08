@@ -15,7 +15,8 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
   OpenVINOProviderFactory(const std::string& device_type, const std::string& precision,
                           size_t num_of_threads,
                           const std::map<std::string, ov::AnyMap>& load_config, const std::string& cache_dir,
-                          const std::string& model_priority, int num_streams, void* context,
+                          const std::map<std::string, std::vector<std::string>>& Shape_map, const std::string& model_priority,
+                          int num_streams, void* context,
                           bool enable_opencl_throttling, bool disable_dynamic_shapes,
                           bool enable_qdq_optimizer, const ConfigOptions& config_options)
       : device_type_(device_type),
@@ -23,6 +24,7 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
         num_of_threads_(num_of_threads),
         load_config_(load_config),
         cache_dir_(cache_dir),
+        Shape_map_(Shape_map),
         model_priority_(model_priority),
         num_streams_(num_streams),
         context_(context),
@@ -41,6 +43,7 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
   size_t num_of_threads_;
   const std::map<std::string, ov::AnyMap> load_config_;
   std::string cache_dir_;
+  std::map<std::string, std::vector<std::string>> Shape_map_;
   std::string model_priority_;
   int num_streams_;
   void* context_;
@@ -74,7 +77,7 @@ std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
   }
 
   OpenVINOExecutionProviderInfo info(device_type_, precision_, num_of_threads_, load_config_,
-                                     cache_dir_, model_priority_, num_streams_, context_, enable_opencl_throttling_,
+                                     cache_dir_, Shape_map_, model_priority_, num_streams_, context_, enable_opencl_throttling_,
                                      disable_dynamic_shapes_, so_export_ep_ctx_blob, enable_qdq_optimizer_,
                                      so_disable_cpu_fallback, so_epctx_embed_mode);
   return std::make_unique<OpenVINOExecutionProvider>(info);
@@ -128,6 +131,8 @@ struct OpenVINO_Provider : Provider {
     bool enable_qdq_optimizer = false;  // Enables QDQ pruning for efficient inference latency with NPU
 
     void* context = nullptr;
+
+    std::map<std::string, std::vector<std::string>> Shape_map; //Sets the input shape for models with dynamic input shape.
 
     std::string bool_flag = "";
     if (provider_options_map.find("device_type") != provider_options_map.end()) {
@@ -201,6 +206,46 @@ struct OpenVINO_Provider : Provider {
 
     if (provider_options_map.find("cache_dir") != provider_options_map.end()) {
       cache_dir = provider_options_map.at("cache_dir");
+    }
+
+    if (provider_options_map.find("reshape_input") != provider_options_map.end()) {
+        auto parse_input_shapes = [](const std::string& parameter_string) {
+        std::map<std::string, std::vector<std::string>> return_value;
+        std::string search_string = parameter_string;
+        auto start_pos = search_string.find_first_of('[');                // Find first '['
+        while (start_pos != std::string::npos) {
+            auto input_name = search_string.substr(0, start_pos);         // Extract the input name up to '['
+            input_name = input_name.substr(0, input_name.find_last_not_of(' ') + 1); // Trim trailing spaces
+            if (input_name.empty()) {
+                ORT_THROW("Provide a valid input name in the reshape_input parameter");
+            }
+            auto end_pos = search_string.find_first_of(']');              // Find the closing ']' after '['
+            if (end_pos == std::string::npos) {
+                ORT_THROW("Provide a valid input shape for "+input_name);
+            }
+            auto input_value = search_string.substr(start_pos + 1, end_pos - start_pos - 1); // Extract the shape between '[' and ']'
+            std::vector<std::string> dimensions;                          // Split dimensions by ',' and add them to the vector
+            size_t dim_start = 0, dim_end = 0;
+            while ((dim_end = input_value.find(',', dim_start)) != std::string::npos) {
+                dimensions.push_back(input_value.substr(dim_start, dim_end - dim_start));
+                dim_start = dim_end + 1;
+            }
+            dimensions.push_back(input_value.substr(dim_start));          // Add the last dimension
+            return_value[input_name] = dimensions;                        // Add to the map
+            search_string = search_string.substr(end_pos + 1);            // Move to the next part of the string after ']'
+            if (!search_string.empty() && search_string.front() == ',') { // Handle comma separation
+                search_string = search_string.substr(1);                  // Skip the comma
+            }
+            start_pos = search_string.find_first_of('[');                 // Find the next '['
+        }
+
+        if (!search_string.empty()) {                                     // If any unmatched content remains, throw an error
+            ORT_THROW("Cannot parse input parameter string: " + parameter_string);
+        }
+
+        return return_value;
+    };
+    Shape_map = parse_input_shapes(provider_options_map.at("reshape_input"));
     }
 
     if (provider_options_map.find("load_config") != provider_options_map.end()) {
@@ -351,6 +396,7 @@ struct OpenVINO_Provider : Provider {
                                                      num_of_threads,
                                                      load_config,
                                                      cache_dir,
+                                                     Shape_map,
                                                      model_priority,
                                                      num_streams,
                                                      context,
