@@ -55,6 +55,7 @@ std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
   bool so_export_ep_ctx_blob = config_options_.GetConfigOrDefault(kOrtSessionOptionEpContextEnable, "0") == "1";
   bool so_epctx_embed_mode = config_options_.GetConfigOrDefault(kOrtSessionOptionEpContextEmbedMode, "0") == "1";
   std::string so_cache_path = config_options_.GetConfigOrDefault(kOrtSessionOptionEpContextFilePath, "").c_str();
+  bool so_enable_ovep_weight_sharing = config_options_.GetConfigOrDefault(kOrtSessionOptionShareEpContexts, "0") == "1";
 
   if (so_export_ep_ctx_blob && !so_cache_path.empty()) {
     cache_dir_ = std::move(so_cache_path);
@@ -76,7 +77,7 @@ std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
   OpenVINOExecutionProviderInfo info(device_type_, precision_, num_of_threads_, load_config_,
                                      cache_dir_, model_priority_, num_streams_, context_, enable_opencl_throttling_,
                                      disable_dynamic_shapes_, so_export_ep_ctx_blob, enable_qdq_optimizer_,
-                                     so_disable_cpu_fallback, so_epctx_embed_mode);
+                                     so_disable_cpu_fallback, so_epctx_embed_mode, so_enable_ovep_weight_sharing);
   return std::make_unique<OpenVINOExecutionProvider>(info);
 }
 
