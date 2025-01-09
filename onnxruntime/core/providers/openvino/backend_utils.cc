@@ -40,14 +40,13 @@ struct static_cast_int64 {
 };
 
 std::shared_ptr<const OVNetwork>
-CreateOVModel(const ONNX_NAMESPACE::ModelProto& model_proto,
+CreateOVModel(const std::string model,
               const SessionContext& session_context,
               const SubGraphContext& subgraph_context,
               std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map) {
   if (IsCILogEnabled()) {
     std::cout << "CreateNgraphFunc" << std::endl;
   }
-  const std::string model = model_proto.SerializeAsString();
   try {
     auto ov_model = session_context.ie_core.ReadModel(model, session_context.onnx_model_path_name);
 
