@@ -103,7 +103,7 @@ struct OpenVINOExecutionProviderInfo {
                                          void* context, bool enable_opencl_throttling,
                                          bool disable_dynamic_shapes, bool export_ep_ctx_blob,
                                          bool enable_qdq_optimizer, bool disable_cpu_fallback,
-                                         bool so_epctx_embed_mode, , bool so_enable_ovep_weight_sharing)
+                                         bool so_epctx_embed_mode, bool so_enable_ovep_weight_sharing)
       : precision_(std::move(precision)),
         num_of_threads_(num_of_threads),
         load_config_(std::move(load_config)),

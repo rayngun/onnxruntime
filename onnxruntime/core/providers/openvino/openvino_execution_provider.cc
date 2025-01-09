@@ -26,7 +26,7 @@ openvino_ep::SessionContext GetSessionContext(const OpenVINOExecutionProviderInf
       .enable_opencl_throttling = info.enable_opencl_throttling_,
       .disable_dynamic_shapes = info.disable_dynamic_shapes_,
       .ep_context_embed_mode = info.so_epctx_embed_mode_,
-      .enable_ovep_weight_sharing = info.so_enable_ovep_weight_sharing_;
+      .enable_ovep_weight_sharing = info.so_enable_ovep_weight_sharing_,
       .export_ep_ctx_blob = info.export_ep_ctx_blob_,
       .enable_qdq_optimizer = info.enable_qdq_optimizer_,
       .disable_cpu_fallback = info.disable_cpu_fallback_,
