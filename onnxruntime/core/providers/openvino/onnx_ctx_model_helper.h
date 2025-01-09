@@ -29,7 +29,7 @@ class EPCtxHandler {
   bool CheckForOVEPCtxNode(const Node& node) const;
   Status AddOVEPCtxNodeToGraph(const GraphViewer& graph_viewer,
                                const std::string& graph_name,
-                               const bool ep_context_embed_mode,
+                               const bool embed_mode,
                                std::string&& model_blob_str) const;
   std::unique_ptr<std::istream> GetModelBlobStream(const GraphViewer& graph_viewer) const;
   InlinedVector<const Node*> GetEPCtxNodes() const;

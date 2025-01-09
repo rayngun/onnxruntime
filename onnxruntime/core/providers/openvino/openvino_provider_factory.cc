@@ -51,14 +51,14 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
 };
 
 std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
-  bool so_disable_cpu_fallback = config_options_.GetConfigOrDefault(kOrtSessionOptionsDisableCPUEPFallback, "0") == "1";
-  bool so_export_ep_ctx_blob = config_options_.GetConfigOrDefault(kOrtSessionOptionEpContextEnable, "0") == "1";
-  bool so_epctx_embed_mode = config_options_.GetConfigOrDefault(kOrtSessionOptionEpContextEmbedMode, "0") == "1";
-  std::string so_cache_path = config_options_.GetConfigOrDefault(kOrtSessionOptionEpContextFilePath, "").c_str();
-  bool so_enable_ovep_weight_sharing = config_options_.GetConfigOrDefault(kOrtSessionOptionShareEpContexts, "0") == "1";
+  bool so_disable_cpu_ep_fallback = config_options_.GetConfigOrDefault(kOrtSessionOptionsDisableCPUEPFallback, "0") == "1";
+  bool so_context_enable = config_options_.GetConfigOrDefault(kOrtSessionOptionEpContextEnable, "0") == "1";
+  bool so_context_embed_mode = config_options_.GetConfigOrDefault(kOrtSessionOptionEpContextEmbedMode, "0") == "1";
+  std::string so_context_file_path = config_options_.GetConfigOrDefault(kOrtSessionOptionEpContextFilePath, "").data();
+  bool so_share_ep_contexts = config_options_.GetConfigOrDefault(kOrtSessionOptionShareEpContexts, "0") == "1";
 
-  if (so_export_ep_ctx_blob && !so_cache_path.empty()) {
-    cache_dir_ = std::move(so_cache_path);
+  if (so_context_enable && !so_context_file_path.empty()) {
+    cache_dir_ = std::move(so_context_file_path);
     auto file_path = std::filesystem::path(cache_dir_);
     // ep_context_file_path_ file extension must be .onnx
     if (file_path.extension().generic_string() == ".onnx") {
@@ -76,8 +76,8 @@ std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
 
   OpenVINOExecutionProviderInfo info(device_type_, precision_, num_of_threads_, load_config_,
                                      cache_dir_, model_priority_, num_streams_, context_, enable_opencl_throttling_,
-                                     disable_dynamic_shapes_, so_export_ep_ctx_blob, enable_qdq_optimizer_,
-                                     so_disable_cpu_fallback, so_epctx_embed_mode, so_enable_ovep_weight_sharing);
+                                     disable_dynamic_shapes_, so_context_enable, enable_qdq_optimizer_,
+                                     so_disable_cpu_ep_fallback, so_context_embed_mode, so_share_ep_contexts);
   return std::make_unique<OpenVINOExecutionProvider>(info);
 }
 
@@ -272,12 +272,12 @@ struct OpenVINO_Provider : Provider {
       context = reinterpret_cast<void*>(number);
     }
 #if defined(IO_BUFFER_ENABLED)
-  // a valid context must be provided to enable IO Buffer optimizations
-  if(context==nullptr){
-    #undef IO_BUFFER_ENABLED
-    #define IO_BUFFER_ENABLED=0
-    LOGS_DEFAULT(WARNING) << "Context is not set. Disabling IO Buffer optimization";
-  }
+    // a valid context must be provided to enable IO Buffer optimizations
+    if (context == nullptr) {
+#undef IO_BUFFER_ENABLED
+#define IO_BUFFER_ENABLED = 0
+      LOGS_DEFAULT(WARNING) << "Context is not set. Disabling IO Buffer optimization";
+    }
 #endif
 
     if (provider_options_map.find("num_of_threads") != provider_options_map.end()) {
