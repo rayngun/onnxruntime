@@ -57,71 +57,68 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
   }
 
   try {
-    std::string dev_prec = session_context.device_type + "_" + session_context_.precision_str;
-
-    if (subgraph_context_.is_wholly_supported_graph) {  // Full graph is supported
+    // IO_BUFFER is enabled on GPU HW.
+    // Pre-requisite is provider_option "context" must be set
 #if defined(IO_BUFFER_ENABLED)
-      if (subgraph_context_.is_ep_ctx_graph) {
-        exe_network_ = session_context_.ie_core.ImportModel(*model_stream,
-                                                            remote_context_,
-                                                            subgraph_context_.subgraph_name);
-      } else if ((session_context.device_type.find("GPU") != std::string::npos) &&
-                 (session_context_.context != nullptr)) {
-        LOGS_DEFAULT(INFO) << log_tag << "IO Buffering Enabled";
-        cl_context ctx = static_cast<cl_context>(session_context_.context);
-        remote_context_ = new ov::intel_gpu::ocl::ClContext(session_context_.ie_core.Get(), ctx);
-        ie_cnn_network_ = CreateOVModel(model_proto, session_context_, subgraph_context_, const_outputs_map_);
-        exe_network_ = session_context_.ie_core.CompileModel(
-            ie_cnn_network_, remote_context_, subgraph_context_.subgraph_name);
-      } else {
-        ie_cnn_network_ = CreateOVModel(model_proto, session_context_, subgraph_context_, const_outputs_map_);
-        exe_network_ = session_context_.ie_core.CompileModel(
-            ie_cnn_network_, hw_target, device_config, subgraph_context_.subgraph_name);
+    cl_context ctx = static_cast<cl_context>(session_context_.context);
+    remote_context_ = new ov::intel_gpu::ocl::ClContext(session_context_.ie_core.Get(), ctx);
+    if (subgraph_context_.is_ep_ctx_graph) {
+      exe_network_ = session_context_.ie_core.ImportModel(*model_stream,
+                                                        remote_context_,
+                                                        subgraph_context_.subgraph_name);
+      model_stream.reset(); // Delete stream after it is no longer needed
+    } else {
+      std::shared_ptr<const OVNetwork> ov_model;
+      {
+        const std::string model = model_proto->SerializeAsString();
+        if (!subgraph_context.has_dynamic_input_shape) {
+          delete model_proto.release();
+        }
+        ov_model = CreateOVModel(model, session_context_, subgraph_context_, const_outputs_map_);
+      }
+      LOGS_DEFAULT(INFO) << log_tag << "IO Buffering Enabled";
+      exe_network_ = session_context_.ie_core.CompileModel(
+          ov_model, remote_context_, subgraph_context_.subgraph_name);
       }
 #else  // !IO_BUFFER_ENABLED
-      std::string prec_str = (session_context_.precision_str != "ACCURACY") ? session_context_.precision_str : subgraph_context_.model_precision;
+      auto auto_unified_compile = ((hw_target.find("AUTO") == std::string::npos) ||
+                                   (session_context_.OpenVINO_Version.at(0) >= 2024 &&
+                                   session_context_.OpenVINO_Version.at(1) > 2));
       if (subgraph_context_.is_ep_ctx_graph) {
         // If the blob is held in an EPContext node, then skip FE+Compile
         // and directly move on to creating a backend with the executable blob
         exe_network_ = session_context_.ie_core.ImportModel(*model_stream,
+                                                           hw_target,
+                                                           device_config,
+                                                           subgraph_context_.subgraph_name);
+        model_stream.reset(); // Delete stream after it is no longer needed
+      } else if (!subgraph_context_.has_external_weights &&
+                 !subgraph_context_.has_dynamic_input_shape &&
+                 !session_context_.export_ep_ctx_blob &&
+                 auto_unified_compile){
+        // Unified OV compile_model is efficient when ov model caching is enabled
+        // Unified OV compile_model API is supported with AUTO from version 2024.3 and above
+        // Inputs with static dimenstions
+        // Not enabled for models with external weights and when ep context is set.
+        const std::string model = model_proto->SerializeAsString();
+        exe_network_ = session_context_.ie_core.CompileModel(model,
                                                             hw_target,
                                                             device_config,
                                                             subgraph_context_.subgraph_name);
-        model_stream.reset();  // Delete stream after it is no longer needed
-      } else if (session_context_.export_ep_ctx_blob &&
-                 hw_target.find("NPU") != std::string::npos &&
-                 !subgraph_context_.has_external_weights) {
-        std::shared_ptr<ov::Model> ov_model;
+      } else {  // For all other types use ov::core read_model() to generate OV IR
+                // followed by ov::core compile_model()
+        std::shared_ptr<const OVNetwork> ov_model;
         {
           const std::string model = model_proto->SerializeAsString();
-          if (!subgraph_context_.has_dynamic_input_shape) {
+          if (!subgraph_context.has_dynamic_input_shape) {
             delete model_proto.release();
           }
-          ov_model = session_context_.ie_core.Get().read_model(model, ov::Tensor());
+          ov_model = CreateOVModel(model, session_context_, subgraph_context_, const_outputs_map_);
         }
-        exe_network_ = OVExeNetwork(session_context_.ie_core.Get().compile_model(ov_model, hw_target, device_config));
-      } else if (!subgraph_context_.has_external_weights &&
-                 (!subgraph_context_.has_dynamic_input_shape) &&
-                 ((hw_target.find("AUTO") == std::string::npos) ||
-                  (session_context_.OpenVINO_Version.at(0) >= 2024 && session_context_.OpenVINO_Version.at(1) > 2))) {
-        // Optimized OV compile_model API is supported with AUTO from version 2024.3 and above
-        // Inputs with static dimenstions
-        const std::string model = model_proto->SerializeAsString();
-        exe_network_ = session_context_.ie_core.CompileModel(model,
-                                                             hw_target,
-                                                             device_config,
-                                                             subgraph_context_.subgraph_name);
-      } else {  // For all other types use ov::Model Type
-        auto ov_model = CreateOVModel(*model_proto, session_context_, subgraph_context_, const_outputs_map_);
         exe_network_ = session_context_.ie_core.CompileModel(
             ov_model, hw_target, device_config, subgraph_context_.subgraph_name);
       }
 #endif
-    } else {  // Full graph is not supported
-      auto ov_model = CreateOVModel(*model_proto, session_context_, subgraph_context_, const_outputs_map_);
-      exe_network_ = session_context_.ie_core.CompileModel(
-          ov_model, hw_target, device_config, subgraph_context_.subgraph_name);
-    }
     LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
   } catch (const char* msg) {
     ORT_THROW(msg);
