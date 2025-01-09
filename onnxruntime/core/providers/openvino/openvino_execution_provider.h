@@ -87,11 +87,11 @@ struct OpenVINOExecutionProviderInfo {
   void* context_{NULL};
   bool enable_opencl_throttling_{false};
   bool disable_dynamic_shapes_{false};
-  bool export_ep_ctx_blob_{false};
+  bool so_context_enable_{false};
   bool enable_qdq_optimizer_{false};
-  bool disable_cpu_fallback_{false};
-  bool so_epctx_embed_mode_{false};
-  bool so_enable_ovep_weight_sharing_{false};
+  bool so_disable_cpu_ep_fallback_{false};
+  bool so_context_embed_mode_{false};
+  bool so_share_ep_contexts_{false};
 
   OpenVINOExecutionProviderInfo() = delete;
 
@@ -101,9 +101,9 @@ struct OpenVINOExecutionProviderInfo {
                                          const std::string& cache_dir,
                                          const std::string& model_priority, int num_streams,
                                          void* context, bool enable_opencl_throttling,
-                                         bool disable_dynamic_shapes, bool export_ep_ctx_blob,
-                                         bool enable_qdq_optimizer, bool disable_cpu_fallback,
-                                         bool so_epctx_embed_mode, bool so_enable_ovep_weight_sharing)
+                                         bool disable_dynamic_shapes, bool so_context_enable,
+                                         bool enable_qdq_optimizer, bool so_disable_cpu_ep_fallback,
+                                         bool so_context_embed_mode, bool so_share_ep_contexts)
       : precision_(std::move(precision)),
         num_of_threads_(num_of_threads),
         load_config_(std::move(load_config)),
@@ -113,11 +113,11 @@ struct OpenVINOExecutionProviderInfo {
         context_(context),
         enable_opencl_throttling_(enable_opencl_throttling),
         disable_dynamic_shapes_(disable_dynamic_shapes),
-        export_ep_ctx_blob_(export_ep_ctx_blob),
+        so_context_enable_(so_context_enable),
         enable_qdq_optimizer_(enable_qdq_optimizer),
-        disable_cpu_fallback_(disable_cpu_fallback),
-        so_epctx_embed_mode_{so_epctx_embed_mode},
-        so_enable_ovep_weight_sharing_{so_enable_ovep_weight_sharing} {
+        so_disable_cpu_ep_fallback_(so_disable_cpu_ep_fallback),
+        so_context_embed_mode_{so_context_embed_mode},
+        so_share_ep_contexts_{so_share_ep_contexts} {
     std::set<std::string> ov_supported_device_types = {"CPU", "GPU",
                                                        "GPU.0", "GPU.1", "NPU"};
 

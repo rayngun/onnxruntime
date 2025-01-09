@@ -64,9 +64,9 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
     remote_context_ = new ov::intel_gpu::ocl::ClContext(session_context_.ie_core.Get(), ctx);
     if (subgraph_context_.is_ep_ctx_graph) {
       exe_network_ = session_context_.ie_core.ImportModel(*model_stream,
-                                                        remote_context_,
-                                                        subgraph_context_.subgraph_name);
-      model_stream.reset(); // Delete stream after it is no longer needed
+                                                          remote_context_,
+                                                          subgraph_context_.subgraph_name);
+      model_stream.reset();  // Delete stream after it is no longer needed
     } else {
       std::shared_ptr<const OVNetwork> ov_model;
       {
@@ -79,45 +79,45 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
       LOGS_DEFAULT(INFO) << log_tag << "IO Buffering Enabled";
       exe_network_ = session_context_.ie_core.CompileModel(
           ov_model, remote_context_, subgraph_context_.subgraph_name);
-      }
+    }
 #else  // !IO_BUFFER_ENABLED
-      auto auto_unified_compile = ((hw_target.find("AUTO") == std::string::npos) ||
-                                   (session_context_.OpenVINO_Version.at(0) >= 2024 &&
-                                   session_context_.OpenVINO_Version.at(1) > 2));
-      if (subgraph_context_.is_ep_ctx_graph) {
-        // If the blob is held in an EPContext node, then skip FE+Compile
-        // and directly move on to creating a backend with the executable blob
-        exe_network_ = session_context_.ie_core.ImportModel(*model_stream,
+    auto auto_unified_compile = ((hw_target.find("AUTO") == std::string::npos) ||
+                                 (session_context_.OpenVINO_Version.at(0) >= 2024 &&
+                                  session_context_.OpenVINO_Version.at(1) > 2));
+    if (subgraph_context_.is_ep_ctx_graph) {
+      // If the blob is held in an EPContext node, then skip FE+Compile
+      // and directly move on to creating a backend with the executable blob
+      exe_network_ = session_context_.ie_core.ImportModel(*model_stream,
+                                                          hw_target,
+                                                          device_config,
+                                                          subgraph_context_.subgraph_name);
+      model_stream.reset();  // Delete stream after it is no longer needed
+    } else if (!subgraph_context_.has_external_weights &&
+               !subgraph_context_.has_dynamic_input_shape &&
+               !session_context_.so_context_enable &&
+               auto_unified_compile) {
+      // Unified OV compile_model is efficient when ov model caching is enabled
+      // Unified OV compile_model API is supported with AUTO from version 2024.3 and above
+      // Inputs with static dimenstions
+      // Not enabled for models with external weights and when ep context is set.
+      const std::string model = model_proto->SerializeAsString();
+      exe_network_ = session_context_.ie_core.CompileModel(model,
                                                            hw_target,
                                                            device_config,
                                                            subgraph_context_.subgraph_name);
-        model_stream.reset(); // Delete stream after it is no longer needed
-      } else if (!subgraph_context_.has_external_weights &&
-                 !subgraph_context_.has_dynamic_input_shape &&
-                 !session_context_.export_ep_ctx_blob &&
-                 auto_unified_compile){
-        // Unified OV compile_model is efficient when ov model caching is enabled
-        // Unified OV compile_model API is supported with AUTO from version 2024.3 and above
-        // Inputs with static dimenstions
-        // Not enabled for models with external weights and when ep context is set.
+    } else {  // For all other types use ov::core read_model() to generate OV IR
+              // followed by ov::core compile_model()
+      std::shared_ptr<const OVNetwork> ov_model;
+      {
         const std::string model = model_proto->SerializeAsString();
-        exe_network_ = session_context_.ie_core.CompileModel(model,
-                                                            hw_target,
-                                                            device_config,
-                                                            subgraph_context_.subgraph_name);
-      } else {  // For all other types use ov::core read_model() to generate OV IR
-                // followed by ov::core compile_model()
-        std::shared_ptr<const OVNetwork> ov_model;
-        {
-          const std::string model = model_proto->SerializeAsString();
-          if (!subgraph_context.has_dynamic_input_shape) {
-            delete model_proto.release();
-          }
-          ov_model = CreateOVModel(model, session_context_, subgraph_context_, const_outputs_map_);
+        if (!subgraph_context.has_dynamic_input_shape) {
+          delete model_proto.release();
         }
-        exe_network_ = session_context_.ie_core.CompileModel(
-            ov_model, hw_target, device_config, subgraph_context_.subgraph_name);
+        ov_model = CreateOVModel(model, session_context_, subgraph_context_, const_outputs_map_);
       }
+      exe_network_ = session_context_.ie_core.CompileModel(
+          ov_model, hw_target, device_config, subgraph_context_.subgraph_name);
+    }
 #endif
     LOGS_DEFAULT(INFO) << log_tag << "Loaded model to the plugin";
   } catch (const char* msg) {
@@ -178,7 +178,7 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
     }
     device_config.emplace(ov::device::properties("NPU", device_property));
 #if (((OPENVINO_VERSION_MAJOR == 2024) && (OPENVINO_VERSION_MINOR > 3)) || (OPENVINO_VERSION_MAJOR > 2024))
-    if (session_context_.export_ep_ctx_blob) {
+    if (session_context_.so_context_enable) {
       session_context_.ie_core.Get().set_property("NPU", ov::intel_npu::bypass_umd_caching(true));
     }
 #endif
@@ -287,7 +287,7 @@ void BasicBackend::EnableCaching(ov::AnyMap& device_config) {
   // cache_dir argument has no effect when working with an embed-mode EPContext Graph
   if (subgraph_context_.is_ep_ctx_graph) return;
 
-  if (!session_context_.cache_dir.empty() && !session_context_.export_ep_ctx_blob) {
+  if (!session_context_.cache_dir.empty() && !session_context_.so_context_enable) {
     LOGS_DEFAULT(INFO) << log_tag << "Enables Caching";
     if (session_context_.device_type.find("AUTO:GPU") != std::string::npos) {
       std::pair<std::string, ov::Any> device_property;
