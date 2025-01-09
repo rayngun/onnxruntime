@@ -271,6 +271,14 @@ struct OpenVINO_Provider : Provider {
       uint64_t number = std::strtoull(str.c_str(), nullptr, 16);
       context = reinterpret_cast<void*>(number);
     }
+#if defined(IO_BUFFER_ENABLED)
+  // a valid context must be provided to enable IO Buffer optimizations
+  if(context==nullptr){
+    #undef IO_BUFFER_ENABLED
+    #define IO_BUFFER_ENABLED=0
+    LOGS_DEFAULT(WARNING) << "Context is not set. Disabling IO Buffer optimization";
+  }
+#endif
 
     if (provider_options_map.find("num_of_threads") != provider_options_map.end()) {
       if (!std::all_of(provider_options_map.at("num_of_threads").begin(),
