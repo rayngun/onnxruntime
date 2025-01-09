@@ -41,7 +41,7 @@ Status EPCtxHandler::ExportEPCtxModel(const std::string& model_name) {
 
 Status EPCtxHandler::AddOVEPCtxNodeToGraph(const GraphViewer& graph_viewer,
                                            const std::string& graph_name,
-                                           const bool ep_context_embed_mode,
+                                           const bool embed_mode,
                                            std::string&& model_blob_str) const {
   auto& graph = epctx_model_->MainGraph();
 
@@ -66,7 +66,7 @@ Status EPCtxHandler::AddOVEPCtxNodeToGraph(const GraphViewer& graph_viewer,
     auto embed_mode_attr = ONNX_NAMESPACE::AttributeProto::Create();
     embed_mode_attr->set_name(EMBED_MODE);
     embed_mode_attr->set_type(onnx::AttributeProto_AttributeType_INT);
-    embed_mode_attr->set_i(ep_context_embed_mode);
+    embed_mode_attr->set_i(embed_mode);
     node_attributes->emplace(EMBED_MODE, std::move(*embed_mode_attr));
 
     // ep context
@@ -106,17 +106,16 @@ std::unique_ptr<std::istream> EPCtxHandler::GetModelBlobStream(const GraphViewer
   auto& attrs = node->GetAttributes();
 
   ORT_ENFORCE(attrs.count(EP_CACHE_CONTEXT) == 1);
-  const auto& ep_cache_context_attribute = attrs.at(EP_CACHE_CONTEXT);
-  const auto& cache_context = ep_cache_context_attribute.s();
+  const auto& ep_cache_context = attrs.at(EP_CACHE_CONTEXT).s();
 
   ORT_ENFORCE(attrs.count(EMBED_MODE) == 1);
-  bool ep_context_embed_mode = static_cast<bool>(attrs.at(EMBED_MODE).i());
+  bool embed_mode = static_cast<bool>(attrs.at(EMBED_MODE).i());
 
   std::unique_ptr<std::istream> result;
-  if (ep_context_embed_mode) {
-    result.reset((std::istream*)new std::istringstream(cache_context));
+  if (embed_mode) {
+    result.reset((std::istream*)new std::istringstream(ep_cache_context));
   } else {
-    result.reset((std::istream*)new std::ifstream(cache_context, std::ios_base::binary | std::ios_base::in));
+    result.reset((std::istream*)new std::ifstream(ep_cache_context, std::ios_base::binary | std::ios_base::in));
   }
   LOGS_DEFAULT(VERBOSE) << "[OpenVINO EP] Read blob from EPContext Node";
   return result;

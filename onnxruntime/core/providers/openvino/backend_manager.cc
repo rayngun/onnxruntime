@@ -140,7 +140,7 @@ BackendManager::BackendManager(const SessionContext& session_context,
     } catch (const OnnxRuntimeException& ex) {
       std::string exception_str = ex.what();
       bool eligible_for_cpu_fallback = device_type.find("NPU") != std::string::npos &&
-                                       !session_context_.disable_cpu_fallback &&
+                                       !session_context_.so_disable_cpu_ep_fallback &&
                                        !subgraph_context_.is_ep_ctx_graph;
 #if defined(OPENVINO_DISABLE_NPU_FALLBACK)
       eligible_for_cpu_fallback = false;
@@ -187,7 +187,7 @@ BackendManager::BackendManager(const SessionContext& session_context,
       }
     }
   }
-  if (session_context_.export_ep_ctx_blob && !subgraph_context_.is_ep_ctx_graph) {
+  if (session_context_.so_context_enable && !subgraph_context_.is_ep_ctx_graph) {
     auto status = onnxruntime::openvino_ep::BackendManager::ExportCompiledBlobAsEPCtxNode(subgraph,
                                                                                           logger);
     if ((!status.IsOK())) {
@@ -214,7 +214,7 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
   // If not embed_mode, dump the blob here and only pass on the path to the blob
   std::string model_blob_str;
   auto compiled_model = concrete_backend_->GetOVCompiledModel();
-  if (session_context_.ep_context_embed_mode) {
+  if (session_context_.so_context_embed_mode) {
     // Internal blob
     std::ostringstream model_blob_stream;
     compiled_model.export_model(model_blob_stream);
@@ -245,7 +245,7 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
 
   ORT_RETURN_IF_ERROR(ep_ctx_handle_.AddOVEPCtxNodeToGraph(graph_body_viewer,
                                                            subgraph_context_.subgraph_name,
-                                                           session_context_.ep_context_embed_mode,
+                                                           session_context_.so_context_embed_mode,
                                                            std::move(model_blob_str)));
 
   return Status::OK();
@@ -496,7 +496,7 @@ void BackendManager::Compute(OrtKernelContext* context) {
         ORT_THROW(ex.what());
 #else
         if (session_context_.device_type.find("NPU") != std::string::npos &&
-            !session_context_.disable_cpu_fallback) {
+            !session_context_.so_disable_cpu_ep_fallback) {
           LOGS_DEFAULT(WARNING) << ex.what();
           LOGS_DEFAULT(WARNING) << "Model compilation failed at OV NPU."
                                 << "Falling back to OV CPU for execution";

@@ -18,11 +18,11 @@ struct SessionContext {
   OVCore ie_core;
   bool enable_opencl_throttling = false;
   bool disable_dynamic_shapes = false;
-  bool ep_context_embed_mode = false;
-  bool enable_ovep_weight_sharing = false;
-  bool export_ep_ctx_blob = false;
+  bool so_context_embed_mode = false;
+  bool so_share_ep_contexts = false;
+  bool so_context_enable = false;
   bool enable_qdq_optimizer = false;
-  bool disable_cpu_fallback = false;
+  bool so_disable_cpu_ep_fallback = false;
   size_t num_of_threads;
   std::string device_type;
   std::string precision_str;
