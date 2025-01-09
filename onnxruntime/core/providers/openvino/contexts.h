@@ -19,6 +19,7 @@ struct SessionContext {
   bool enable_opencl_throttling = false;
   bool disable_dynamic_shapes = false;
   bool ep_context_embed_mode = false;
+  bool enable_ovep_weight_sharing = false;
   bool export_ep_ctx_blob = false;
   bool enable_qdq_optimizer = false;
   bool disable_cpu_fallback = false;
