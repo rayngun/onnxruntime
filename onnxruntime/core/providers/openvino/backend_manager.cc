@@ -362,7 +362,7 @@ BackendManager::GetModelProtoFromFusedNode(const onnxruntime::Node& fused_node,
       IsQDQGraph(subgraph)) {
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP] QDQ optimization pass status: 1";
     std::unique_ptr<onnxruntime::Model> model;
-    Status status = CreateModelWithStrippedQDQNodes(subgraph, logger, model);
+    Status status = CreateModelWithStrippedQDQNodes(subgraph, logger, session_context_.enable_ovep_weight_sharing, model);
     auto model_proto = model->ToProto();
     model_proto->set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
     print_model_proto_duration();
