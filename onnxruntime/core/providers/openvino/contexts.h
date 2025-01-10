@@ -13,31 +13,71 @@
 namespace onnxruntime {
 namespace openvino_ep {
 
+namespace fs = std::filesystem;
+
+struct SharedContext {
+  struct shared_weight_key {
+    std::string_view name;
+    std::string location;
+  };
+  struct shared_weight_value {
+    unsigned int data_offset;
+    unsigned int size;
+    ov::Tensor* tensor;
+  };
+  std::map<shared_weight_key, shared_weight_value> shared_weight_map;
+  fs::path bin_pathname;
+};
+
+using config_t = std::map<std::string, ov::AnyMap>;
+
+struct ProviderInfo {
+  std::string device_type{""};             // [device_type]: Overrides the accelerator hardware type and
+                                           // precision with these values at runtime.
+  std::string precision{""};               // [precision]: Sets the inference precision for execution.
+                                           // Supported precision for devices are
+                                           // CPU=FP32, GPU=FP32,FP16, NPU=FP16.
+                                           // Not setting precision will execute with optimized precision for
+                                           // best inference latency. set Precision=ACCURACY for executing
+                                           // models with input precision for best accuracy.
+  uint32_t num_of_threads{0};              // [num_of_threads]: Overrides the accelerator default value of
+                                           // number of threads with this value at runtime.
+  config_t load_config{};                  // JSON config map to load custom OV parameters.
+  fs::path cache_dir{""};                  // [cache_dir]: specify the path to
+                                           // dump and load the blobs for the model caching/kernel caching
+                                           // (GPU) feature. If blob files are already present,
+                                           // it will be directly loaded.
+  std::string model_priority{"DEFAULT"};   // High-level OpenVINO model priority hint
+                                           // Defines what model should be provided with more performant
+                                           // bounded resource first
+  uint32_t num_streams{1};                 // [num_streams]: Option that specifies the number of parallel
+                                           // inference requests to be processed on a given `device_type`.
+                                           // Overrides the accelerator default value of number of streams
+                                           // with this value at runtime.
+  void* context{nullptr};                  // OpenCL context
+  bool enable_opencl_throttling{false};    // [enable_opencl_throttling]: Enables OpenCL queue throttling for
+                                           // GPU device (Reduces CPU Utilization when using GPU)
+  bool disable_dynamic_shapes{false};      // [disable_dynamic_shapes]:  Rewrite dynamic shaped models to
+                                           // static shape at runtime and execute.
+  bool enable_qdq_optimizer{false};        // Enables QDQ pruning for efficient inference latency with NPU
+  bool so_context_enable{false};           // ORT session option
+  bool so_disable_cpu_ep_fallback{false};  // ORT session option
+  bool so_context_embed_mode{false};       // ORT session option
+  bool so_share_ep_contexts{false};        // ORT session option
+};
+
 // Holds context applicable to the entire EP instance.
-struct SessionContext {
+struct SessionContext : ProviderInfo {
+  SessionContext(const ProviderInfo& info) : ProviderInfo{info} {}
+
   OVCore ie_core;
-  bool enable_opencl_throttling = false;
-  bool disable_dynamic_shapes = false;
-  bool so_context_embed_mode = false;
-  bool so_share_ep_contexts = false;
-  bool so_context_enable = false;
-  bool enable_qdq_optimizer = false;
-  bool so_disable_cpu_ep_fallback = false;
-  size_t num_of_threads;
-  std::string device_type;
-  std::string precision_str;
-  std::filesystem::path cache_dir;
-  std::map<std::string, ov::AnyMap> load_config;
-  std::string model_priority = "DEFAULT";
-  int num_streams;
   std::vector<bool> deviceAvailableList = {true, true, true, true, true, true, true, true};
   std::string onnx_model_name;
   std::string onnx_model_path_name;
   int onnx_opset_version;
-  void* context = 0;
   bool use_api_2;
-  std::vector<int> OpenVINO_Version = {};  // Ov Major and OV minor version from OV headers
-  std::string openvino_sdk_version;
+  const std::vector<int> OpenVINO_Version = {OPENVINO_VERSION_MAJOR, OPENVINO_VERSION_MINOR};
+  const std::string openvino_sdk_version = std::format("{}.{}", OPENVINO_VERSION_MAJOR, OPENVINO_VERSION_MINOR);
 };
 
 // Holds context specific to subgraph.
