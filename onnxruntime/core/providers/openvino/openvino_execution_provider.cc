@@ -18,63 +18,123 @@
 #include "core/providers/openvino/ov_allocator.h"
 #endif
 
-#define MEMCPY_S(dest, src, destsz, srcsz) memcpy(dest, src, std::min(destsz, srcsz))
-
 namespace onnxruntime {
-openvino_ep::SessionContext GetSessionContext(const OpenVINOExecutionProviderInfo& info) {
-  openvino_ep::SessionContext result = {
-      .enable_opencl_throttling = info.enable_opencl_throttling_,
-      .disable_dynamic_shapes = info.disable_dynamic_shapes_,
-      .so_context_embed_mode = info.so_context_embed_mode_,
-      .so_share_ep_contexts = info.so_share_ep_contexts_,
-      .so_context_enable = info.so_context_enable_,
-      .enable_qdq_optimizer = info.enable_qdq_optimizer_,
-      .so_disable_cpu_ep_fallback = info.so_disable_cpu_ep_fallback_,
-      .num_of_threads = info.num_of_threads_,
-      .device_type = info.device_type_,
-      .precision_str = info.precision_,
-      .cache_dir = info.cache_dir_,
-      .load_config = info.load_config_,
-      .model_priority = info.model_priority_,
-      .num_streams = info.num_streams_,
-      .context = info.context_,
-      .OpenVINO_Version = {OPENVINO_VERSION_MAJOR, OPENVINO_VERSION_MINOR},
-      .openvino_sdk_version = std::format("{}.{}", OPENVINO_VERSION_MAJOR, OPENVINO_VERSION_MINOR),
-  };
-  return result;
+namespace openvino_ep {
+
+// Parking this code here for now before it's moved to the factory
+static std::vector<std::string> parseDevices(const std::string& device_string,
+                                             const std::vector<std::string>& available_devices) {
+  std::string comma_separated_devices = device_string;
+  if (comma_separated_devices.find(":") != std::string::npos) {
+    comma_separated_devices = comma_separated_devices.substr(comma_separated_devices.find(":") + 1);
+  }
+  auto devices = split(comma_separated_devices, ',');
+  if (devices.size() < 2) {
+    print_build_options();
+    ORT_THROW("Invalid device string: " + device_string);
+  }
+  std::set<std::string> dev_options = {"CPU", "GPU", "NPU"};
+
+  for (auto& device : available_devices) {
+    if (dev_options.find(device) == dev_options.end()) {
+      auto dev_options_update = dev_options.emplace(device);
+    }
+  }
+
+  for (const std::string& dev : devices) {
+    if (!std::count(dev_options.begin(), dev_options.end(), dev)) {
+      print_build_options();
+      ORT_THROW("Invalid device string: " + device_string);
+    }
+  }
+  return devices;
 }
 
-OpenVINOExecutionProvider::OpenVINOExecutionProvider(const OpenVINOExecutionProviderInfo& info)
+// Parking this code here for now before it's moved to the factory
+void AdjustProviderInfo(ProviderInfo& info) {
+  std::set<std::string> ov_supported_device_types = {"CPU", "GPU",
+                                                     "GPU.0", "GPU.1", "NPU"};
+
+  OVDevices devices;
+  std::vector<std::string> available_devices = devices.get_ov_devices();
+
+  for (auto& device : available_devices) {
+    if (ov_supported_device_types.find(device) == ov_supported_device_types.end()) {
+      ov_supported_device_types.emplace(device);
+    }
+  }
+
+  if (info.device_type == "") {
+    LOGS_DEFAULT(INFO) << "[OpenVINO-EP]"
+                       << "No runtime device selection option provided.";
+#if defined OPENVINO_CONFIG_CPU
+    device_type_ = "CPU";
+    precision_ = "FP32";
+#elif defined OPENVINO_CONFIG_GPU
+    device_type_ = "GPU";
+    precision_ = "FP16";
+#elif defined OPENVINO_CONFIG_NPU
+    info.device_type = "NPU";
+    info.precision = "FP16";
+#elif defined OPENVINO_CONFIG_HETERO || defined OPENVINO_CONFIG_MULTI || defined OPENVINO_CONFIG_AUTO
+#ifdef DEVICE_NAME
+#define DEVICE DEVICE_NAME
+#endif
+    dev_type = DEVICE;
+
+    if (info.device_type.find("HETERO") == 0 || info.device_type.find("MULTI") == 0 || info.device_type.find("AUTO") == 0) {
+      std::vector<std::string> devices = parseDevices(info.device_type, available_devices);
+      info.precision = "FP16";
+      if (devices[0] == "CPU") {
+        info.precision = "FP32";
+      }
+      info.device_type = std::move(dev_type);
+    }
+#endif
+  } else if (ov_supported_device_types.find(info.device_type) != ov_supported_device_types.end()) {
+    info.device_type = std::move(info.device_type);
+  } else if (info.device_type.find("HETERO") == 0 || info.device_type.find("MULTI") == 0 || info.device_type.find("AUTO") == 0) {
+    std::ignore = parseDevices(info.device_type, available_devices);
+    info.device_type = std::move(info.device_type);
+  } else {
+    ORT_THROW("Invalid device string: " + info.device_type);
+  }
+  LOGS_DEFAULT(INFO) << "[OpenVINO-EP]"
+                     << "Choosing Device: " << info.device_type << " , Precision: " << info.precision;
+}
+
+OpenVINOExecutionProvider::OpenVINOExecutionProvider(const ProviderInfo& info, SharedContext* shared_context)
     : IExecutionProvider{onnxruntime::kOpenVINOExecutionProvider},
-      session_context_{GetSessionContext(info)},
+      session_context_(info),
+      shared_context_{shared_context},
       ep_ctx_handle_{session_context_.openvino_sdk_version, *GetLogger()} {
   InitProviderOrtApi();
 
   // to check if target device is available
   // using ie_core capability GetAvailableDevices to fetch list of devices plugged in
-  if (info.cache_dir_.empty()) {
+  if (info.cache_dir.empty()) {
     bool device_found = false;
     std::vector<std::string> available_devices = session_context_.ie_core.GetAvailableDevices();
     // Checking for device_type configuration
-    if (info.device_type_ != "") {
-      if (info.device_type_.find("HETERO") != std::string::npos ||
-          info.device_type_.find("MULTI") != std::string::npos ||
-          info.device_type_.find("AUTO") != std::string::npos) {
+    if (info.device_type != "") {
+      if (info.device_type.find("HETERO") != std::string::npos ||
+          info.device_type.find("MULTI") != std::string::npos ||
+          info.device_type.find("AUTO") != std::string::npos) {
         device_found = true;
       } else {
         for (const std::string& device : available_devices) {
-          if (device.rfind(info.device_type_, 0) == 0) {
-            if (info.device_type_.find("GPU") != std::string::npos && (info.precision_ == "FP32" ||
-                                                                       info.precision_ == "FP16" ||
-                                                                       info.precision_ == "ACCURACY")) {
+          if (device.rfind(info.device_type, 0) == 0) {
+            if (info.device_type.find("GPU") != std::string::npos && (info.precision == "FP32" ||
+                                                                      info.precision == "FP16" ||
+                                                                      info.precision == "ACCURACY")) {
               device_found = true;
               break;
             }
-            if (info.device_type_ == "CPU" && (info.precision_ == "FP32")) {
+            if (info.device_type == "CPU" && (info.precision == "FP32")) {
               device_found = true;
               break;
             }
-            if (info.device_type_.find("NPU") != std::string::npos) {
+            if (info.device_type.find("NPU") != std::string::npos) {
               device_found = true;
               break;
             }
@@ -83,7 +143,7 @@ OpenVINOExecutionProvider::OpenVINOExecutionProvider(const OpenVINOExecutionProv
       }
     }
     if (!device_found) {
-      ORT_THROW("[ERROR] [OpenVINO] Specified device - " + info.device_type_ + " is not available");
+      ORT_THROW("[ERROR] [OpenVINO] Specified device - " + info.device_type + " is not available");
     }
   }
 }
@@ -118,6 +178,13 @@ common::Status OpenVINOExecutionProvider::Compile(
   session_context_.onnx_opset_version =
       fused_nodes[0].filtered_graph.get().DomainToVersionMap().at(kOnnxDomain);
 
+  struct OpenVINOEPFunctionState {
+    AllocateFunc allocate_func = nullptr;
+    DestroyFunc destroy_func = nullptr;
+    AllocatorHandle allocator_handle = nullptr;
+    BackendManager& backend_manager;
+  };
+
   for (const FusedNodeAndGraph& fused_node_graph : fused_nodes) {
     const GraphViewer& graph_body_viewer = fused_node_graph.filtered_graph;
     const Node& fused_node = fused_node_graph.fused_node;
@@ -138,13 +205,15 @@ common::Status OpenVINOExecutionProvider::Compile(
 
     compute_info.create_state_func =
         [&backend_manager](ComputeContext* context, FunctionState* state) {
-          OpenVINOEPFunctionState* p = new OpenVINOEPFunctionState(backend_manager);
-          p->allocate_func = context->allocate_func;
-          p->destroy_func = context->release_func;
-          p->allocator_handle = context->allocator_handle;
+          OpenVINOEPFunctionState* p = new OpenVINOEPFunctionState{
+              .allocate_func = context->allocate_func,
+              .destroy_func = context->release_func,
+              .allocator_handle = context->allocator_handle,
+              .backend_manager = backend_manager};
           *state = static_cast<FunctionState>(p);
           return 0;
         };
+
     compute_info.compute_func = [](FunctionState state, const OrtApi* /* api */, OrtKernelContext* context) {
       auto function_state = static_cast<OpenVINOEPFunctionState*>(state);
       try {
@@ -162,6 +231,7 @@ common::Status OpenVINOExecutionProvider::Compile(
             delete function_state;
           }
         };
+
     node_compute_funcs.push_back(compute_info);
 
     if (!status.IsOK()) {
@@ -234,4 +304,5 @@ const InlinedVector<const Node*> OpenVINOExecutionProvider::GetEpContextNodes() 
   return ep_ctx_handle_.GetEPCtxNodes();
 }
 
+}  // namespace openvino_ep
 }  // namespace onnxruntime

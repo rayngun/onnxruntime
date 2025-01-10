@@ -27,8 +27,7 @@ class BackendManager {
   void Compute(OrtKernelContext* context);
   void ShutdownBackendManager();
   SessionContext& GetSessionContext();
-  Status ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphViewer& subgraph,
-                                       const logging::Logger& logger);
+  Status ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphViewer& subgraph);
   ov::CompiledModel& GetOVCompiledModel();
 
  private:
