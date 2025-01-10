@@ -625,9 +625,8 @@ static void AddQDQNodeUnit(onnxruntime::Graph& dst_graph,
   KeepInitsInDstGraph(initializers_to_keep, src_graph, &target_node);
 }
 
-// Keep track of inputs across multiple calls
-static std::vector<const NodeArg*> accumulated_inputs;
-static void AddInitializerAsInput(onnxruntime::Graph& dst_graph,
+static void AddInitializerAsInput (onnxruntime::Graph& dst_graph,
+                                  InlinedVector<const NodeArg*>& accumulated_inputs,
                                   const onnxruntime::GraphViewer& src_graph,
                                   const std::string& initializer_name) {
     // Get the initializer from source graph
@@ -759,6 +758,8 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
   }
 
   // Will set inputs after deciding fate oif all internal and external initializers
+  // accumulated_inputs container will store input of the original graph and initializer with ext data
+  InlinedVector<const NodeArg*> accumulated_inputs;
   // dst_graph.SetInputs(dst_graph_inputs);
   dst_graph.SetOutputs(dst_graph_outputs);
 
@@ -842,8 +843,8 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
 
       // Check if the initializer has external data
       if (initializer_tensor->has_data_location() &&
-          initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL) {
-            if (enable_ovep_weight_sharing) {
+          initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL &&
+          enable_ovep_weight_sharing) {
 
               // Cast away const to access mutable_external_data
               struct ONNX_NAMESPACE::TensorProto* non_const_initializer_tensor = const_cast<ONNX_NAMESPACE::TensorProto*>(initializer_tensor);
@@ -860,16 +861,13 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
 
               metadata_map.emplace(initializer_tensor->name(), init_info);
               // Add initializer with external data as input
-              AddInitializerAsInput(dst_graph, src_graph, it);
-            } else if (initializers_to_keep.count(it)) {
-              dst_graph.AddInitializedTensor(*initializer_tensor);
-            }
+              AddInitializerAsInput(dst_graph, accumulated_inputs, src_graph, it);
 
       } else {
           // Add as an initialized tensor if it does not have external data
-          if (initializers_to_keep.count(it)) {
-              dst_graph.AddInitializedTensor(*initializer_tensor);
-          }
+          if (initializers_to_keep.count(it))
+            dst_graph.AddInitializedTensor(*(initializers.at(it)));
+
       }
 
       current_scope_initializer_set.insert(it);
@@ -887,8 +885,8 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
               const auto* initializer_tensor = src_graph.GetConstantInitializer(input->Name(), true);
               // Check if the initializer has external data
               if (initializer_tensor->has_data_location() &&
-                  initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL) {
-                    if (enable_ovep_weight_sharing) {
+                  initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL &&
+                  enable_ovep_weight_sharing) {
 
                       // Cast away const to access mutable_external_data
                       struct ONNX_NAMESPACE::TensorProto* non_const_initializer_tensor = const_cast<ONNX_NAMESPACE::TensorProto*>(initializer_tensor);
@@ -904,15 +902,12 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
                       metadata_map.emplace(initializer_tensor->name(), init_info);
 
                       // Add initializer as input if it has external data
-                      AddInitializerAsInput(dst_graph, src_graph, input->Name());
-                    } else if (initializers_to_keep.count(input->Name())) {
-                      dst_graph.AddInitializedTensor(*initializer_tensor);
-                    }
+                      AddInitializerAsInput(dst_graph, accumulated_inputs, src_graph, input->Name());
 
               } else {
                   // Add as an initialized tensor if it does not have external data
                   if (initializers_to_keep.count(input->Name())) {
-                      dst_graph.AddInitializedTensor(*initializer_tensor);
+                    dst_graph.AddInitializedTensor(*(src_graph.GetConstantInitializer(input->Name(), true)));
                   }
               }
 
