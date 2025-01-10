@@ -46,7 +46,7 @@ BackendManager::BackendManager(const SessionContext& session_context,
       return "";
     } else {
       auto input_type = graph_viewer.GetInputs()[0]->TypeAsProto()->tensor_type().elem_type();
-      if (session_context_.precision_str == "ACCURACY" &&
+      if (session_context_.precision == "ACCURACY" &&
           session_context_.device_type.find("GPU") != std::string::npos) {
         if (input_type == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_FLOAT) {
           return "FP32";
@@ -150,7 +150,7 @@ BackendManager::BackendManager(const SessionContext& session_context,
         LOGS_DEFAULT(WARNING) << "Model compilation failed at OV NPU."
                               << "Falling back to OV CPU for execution";
         session_context_.device_type = "CPU";
-        session_context_.precision_str = "FP32";
+        session_context_.precision = "FP32";
         try {
           concrete_backend_ = BackendFactory::MakeBackend(model_proto,
                                                           session_context_,
@@ -188,8 +188,7 @@ BackendManager::BackendManager(const SessionContext& session_context,
     }
   }
   if (session_context_.so_context_enable && !subgraph_context_.is_ep_ctx_graph) {
-    auto status = onnxruntime::openvino_ep::BackendManager::ExportCompiledBlobAsEPCtxNode(subgraph,
-                                                                                          logger);
+    auto status = onnxruntime::openvino_ep::BackendManager::ExportCompiledBlobAsEPCtxNode(subgraph);
     if ((!status.IsOK())) {
       ORT_THROW(status);
     }
@@ -200,8 +199,7 @@ BackendManager::BackendManager(const SessionContext& session_context,
 // precompiled blob is set. If that's the case:
 // By default, create model in embed mode where the blob stream is exported as data within
 // the EPContext node.
-Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphViewer& graph_body_viewer,
-                                                     const logging::Logger& logger) {
+Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphViewer& graph_body_viewer) {
   if (session_context_.disable_dynamic_shapes && subgraph_context_.has_dynamic_input_shape) {
     std::string exception_str =
         "Exporting dynamically compiled models at runtime is not supported. "
@@ -362,7 +360,7 @@ BackendManager::GetModelProtoFromFusedNode(const onnxruntime::Node& fused_node,
       IsQDQGraph(subgraph)) {
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP] QDQ optimization pass status: 1";
     std::unique_ptr<onnxruntime::Model> model;
-    Status status = CreateModelWithStrippedQDQNodes(subgraph, logger, session_context_.enable_ovep_weight_sharing, model);
+    Status status = CreateModelWithStrippedQDQNodes(subgraph, logger, session_context_.so_share_ep_contexts, model);
     auto model_proto = model->ToProto();
     model_proto->set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
     print_model_proto_duration();
@@ -501,7 +499,7 @@ void BackendManager::Compute(OrtKernelContext* context) {
           LOGS_DEFAULT(WARNING) << "Model compilation failed at OV NPU."
                                 << "Falling back to OV CPU for execution";
           session_context_.device_type = "CPU";
-          session_context_.precision_str = "FP32";
+          session_context_.precision = "FP32";
           key = MakeMapKeyString(tensor_shapes, session_context_.device_type);
           try {
             dynamic_backend = BackendFactory::MakeBackend(modelproto_with_concrete_shapes,

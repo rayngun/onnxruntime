@@ -140,14 +140,14 @@ bool BasicBackend::ValidateSubgraph(std::map<std::string, std::shared_ptr<ov::No
 void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
   device_config = {};
   // Set inference precision based on device precision for OV backend
-  if (session_context_.precision_str.find("FP16") != std::string::npos &&
+  if (session_context_.precision.find("FP16") != std::string::npos &&
       session_context_.device_type == "GPU") {
     device_config.emplace(ov::hint::inference_precision("f16"));
   }
-  if (session_context_.precision_str.find("FP32") != std::string::npos) {
+  if (session_context_.precision.find("FP32") != std::string::npos) {
     device_config.emplace(ov::hint::inference_precision("f32"));
   }
-  if (session_context_.precision_str.find("ACCURACY") != std::string::npos &&
+  if (session_context_.precision.find("ACCURACY") != std::string::npos &&
       session_context_.device_type.find("GPU") != std::string::npos) {
     if (session_context_.OpenVINO_Version.at(0) >= 2024) {
       device_config.emplace(ov::hint::inference_precision(ov::element::undefined));
