@@ -720,6 +720,7 @@ bool dumpMetaDataMapToBinary(const std::unordered_map<std::string, std::vector<s
 // Creates a new model without the DQ/Q operators in the src graph.
 Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
                                        const logging::Logger& logger,
+                                       bool enable_ovep_weight_sharing,
                                        /*out*/ std::unique_ptr<onnxruntime::Model>& model) {
   // NOTE: This function is a re-implementation of GraphViewerToProto() in core/graph/graph_proto_serializer.cc
   // with the following differences:
