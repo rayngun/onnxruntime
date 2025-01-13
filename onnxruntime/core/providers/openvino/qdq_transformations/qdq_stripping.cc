@@ -56,7 +56,7 @@ static NodeArg& ProcessNodeUnitIO(onnxruntime::Graph& dst_graph,
                                   std::set<std::string>& initializers_to_keep,
                                   const NodeUnitIODef& io_def) {
   const std::string& name = io_def.node_arg.Name();
-  const ONNX_NAMESPACE::TypeProto* orig_type_proto = io_def.node_arg.TypeAsProto();
+  const auto* orig_type_proto = io_def.node_arg.TypeAsProto();
 
   // Handle quantized input or output. Convert to float type.
   if (io_def.quant_param.has_value()) {
@@ -68,11 +68,11 @@ static NodeArg& ProcessNodeUnitIO(onnxruntime::Graph& dst_graph,
     ORT_ENFORCE(tensor_proto_iter != src_initializers.end(),
                 "Unable to find scale initializer ", scale_initializer_name);
 
-    const ONNX_NAMESPACE::TensorProto* scale_tensor_proto = tensor_proto_iter->second;
+    const auto* scale_tensor_proto = tensor_proto_iter->second;
     int32_t float_type = scale_tensor_proto->data_type();
 
     // Noe set the arg type to the float type of scale. Could be one of float/float16/bfloat16
-    std::unique_ptr<ONNX_NAMESPACE::TypeProto> type_proto = ONNX_NAMESPACE::TypeProto::Create();
+    auto type_proto = ONNX_NAMESPACE::TypeProto::Create();
     type_proto->copy_from(orig_type_proto);
     type_proto->mutable_tensor_type()->set_elem_type(float_type);
 
@@ -457,7 +457,7 @@ static void AddStandaloneNodeUnit(onnxruntime::Graph& dst_graph, const onnxrunti
     if (duplicate_dq &&
         GetQDQDataType(&node_unit.GetNode()) != DT_UINT16 && GetQDQDataType(&node_unit.GetNode()) != DT_INT16) {
       std::string orig_dq_name = node_unit.Outputs()[0].node_arg.Name();  // ex: dql_output/duplicated
-      std::unique_ptr<ONNX_NAMESPACE::TypeProto> type_proto = ONNX_NAMESPACE::TypeProto::Create();
+      auto type_proto = ONNX_NAMESPACE::TypeProto::Create();
       type_proto->copy_from(node_unit.Inputs()[0].node_arg.TypeAsProto());
       type_proto->mutable_tensor_type()->set_elem_type(ONNX_NAMESPACE::TensorProto_DataType_FLOAT);
       orig_dq_name.erase(orig_dq_name.find(DuplicateDQ), std::string::npos);  // ex: dql_output
@@ -625,93 +625,93 @@ static void AddQDQNodeUnit(onnxruntime::Graph& dst_graph,
   KeepInitsInDstGraph(initializers_to_keep, src_graph, &target_node);
 }
 
-static void AddInitializerAsInput (onnxruntime::Graph& dst_graph,
+static void AddInitializerAsInput(onnxruntime::Graph& dst_graph,
                                   InlinedVector<const NodeArg*>& accumulated_inputs,
                                   const onnxruntime::GraphViewer& src_graph,
                                   const std::string& initializer_name) {
-    // Get the initializer from source graph
-    const auto& src_initializers = src_graph.GetAllInitializedTensors();
-    auto init_iter = src_initializers.find(initializer_name);
+  // Get the initializer from source graph
+  const auto& src_initializers = src_graph.GetAllInitializedTensors();
+  auto init_iter = src_initializers.find(initializer_name);
 
-    if (init_iter == src_initializers.end()) {
-      // Initializer not found
-      return;
+  if (init_iter == src_initializers.end()) {
+    // Initializer not found
+    return;
+  }
+
+  const auto* tensor_proto = init_iter->second;
+
+  // Create TypeProto for the initializer
+  auto type_proto = ONNX_NAMESPACE::TypeProto::Create();
+  auto* tensor_type = type_proto->mutable_tensor_type();
+  tensor_type->set_elem_type(tensor_proto->data_type());
+
+  for (int i = 0; i < tensor_proto->dims_size(); ++i) {
+    tensor_type->mutable_shape()->add_dim()->set_dim_value(tensor_proto->dims().Get(i));
+  }
+
+  // Create NodeArg for the initializer
+  auto& input_arg = dst_graph.GetOrCreateNodeArg(initializer_name, type_proto.get());
+
+  // Check if input already exists in accumulated inputs
+  bool input_exists = false;
+  for (const auto* existing_input : accumulated_inputs) {
+    if (existing_input->Name() == initializer_name) {
+      input_exists = true;
+      break;
     }
+  }
 
-    const ONNX_NAMESPACE::TensorProto* tensor_proto = init_iter->second;
-
-    // Create TypeProto for the initializer
-    std::unique_ptr<ONNX_NAMESPACE::TypeProto> type_proto = ONNX_NAMESPACE::TypeProto::Create();
-    auto* tensor_type = type_proto->mutable_tensor_type();
-    tensor_type->set_elem_type(tensor_proto->data_type());
-
-    for (int i = 0; i < tensor_proto->dims_size(); ++i) {
-        tensor_type->mutable_shape()->add_dim()->set_dim_value(tensor_proto->dims().Get(i));
-    }
-
-    // Create NodeArg for the initializer
-    auto& input_arg = dst_graph.GetOrCreateNodeArg(initializer_name, type_proto.get());
-
-    // Check if input already exists in accumulated inputs
-    bool input_exists = false;
-    for (const auto* existing_input : accumulated_inputs) {
-        if (existing_input->Name() == initializer_name) {
-            input_exists = true;
-            break;
-        }
-    }
-
-    if (!input_exists) {
-        // Add to accumulated inputs
-        accumulated_inputs.push_back(&input_arg);
-    }
+  if (!input_exists) {
+    // Add to accumulated inputs
+    accumulated_inputs.push_back(&input_arg);
+  }
 }
 
-bool writeString(std::ofstream& outfile, const std::string& str) {
-    size_t size = str.size();
-    outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
-    if (!outfile.good()) return false;
+template <typename T>
+bool writeScalar(std::ofstream& outfile, const T& scalar) {
+  auto size = sizeof(T);
+  outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
+  if (!outfile.good()) return false;
 
-    outfile.write(str.c_str(), size);
-    return outfile.good();
+  outfile.write(reinterpret_cast<const char*>(&scalar), size);
+  return outfile.good();
 }
 
-bool writeStringVector(std::ofstream& outfile, const std::vector<std::string>& vec) {
-    size_t size = vec.size();
-    outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
-    if (!outfile.good()) return false;
+template <>
+bool writeScalar(std::ofstream& outfile, const std::string& text) {
+  auto size = text.size() * sizeof(std::string::value_type);
+  outfile.write(reinterpret_cast<const char*>(&size), size);
+  if (!outfile.good()) return false;
 
-    for (const auto& str : vec) {
-        if (!writeString(outfile, str)) {
-            return false;
-        }
-    }
-    return true;
+  outfile.write(text.data(), size);
+  return outfile.good();
 }
 
 // Main function to dump the map to a binary file
-bool dumpMetaDataMapToBinary(const std::unordered_map<std::string, std::vector<std::string>>& map, const std::string& filename) {
-
+bool dumpMetaDataMapToBinary(const sw::Metadata::Map& metadata, const std::string& filename) {
   std::ofstream outfile(filename, std::ios::binary);
   if (!outfile.is_open()) {
-      ORT_THROW("Error: Could not open file for writing metadata.");
-      return false;
+    ORT_THROW("Error: Could not open file for writing metadata.");
+    return false;
   }
 
   // Write the size of the map
-  size_t map_size = map.size();
+  size_t map_size = metadata.size();
   outfile.write(reinterpret_cast<const char*>(&map_size), sizeof(map_size));
   if (!outfile.good()) {
-      ORT_THROW("Error: Failed to write map size.");
-      return false;
+    ORT_THROW("Error: Failed to write map size.");
+    return false;
   }
 
   // Write each key-value pair
-  for (const auto& pair : map) {
-      if (!writeString(outfile, pair.first) || !writeStringVector(outfile, pair.second)) {
-          ORT_THROW("Error: Failed to write map data.");
-          return false;
-      }
+  for (const auto& [key, value] : metadata) {
+    bool result = true;
+    result &= writeScalar(outfile, key.name);
+    result &= writeScalar(outfile, value.location);
+    result &= writeScalar(outfile, value.data_offset);
+    result &= writeScalar(outfile, value.size);
+
+    ORT_ENFORCE(result, "Error: Failed to write map data.");
   }
 
   return true;
@@ -721,7 +721,8 @@ bool dumpMetaDataMapToBinary(const std::unordered_map<std::string, std::vector<s
 Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
                                        const logging::Logger& logger,
                                        bool enable_ovep_weight_sharing,
-                                       /*out*/ std::unique_ptr<onnxruntime::Model>& model) {
+                                       /*out*/ std::unique_ptr<onnxruntime::Model>& model,
+                                       /*out*/ sw& shared_weights) {
   // NOTE: This function is a re-implementation of GraphViewerToProto() in core/graph/graph_proto_serializer.cc
   // with the following differences:
   //   - Uses onnxruntime::Graph APIs instead of onnx::GraphProto APIs.
@@ -819,7 +820,6 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
     seen_node_units.insert(node_unit);
   }
 
-
   //  Copy initializers to dst graph.
 
   std::unordered_set<std::string> current_scope_initializer_set;
@@ -834,97 +834,94 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
   std::sort(const_inits.begin(), const_inits.end());
 
   // initialize map for creating metadata for initilizers with external weights
-  std::unordered_map<std::string, std::vector<std::string>> metadata_map;
+  auto& metadata = shared_weights.metadata;
 
+  const auto& insert_metadata = [&metadata](const std::string& name, ONNX_NAMESPACE::StringStringEntryProtos* entry_protos) {
+    // key: [name], value: [location, offset, length]
+    sw::Metadata::Map::key_type key{name};
+    sw::Metadata::Map::mapped_type value{};
+
+    for (int i = 0; i < entry_protos->size(); i++) {
+      auto& string_entry_proto{entry_protos->at(i)};
+      const auto& pb_key{*(string_entry_proto.mutable_key())};
+      const auto& pb_value{*(string_entry_proto.mutable_value())};
+      if (pb_key == "location") {
+        value.location = pb_value;
+      } else if (pb_key == "offset") {
+        value.data_offset = std::stoul(pb_value);
+      } else if (pb_key == "length") {
+        value.size = std::stoul(pb_value);
+      }
+    }
+
+    metadata.emplace(key, value);
+  };
   // metadata structure: initializer_name as key
   // and [location, offset, length] as value
 
   for (auto& it : const_inits) {
-      const auto* initializer_tensor = initializers.at(it);
+    const auto* initializer_tensor = initializers.at(it);
 
-      // Check if the initializer has external data
-      if (initializer_tensor->has_data_location() &&
-          initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL &&
-          enable_ovep_weight_sharing) {
+    // Check if the initializer has external data
+    if (initializer_tensor->has_data_location() &&
+        initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL &&
+        enable_ovep_weight_sharing) {
+      // Cast away const to access mutable_external_data
+      auto* non_const_initializer_tensor = const_cast<ONNX_NAMESPACE::TensorProto*>(initializer_tensor);
 
-              // Cast away const to access mutable_external_data
-              struct ONNX_NAMESPACE::TensorProto* non_const_initializer_tensor = const_cast<ONNX_NAMESPACE::TensorProto*>(initializer_tensor);
+      // get meta data about the initilizers with external data
+      auto* external_data = non_const_initializer_tensor->mutable_external_data();
 
-              // get meta data about the initilizers with external data
-              struct ONNX_NAMESPACE::StringStringEntryProtos* external_data =  non_const_initializer_tensor->mutable_external_data();
+      insert_metadata(initializer_tensor->name(), external_data);
 
-              std::vector<std::string> init_info;
-              // init_info structure: [location, offset, length]
+      // Add initializer with external data as input
+      AddInitializerAsInput(dst_graph, accumulated_inputs, src_graph, it);
 
-              for (int i = 0 ; i < external_data->size() ; i++) {
-                init_info.push_back(*external_data->at(i).mutable_value());
-              }
+    } else {
+      // Add as an initialized tensor if it does not have external data
+      if (initializers_to_keep.count(it))
+        dst_graph.AddInitializedTensor(*(initializers.at(it)));
+    }
 
-              metadata_map.emplace(initializer_tensor->name(), init_info);
-              // Add initializer with external data as input
-              AddInitializerAsInput(dst_graph, accumulated_inputs, src_graph, it);
-
-      } else {
-          // Add as an initialized tensor if it does not have external data
-          if (initializers_to_keep.count(it))
-            dst_graph.AddInitializedTensor(*(initializers.at(it)));
-
-      }
-
-      current_scope_initializer_set.insert(it);
+    current_scope_initializer_set.insert(it);
   }
 
   // Handle outer-scope constant initializers
   for (auto& node_idx : src_graph.GetNodesInTopologicalOrder()) {
-      const auto& node = src_graph.GetNode(node_idx);
-      for (const auto& input : node->InputDefs()) {
-          if (current_scope_initializer_set.find(input->Name()) != current_scope_initializer_set.end()) {
-              continue;
-          }
-
-          if (src_graph.IsConstantInitializer(input->Name(), true)) {
-              const auto* initializer_tensor = src_graph.GetConstantInitializer(input->Name(), true);
-              // Check if the initializer has external data
-              if (initializer_tensor->has_data_location() &&
-                  initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL &&
-                  enable_ovep_weight_sharing) {
-
-                      // Cast away const to access mutable_external_data
-                      struct ONNX_NAMESPACE::TensorProto* non_const_initializer_tensor = const_cast<ONNX_NAMESPACE::TensorProto*>(initializer_tensor);
-
-                      // get meta data about the initilizers with external data
-                      struct ONNX_NAMESPACE::StringStringEntryProtos* external_data =  non_const_initializer_tensor->mutable_external_data();
-
-                      std::vector<std::string> init_info;
-                      for (int i = 0 ; i < external_data->size() ; i++) {
-                        init_info.push_back(*external_data->at(i).mutable_value());
-                      }
-
-                      metadata_map.emplace(initializer_tensor->name(), init_info);
-
-                      // Add initializer as input if it has external data
-                      AddInitializerAsInput(dst_graph, accumulated_inputs, src_graph, input->Name());
-
-              } else {
-                  // Add as an initialized tensor if it does not have external data
-                  if (initializers_to_keep.count(input->Name())) {
-                    dst_graph.AddInitializedTensor(*(src_graph.GetConstantInitializer(input->Name(), true)));
-                  }
-              }
-
-              current_scope_initializer_set.insert(input->Name());
-          }
+    const auto& node = src_graph.GetNode(node_idx);
+    for (const auto& input : node->InputDefs()) {
+      if (current_scope_initializer_set.find(input->Name()) != current_scope_initializer_set.end()) {
+        continue;
       }
-  }
-  if (enable_ovep_weight_sharing) {
-    // creating bin file of metadata_map and dumping the bin file
-    if (dumpMetaDataMapToBinary(metadata_map, "metadata.bin")) {
-      LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Metadata for external initializer dumped.";
-    } else {
-      ORT_THROW("Error: Unable to write metadat to file.");
+
+      if (src_graph.IsConstantInitializer(input->Name(), true)) {
+        const auto* initializer_tensor = src_graph.GetConstantInitializer(input->Name(), true);
+        // Check if the initializer has external data
+        if (initializer_tensor->has_data_location() &&
+            initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL &&
+            enable_ovep_weight_sharing) {
+          // Cast away const to access mutable_external_data
+          auto* non_const_initializer_tensor = const_cast<ONNX_NAMESPACE::TensorProto*>(initializer_tensor);
+
+          // get meta data about the initilizers with external data
+          auto* external_data = non_const_initializer_tensor->mutable_external_data();
+
+          insert_metadata(initializer_tensor->name(), external_data);
+
+          // Add initializer as input if it has external data
+          AddInitializerAsInput(dst_graph, accumulated_inputs, src_graph, input->Name());
+
+        } else {
+          // Add as an initialized tensor if it does not have external data
+          if (initializers_to_keep.count(input->Name())) {
+            dst_graph.AddInitializedTensor(*(src_graph.GetConstantInitializer(input->Name(), true)));
+          }
+        }
+
+        current_scope_initializer_set.insert(input->Name());
+      }
     }
   }
-
   accumulated_inputs.insert(accumulated_inputs.end(), dst_graph_inputs.begin(), dst_graph_inputs.end());
 
   // Set all inputs (original inputs amnd initializers as inputs) of the destination Graph
