@@ -920,7 +920,6 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
   };
   // metadata structure: initializer_name as key
   // and [location, offset, length] as value
-  std::cout << typeid(metadata).name();
   for (auto& it : const_inits) {
     const auto* initializer_tensor = initializers.at(it);
 
