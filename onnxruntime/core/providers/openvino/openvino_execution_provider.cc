@@ -18,6 +18,7 @@
 #ifdef USE_OVEP_NPU_MEMORY
 #include "core/providers/openvino/ov_allocator.h"
 #endif
+#include "nlohmann/json.hpp"
 
 namespace onnxruntime {
 namespace openvino_ep {
@@ -249,6 +250,31 @@ common::Status OpenVINOExecutionProvider::Compile(
     metadata_name /= session_context_.cache_dir.stem().string() + "_metadata";
     metadata_name.replace_extension("bin");
     dumpMetaDataMapToBinary(shared_context_.shared_weights.metadata, metadata_name.string());
+
+    auto dumpMetaDataMapToJson = [](const SharedContext::SharedWeights::Metadata::Map& metadata, const std::string& filename) {
+      nlohmann::json json_metadata = nlohmann::json::array();
+
+      for (const auto& [key, value] : metadata) {
+        json_metadata.push_back({
+          {"name", key.name},
+          {"location", value.location},
+          {"data_offset", value.data_offset},
+          {"size", value.size}
+        });
+      }
+
+      std::ofstream outfile(filename, std::ios::out | std::ios::trunc);
+      if (!outfile.is_open()) {
+        throw std::runtime_error("Error: Could not open file for writing metadata.");
+      }
+
+      outfile << json_metadata.dump(4); // Pretty-print JSON with 4-space indentation
+      return outfile.good();
+    };
+
+    std::filesystem::path meta_name = session_context_.cache_dir.parent_path();
+    meta_name /= session_context_.cache_dir.stem().string() + "_metadata.json";
+    dumpMetaDataMapToJson(shared_context_.shared_weights.metadata, meta_name.string());
   }
 
   return status;
