@@ -14,7 +14,7 @@
 namespace onnxruntime {
 namespace openvino_ep {
 struct OpenVINOProviderFactory : IExecutionProviderFactory {
-  OpenVINOProviderFactory(ProviderInfo provider_info, SharedContext* shared_context)
+  OpenVINOProviderFactory(ProviderInfo provider_info, SharedContext& shared_context)
       : provider_info_(provider_info), shared_context_(shared_context) {}
 
   ~OpenVINOProviderFactory() override {}
@@ -23,7 +23,7 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
 
  private:
   ProviderInfo provider_info_;
-  SharedContext* shared_context_;
+  SharedContext& shared_context_;
 };
 
 std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
@@ -282,9 +282,14 @@ struct OpenVINO_Provider : Provider {
       pi.cache_dir = std::move(so_context_file_path);
     }
 
-    SharedContext* shared_context = pi.so_share_ep_contexts ? &shared_context_ : nullptr;
+    // Append values to config to support weight-as-inputs conversion for shared contexts
+    if (pi.so_share_ep_contexts) {
+      ov::AnyMap map;
+      map["NPU_COMPILATION_MODE_PARAMS"] = "enable-wd-blockarg-input=true compute-layers-with-higher-precision=Sqrt,Power,ReduceSum";
+      pi.load_config["NPU"] = map;
+    }
 
-    return std::make_shared<OpenVINOProviderFactory>(pi, shared_context);
+    return std::make_shared<OpenVINOProviderFactory>(pi, shared_context_);
   }
 
   void Initialize() override {
