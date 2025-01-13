@@ -69,11 +69,11 @@ void AdjustProviderInfo(ProviderInfo& info) {
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP]"
                        << "No runtime device selection option provided.";
 #if defined OPENVINO_CONFIG_CPU
-    device_type_ = "CPU";
-    precision_ = "FP32";
+    info.device_type = "CPU";
+    info.precision = "FP32";
 #elif defined OPENVINO_CONFIG_GPU
-    device_type_ = "GPU";
-    precision_ = "FP16";
+    info.device_type = "GPU";
+    info.precision = "FP16";
 #elif defined OPENVINO_CONFIG_NPU
     info.device_type = "NPU";
     info.precision = "FP16";
