@@ -32,11 +32,14 @@ ov::CompiledModel& BackendManager::GetOVCompiledModel() {
   return (ov_ptr);
 }
 
-BackendManager::BackendManager(const SessionContext& session_context,
+BackendManager::BackendManager(SessionContext& session_context,
+                               SharedContext& shared_context,
                                const onnxruntime::Node& fused_node,
                                const onnxruntime::GraphViewer& subgraph,
                                const logging::Logger& logger,
-                               EPCtxHandler& ep_ctx_handle) : ep_ctx_handle_(ep_ctx_handle), session_context_(session_context) {
+                               EPCtxHandler& ep_ctx_handle) : ep_ctx_handle_(ep_ctx_handle),
+                                                              session_context_(session_context),
+                                                              shared_context_{shared_context} {
   subgraph_context_.is_ep_ctx_graph = ep_ctx_handle_.CheckForOVEPCtxNodeInGraph(subgraph);
 
   subgraph_context_.model_precision = [&](const GraphViewer& graph_viewer) {
@@ -360,7 +363,7 @@ BackendManager::GetModelProtoFromFusedNode(const onnxruntime::Node& fused_node,
       IsQDQGraph(subgraph)) {
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP] QDQ optimization pass status: 1";
     std::unique_ptr<onnxruntime::Model> model;
-    Status status = CreateModelWithStrippedQDQNodes(subgraph, logger, session_context_.so_share_ep_contexts, model);
+    Status status = CreateModelWithStrippedQDQNodes(subgraph, logger, session_context_.so_share_ep_contexts, model, shared_context_.shared_weights);
     auto model_proto = model->ToProto();
     model_proto->set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
     print_model_proto_duration();

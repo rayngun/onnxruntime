@@ -12,6 +12,7 @@
 #include "core/providers/openvino/backend_manager.h"
 #include "core/providers/openvino/onnx_ctx_model_helper.h"
 #include "core/providers/openvino/ov_versions/capability.h"
+#include "core/providers/openvino/qdq_transformations/qdq_stripping.h"
 #include "core/session/onnxruntime_session_options_config_keys.h"
 #include "openvino/core/version.hpp"
 #ifdef USE_OVEP_NPU_MEMORY
@@ -103,7 +104,7 @@ void AdjustProviderInfo(ProviderInfo& info) {
                      << "Choosing Device: " << info.device_type << " , Precision: " << info.precision;
 }
 
-OpenVINOExecutionProvider::OpenVINOExecutionProvider(const ProviderInfo& info, SharedContext* shared_context)
+OpenVINOExecutionProvider::OpenVINOExecutionProvider(const ProviderInfo& info, SharedContext& shared_context)
     : IExecutionProvider{onnxruntime::kOpenVINOExecutionProvider},
       session_context_(info),
       shared_context_{shared_context},
@@ -198,6 +199,7 @@ common::Status OpenVINOExecutionProvider::Compile(
     // For original model, check if the user wants to export a model with pre-compiled blob
 
     auto& backend_manager = backend_managers_.emplace_back(session_context_,
+                                                           shared_context_,
                                                            fused_node,
                                                            graph_body_viewer,
                                                            logger,
@@ -237,6 +239,16 @@ common::Status OpenVINOExecutionProvider::Compile(
     if (!status.IsOK()) {
       break;
     }
+  }
+
+  if (session_context_.so_share_ep_contexts && session_context_.so_context_enable && !session_context_.cache_dir.empty()) {
+    // Metadata is generated only for shared contexts
+    // If metadata is generated then only save it if also saving epcontext (so_context_enable)
+    // If saving metadata then save it to the provided path
+    std::filesystem::path metadata_name = session_context_.cache_dir.parent_path();
+    metadata_name /= session_context_.cache_dir.stem().string() + "_metadata";
+    metadata_name.replace_extension("bin");
+    dumpMetaDataMapToBinary(shared_context_.shared_weights.metadata, metadata_name.string());
   }
 
   return status;
