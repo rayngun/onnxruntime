@@ -23,9 +23,8 @@ using namespace backend_utils;
 BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_proto,
                            SessionContext& session_context,
                            const SubGraphContext& subgraph_context,
-                           SharedContext& shared_context,
                            ptr_stream_t& model_stream)
-    : session_context_{session_context}, subgraph_context_{subgraph_context}, shared_context_{shared_context} {
+    : session_context_(session_context), subgraph_context_(subgraph_context) {
   std::string& hw_target = session_context_.device_type;
 
   if (ValidateSubgraph(const_outputs_map_))
@@ -124,24 +123,8 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
   } catch (const char* msg) {
     ORT_THROW(msg);
   }
-
   int num_infer_req = (session_context_.num_of_threads > 0) ? session_context_.num_of_threads : 1;
-  std::function<void(OVInferRequestPtr)> initializer = [](OVInferRequestPtr) {};
-  auto metadata = shared_context_.shared_weights.metadata;
-  if (session_context_.so_share_ep_contexts) {
-    initializer = [&metadata](OVInferRequestPtr ir_ptr) {
-      const auto input_count = ir_ptr->GetNumInputs();
-      for (auto i = 0; i < input_count; i++) {
-        using Key = SharedContext::SharedWeights::Metadata::Key;
-        const auto tensor_key = Key{ir_ptr->GetInputTensorName(i)};
-        if (metadata.contains(tensor_key)) {
-          auto& value = metadata.at(tensor_key);
-          ir_ptr->SetTensor(tensor_key.name, value.tensor);
-        }
-      }
-    };
-  }
-  inferRequestsQueue_ = std::unique_ptr<InferRequestsQueue>(new InferRequestsQueue(exe_network_, num_infer_req, initializer));
+  inferRequestsQueue_ = std::unique_ptr<InferRequestsQueue>(new InferRequestsQueue(exe_network_, num_infer_req));
 }
 
 bool BasicBackend::ValidateSubgraph(std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map) {
@@ -358,92 +341,83 @@ void BasicBackend::SetNumThreads(ov::AnyMap& device_config) {
 void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferRequestPtr infer_request) {
   try {
     auto graph_input_info = exe_network_.Get().inputs();
-    int input_idx = 0;
-    for (auto input_info_iter = graph_input_info.begin();
-         input_info_iter != graph_input_info.end(); ++input_info_iter) {
-      auto input_names = input_info_iter->get_names();
-      std::string onnx_input_name;
-      std::string input_name;
-      // use names retrieved from original ONNX model to assign the right onnx input name for the graph
-      for (auto it = subgraph_context_.input_names.begin(); it != subgraph_context_.input_names.end(); ++it) {
-        if (it->second == input_idx) {
-          onnx_input_name = it->first;
-          break;
-        }
-      }
-      // using the input name retrieved from ONNX original to match with the input names returned by OV tensors
-      if (input_names.find(onnx_input_name) != input_names.end()) {
-        input_name = std::move(onnx_input_name);
+    std::map<std::string, std::pair <ov::element::Type,ov::Shape>> ov_input_map;
+    std::vector<std::string> onnx_input_names;
+    for (auto ov_ip_info : graph_input_info){
+      ov_input_map[ov_ip_info.get_any_name()] = std::make_pair(ov_ip_info.get_element_type(), ov_ip_info.get_shape());
+    }
+    for (auto it = subgraph_context_.input_names.begin(); it != subgraph_context_.input_names.end(); ++it) {
+      if(ov_input_map.find(it->first)==ov_input_map.end()){
+        // ORT_THROW(log_tag +
+        //           "Input names mismatch between OpenVINO and ONNX. " + it->first +
+        //           " doesn't exist in the list of OpenVINO input tensor names");
+        continue;
       } else {
-        ORT_THROW(log_tag +
-                  "Input names mismatch between OpenVINO and ONNX. " + onnx_input_name +
-                  " doesn't exist in the list of OpenVINO input tensor names");
-      }
-      size_t batch_slice_idx = 0;
-      if (subgraph_context_.has_dynamic_input_shape &&
-          !session_context_.disable_dynamic_shapes &&
-          (session_context_.device_type.find("CPU") != std::string::npos ||
-           session_context_.device_type.find("GPU") != std::string::npos)) {
-        auto tensor = context.GetInput(subgraph_context_.input_names.at(input_name));
-        auto tensor_info = tensor.GetTensorTypeAndShapeInfo();
-        auto tensor_shape = tensor_info.GetShape();
-        auto tensor_size = tensor_shape.size();
-        const char* tensor_data = tensor.GetTensorData<char>();
-        auto tensor_iter = 0;
-        ov::Shape input_tensor_shape = ov::Shape(tensor_size, 0);
-        for (auto i = tensor_shape.begin(); i != tensor_shape.end(); ++i) {
-          input_tensor_shape[tensor_iter] = *i;
-          tensor_iter += 1;
-        }
-        const auto& input = graph_input_info.at(input_idx);
-        OVTensorPtr tensor_ptr;
-        // avoid input copies on the CPU device
-        if (session_context_.device_type.find("CPU") != std::string::npos) {
-          tensor_ptr = std::make_shared<ov::Tensor>(input.get_element_type(), input_tensor_shape,
-                                                    (void*)tensor_data);
-        } else {
-          tensor_ptr = std::make_shared<ov::Tensor>(input.get_element_type(), input_tensor_shape);
-          FillInputBlob(tensor_ptr, batch_slice_idx, input_name, context, subgraph_context_);
-        }
-
-        try {
-          infer_request->SetTensor(std::move(input_name), tensor_ptr);
-        } catch (const char* msg) {
-          ORT_THROW(msg);
-        }
-      } else {
-        if ((session_context_.device_type.find("CPU") != std::string::npos ||
-             session_context_.device_type.find("GPU") != std::string::npos)) {
-          OVTensorPtr graph_input_blob;
+        auto onnx_input_name = it->first;
+        size_t batch_slice_idx = 0;
+        if (subgraph_context_.has_dynamic_input_shape &&
+            !session_context_.disable_dynamic_shapes &&
+            (session_context_.device_type.find("CPU") != std::string::npos ||
+            session_context_.device_type.find("GPU") != std::string::npos)) {
+          auto tensor = context.GetInput(subgraph_context_.input_names.at(onnx_input_name));
+          auto tensor_info = tensor.GetTensorTypeAndShapeInfo();
+          auto tensor_shape = tensor_info.GetShape();
+          auto tensor_size = tensor_shape.size();
+          const char* tensor_data = tensor.GetTensorData<char>();
+          auto tensor_iter = 0;
+          ov::Shape input_tensor_shape = ov::Shape(tensor_size, 0);
+          for (auto i = tensor_shape.begin(); i != tensor_shape.end(); ++i) {
+            input_tensor_shape[tensor_iter] = *i;
+            tensor_iter += 1;
+          }
+          OVTensorPtr tensor_ptr;
+          // avoid input copies on the CPU device
+          if (session_context_.device_type.find("CPU") != std::string::npos) {
+            tensor_ptr = std::make_shared<ov::Tensor>(ov_input_map[onnx_input_name].first, input_tensor_shape,
+                                                      (void*)tensor_data);
+          } else {
+            tensor_ptr = std::make_shared<ov::Tensor>(ov_input_map[onnx_input_name].first, input_tensor_shape);
+            FillInputBlob(tensor_ptr, batch_slice_idx, onnx_input_name, context, subgraph_context_);
+          }
           try {
-            graph_input_blob = infer_request->GetTensor(input_name);
+            infer_request->SetTensor(std::move(onnx_input_name), tensor_ptr);
           } catch (const char* msg) {
             ORT_THROW(msg);
           }
-          FillInputBlob(std::move(graph_input_blob), batch_slice_idx, std::move(input_name), context, subgraph_context_);
         } else {
-          auto tensor = context.GetInput(subgraph_context_.input_names.at(input_name));
-          ort_tensor_key_t ort_tensor_key{input_name};
-          auto it = ort_ov_tensor_map.find(ort_tensor_key);
-          if ((it == ort_ov_tensor_map.end()) ||
-              (it != ort_ov_tensor_map.end() && (it->second.ort_ptr != tensor.GetTensorRawData()))) {
-            ov_tensor_data_t ov_tensor_data;
-            const auto& input = graph_input_info.at(input_idx);
-            ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(input.get_element_type(), input.get_shape(),
-                                                                     const_cast<void*>(tensor.GetTensorRawData()));
-
-            ov_tensor_data.ort_ptr = tensor.GetTensorRawData();
-            ort_ov_tensor_map[ort_tensor_key] = ov_tensor_data;
-
+          if ((session_context_.device_type.find("CPU") != std::string::npos ||
+             session_context_.device_type.find("GPU") != std::string::npos)) {
+            OVTensorPtr graph_input_blob;
             try {
-              infer_request->SetTensor(std::move(input_name), ov_tensor_data.tensor_ptr);
+              graph_input_blob = infer_request->GetTensor(onnx_input_name);
             } catch (const char* msg) {
               ORT_THROW(msg);
+            }
+            FillInputBlob(std::move(graph_input_blob), batch_slice_idx, std::move(onnx_input_name), context, subgraph_context_);
+          } else {
+            auto tensor = context.GetInput(subgraph_context_.input_names.at(onnx_input_name));
+            ort_tensor_key_t ort_tensor_key{onnx_input_name};
+            auto itr = ort_ov_tensor_map.find(ort_tensor_key);
+            if ((itr == ort_ov_tensor_map.end()) ||
+                (itr != ort_ov_tensor_map.end() && (itr->second.ort_ptr != tensor.GetTensorRawData()))) {
+              ov_tensor_data_t ov_tensor_data;
+              // const auto& input = graph_input_info.at(input_idx);
+              ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(ov_input_map[onnx_input_name].first,
+                                                                      ov_input_map[onnx_input_name].second,
+                                                                      const_cast<void*>(tensor.GetTensorRawData()));
+
+              ov_tensor_data.ort_ptr = tensor.GetTensorRawData();
+              ort_ov_tensor_map[ort_tensor_key] = ov_tensor_data;
+
+              try {
+                infer_request->SetTensor(std::move(onnx_input_name), ov_tensor_data.tensor_ptr);
+              } catch (const char* msg) {
+                ORT_THROW(msg);
+              }
             }
           }
         }
       }
-      input_idx++;
     }
     if (session_context_.device_type.find("NPU") != std::string::npos) {
       // Set the output blob as remote blob
