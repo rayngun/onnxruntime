@@ -16,17 +16,28 @@ namespace openvino_ep {
 namespace fs = std::filesystem;
 
 struct SharedContext {
-  struct shared_weight_key {
-    std::string_view name;
-    std::string location;
-  };
-  struct shared_weight_value {
-    unsigned int data_offset;
-    unsigned int size;
-    ov::Tensor* tensor;
-  };
-  std::map<shared_weight_key, shared_weight_value> shared_weight_map;
-  fs::path bin_pathname;
+  struct SharedWeights {
+    struct Metadata {
+      struct Key {
+        std::string name;
+        bool operator==(const Key&) const = default;
+      };
+      struct KeyHash {
+        std::size_t operator()(const Key& key) const noexcept {
+          return std::hash<std::string>()(key.name);
+        }
+      };
+      struct Value {
+        std::string location;
+        unsigned int data_offset;
+        unsigned int size;
+        ov::Tensor* tensor;
+      };
+      using Map = std::unordered_map<Key, Value, KeyHash>;
+    };
+    Metadata::Map metadata;
+    fs::path external_weight_filename;
+  } shared_weights;
 };
 
 using config_t = std::map<std::string, ov::AnyMap>;
@@ -73,7 +84,7 @@ struct SessionContext : ProviderInfo {
   OVCore ie_core;
   std::vector<bool> deviceAvailableList = {true, true, true, true, true, true, true, true};
   std::string onnx_model_name;
-  std::string onnx_model_path_name;
+  std::filesystem::path onnx_model_path_name;
   int onnx_opset_version;
   bool use_api_2;
   const std::vector<int> OpenVINO_Version = {OPENVINO_VERSION_MAJOR, OPENVINO_VERSION_MINOR};

@@ -48,7 +48,7 @@ CreateOVModel(const std::string model,
     std::cout << "CreateNgraphFunc" << std::endl;
   }
   try {
-    auto ov_model = session_context.ie_core.ReadModel(model, session_context.onnx_model_path_name);
+    auto ov_model = session_context.ie_core.ReadModel(model, session_context.onnx_model_path_name.string());
 
     // Check for Constant Folding
     if ((session_context.device_type != "NPU") && !subgraph_context.is_wholly_supported_graph) {
