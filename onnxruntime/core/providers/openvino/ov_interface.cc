@@ -197,6 +197,16 @@ OVTensorPtr OVInferRequest::GetTensor(const std::string& input_name) {
   }
 }
 
+ov::Tensor OVInferRequest::GetOutputTensor(const int& output_idx) {
+  try {
+    return ovInfReq.get_output_tensor(output_idx);
+  } catch (const Exception& e) {
+    ORT_THROW(log_tag + " Cannot access output tensor: " + e.what());
+  } catch (...) {
+    ORT_THROW(log_tag + " Cannot access output tensor");
+  }
+}
+
 void OVInferRequest::SetTensor(std::string name, OVTensorPtr& blob) {
   try {
     ovInfReq.set_tensor(name, *(blob.get()));

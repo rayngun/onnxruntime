@@ -50,6 +50,11 @@ CreateOVModel(const std::string model,
   try {
     auto ov_model = session_context.ie_core.ReadModel(model, session_context.onnx_model_path_name);
 
+    if(!session_context.shape.empty()){
+      LOGS_DEFAULT(INFO) << log_tag << "Reshaping the ov tensor to specified shape";
+      ov_model->reshape(session_context.shape);
+    }
+
     // Check for Constant Folding
     if ((session_context.device_type != "NPU") && !subgraph_context.is_wholly_supported_graph) {
       ov::pass::ConstantFolding pass_const_obj;
@@ -66,13 +71,12 @@ CreateOVModel(const std::string model,
         --index;
       }
     }
-#ifndef NDEBUG
-    if (IsDebugEnabled()) {
+
       std::string name = ov_model->get_friendly_name();
       ov::pass::Serialize serializer(name + ".xml", name + ".bin");
       serializer.run_on_model(ov_model);
-    }
-#endif
+
+
     return ov_model;
   } catch (std::string const& msg) {
     ORT_THROW(msg);

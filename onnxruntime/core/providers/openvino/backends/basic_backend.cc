@@ -95,6 +95,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
       } else if (!subgraph_context_.has_external_weights &&
                  !subgraph_context_.has_dynamic_input_shape &&
                  !session_context_.export_ep_ctx_blob &&
+                 session_context.shape.empty() &&
                  auto_unified_compile){
         // Unified OV compile_model is efficient when ov model caching is enabled
         // Unified OV compile_model API is supported with AUTO from version 2024.3 and above
@@ -407,17 +408,32 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
         } else {
           auto tensor = context.GetInput(subgraph_context_.input_names.at(input_name));
           ort_tensor_key_t ort_tensor_key{input_name};
+
           auto it = ort_ov_tensor_map.find(ort_tensor_key);
           if ((it == ort_ov_tensor_map.end()) ||
               (it != ort_ov_tensor_map.end() && (it->second.ort_ptr != tensor.GetTensorRawData()))) {
+
             ov_tensor_data_t ov_tensor_data;
             const auto& input = graph_input_info.at(input_idx);
-            ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(input.get_element_type(), input.get_shape(),
-                                                                     const_cast<void*>(tensor.GetTensorRawData()));
 
+            if(!session_context_.shape.empty())
+            {
+              ov::PartialShape partial_shape = input.get_partial_shape();
+              const auto& ort_dims = tensor.GetTensorTypeAndShapeInfo().GetShape();
+              ValidateOrtDimsAgainstPartialShape(ort_dims,partial_shape);
+              ov::Shape concrete_shape;
+              for(size_t i=0; i<ort_dims.size(); ++i) {
+                concrete_shape.push_back(ort_dims[i]);
+              }
+              ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(input.get_element_type(), concrete_shape,
+                                                                     const_cast<void*>(tensor.GetTensorRawData()));
+            }
+            else{
+              ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(input.get_element_type(), input.get_shape(),
+                                                                     const_cast<void*>(tensor.GetTensorRawData()));
+            }
             ov_tensor_data.ort_ptr = tensor.GetTensorRawData();
             ort_ov_tensor_map[ort_tensor_key] = ov_tensor_data;
-
             try {
               infer_request->SetTensor(std::move(input_name), ov_tensor_data.tensor_ptr);
             } catch (const char* msg) {
@@ -428,9 +444,17 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
       }
       input_idx++;
     }
+
+    if(!session_context_.shape.empty()) {
+       infer_request->Infer();
+    }
+
+    //ov::Tensor output_tensor_jatin = infer_request->GetOutputTensor();
+    //ov::Tensor output_tensor = infer_request->Get
     if (session_context_.device_type.find("NPU") != std::string::npos) {
       // Set the output blob as remote blob
-      auto graph_output_info = exe_network_.Get().outputs();
+      auto graph_output_info = exe_network_.Get().outputs();  //ov to ort tensor mapping
+
       auto output_idx = 0;
       for (auto output_info_iter = graph_output_info.begin();
            output_info_iter != graph_output_info.end(); ++output_info_iter) {
@@ -452,15 +476,27 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
                                                    infer_request,
                                                    output_name,
                                                    subgraph_context_.output_names);
+
         ort_tensor_key_t ort_tensor_key{output_name};
         const auto& it = ort_ov_tensor_map.find(ort_tensor_key);
         if ((it == ort_ov_tensor_map.end()) ||
             (it != ort_ov_tensor_map.end() && (it->second.ort_ptr != tensor.GetTensorRawData()))) {
           ov_tensor_data_t ov_tensor_data;
+
           const auto& output = graph_output_info.at(output_idx);
           ov_tensor_data.ort_ptr = tensor.GetTensorRawData();
-          ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(output.get_element_type(), output.get_shape(),
+
+          if(!session_context_.shape.empty())
+          {
+            ov::Tensor output_tensor = infer_request->GetOutputTensor(output_idx);
+             ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(output.get_element_type(), output_tensor.get_shape(),
+                                                                      const_cast<void*>(tensor.GetTensorRawData()));
+          }
+          else {
+            ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(output.get_element_type(), output.get_shape(),
                                                                    const_cast<void*>(tensor.GetTensorRawData()));
+          }
+
           ort_ov_tensor_map[ort_tensor_key] = ov_tensor_data;
 
           try {
@@ -473,7 +509,6 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
       }
     }
 
-    // Start Async inference
     infer_request->StartAsync();
   } catch (const char* msg) {
     ORT_THROW(msg);
@@ -661,6 +696,28 @@ void BasicBackend::CompleteAsyncInference(Ort::KernelContext& context, OVInferRe
   } catch (const char* msg) {
     ORT_THROW(msg);
   }
+}
+
+
+void BasicBackend::ValidateOrtDimsAgainstPartialShape(const std::vector<int64_t>& ort_dims,
+                                                      const ov::PartialShape& partial_shape) const {
+    // Check if the number of dimensions matches
+    if (static_cast<int64_t>(ort_dims.size()) != partial_shape.rank().get_length()) {
+        ORT_THROW("Mismatch in number of dimensions between ORT tensor and OpenVINO PartialShape.");
+    }
+
+    // Validate each dimension
+    for (size_t i = 0; i < ort_dims.size(); ++i) {
+        const auto& ov_dim = partial_shape[i]; // OpenVINO dimension at index i
+        int64_t ort_dim = ort_dims[i];         // ORT dimension at index i
+
+        // Check if the ORT dimension is within the specified range
+        int64_t min_dim = ov_dim.get_min_length();
+        int64_t max_dim = ov_dim.get_max_length();
+        if (ort_dim < min_dim || ort_dim > max_dim) {
+            ORT_THROW(" ORT Dimension is out of range");
+        }
+    }
 }
 
 void BasicBackend::Infer(OrtKernelContext* ctx) {

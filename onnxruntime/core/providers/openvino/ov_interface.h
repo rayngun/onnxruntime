@@ -87,6 +87,7 @@ class OVInferRequest {
 
  public:
   OVTensorPtr GetTensor(const std::string& name);
+  ov::Tensor GetOutputTensor(const int& output_idx);
   void SetTensor(std::string name, OVTensorPtr& blob);
   void StartAsync();
   void Infer();

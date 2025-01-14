@@ -26,6 +26,7 @@ struct SessionContext {
   std::string device_type;
   std::string precision_str;
   std::filesystem::path cache_dir;
+  std::map<std::string,ov::PartialShape> shape;
   std::map<std::string, ov::AnyMap> load_config;
   std::string model_priority = "DEFAULT";
   int num_streams;

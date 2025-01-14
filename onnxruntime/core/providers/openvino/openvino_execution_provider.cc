@@ -33,6 +33,7 @@ openvino_ep::SessionContext GetSessionContext(const OpenVINOExecutionProviderInf
       .device_type = info.device_type_,
       .precision_str = info.precision_,
       .cache_dir = info.cache_dir_,
+      .shape = info.shape_,
       .load_config = info.load_config_,
       .model_priority = info.model_priority_,
       .num_streams = info.num_streams_,

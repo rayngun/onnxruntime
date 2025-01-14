@@ -15,7 +15,8 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
   OpenVINOProviderFactory(const std::string& device_type, const std::string& precision,
                           size_t num_of_threads,
                           const std::map<std::string, ov::AnyMap>& load_config, const std::string& cache_dir,
-                          const std::string& model_priority, int num_streams, void* context,
+                          const std::map<std::string,ov::PartialShape>& shape, const std::string& model_priority,
+                          int num_streams, void* context,
                           bool enable_opencl_throttling, bool disable_dynamic_shapes,
                           bool enable_qdq_optimizer, const ConfigOptions& config_options)
       : device_type_(device_type),
@@ -23,6 +24,7 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
         num_of_threads_(num_of_threads),
         load_config_(load_config),
         cache_dir_(cache_dir),
+        shape_(shape),
         model_priority_(model_priority),
         num_streams_(num_streams),
         context_(context),
@@ -41,6 +43,7 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
   size_t num_of_threads_;
   const std::map<std::string, ov::AnyMap> load_config_;
   std::string cache_dir_;
+  std::map<std::string,ov::PartialShape> shape_;
   std::string model_priority_;
   int num_streams_;
   void* context_;
@@ -74,7 +77,7 @@ std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
   }
 
   OpenVINOExecutionProviderInfo info(device_type_, precision_, num_of_threads_, load_config_,
-                                     cache_dir_, model_priority_, num_streams_, context_, enable_opencl_throttling_,
+                                     cache_dir_, shape_, model_priority_, num_streams_, context_, enable_opencl_throttling_,
                                      disable_dynamic_shapes_, so_export_ep_ctx_blob, enable_qdq_optimizer_,
                                      so_disable_cpu_fallback, so_epctx_embed_mode);
   return std::make_unique<OpenVINOExecutionProvider>(info);
@@ -115,6 +118,7 @@ struct OpenVINO_Provider : Provider {
                                                     // dump and load the blobs for the model caching/kernel caching
                                                     // (GPU) feature. If blob files are already present,
                                                     // it will be directly loaded.
+    std::map<std::string,ov::PartialShape> shape;   // Reshapes the ov tensor for the specified inputs,
     std::string model_priority = "DEFAULT";         // High-level OpenVINO model priority hint
                                                     // Defines what model should be provided with more performant
                                                     // bounded resource first
@@ -201,6 +205,99 @@ struct OpenVINO_Provider : Provider {
 
     if (provider_options_map.find("cache_dir") != provider_options_map.end()) {
       cache_dir = provider_options_map.at("cache_dir");
+    }
+
+    if(provider_options_map.find("reshape_input") != provider_options_map.end()) {
+
+      auto parse_input_shapes = [&](const std::string & reshape_input_definition) {
+        std::map<std::string,ov::PartialShape> parsed_shape_map;
+        std::string unparsed_definition = reshape_input_definition;
+
+        while(!unparsed_definition.empty()){
+          // Find the next shape definition brakcet
+          auto shape_start_bracket = unparsed_definition.find_first_of('[');
+          if (shape_start_bracket==std::string::npos) {
+            ORT_THROW("Malformed input: missing opening bracket '[' in: " + unparsed_definition);
+          }
+          // Extract the tensor name
+          std::string tensor_name = unparsed_definition.substr(0,shape_start_bracket);
+          // Remove the leading/trailing whitespaces
+          tensor_name.erase(0,tensor_name.find_first_not_of("\t"));
+          tensor_name.erase(tensor_name.find_last_not_of("\t") + 1);
+
+          if (tensor_name.empty()) {
+            ORT_THROW("Empty tensor name provided in rehsape_input parameter");
+          }
+
+          // Closing bracket for current shape definition
+          auto shape_end_bracket = unparsed_definition.find_first_of(']',shape_start_bracket);
+
+          if (shape_end_bracket == std::string::npos || shape_end_bracket<shape_start_bracket){
+            ORT_THROW("Missing closing bracket ']' for tensor: " + tensor_name);
+          }
+
+          // Extract shape dimensions string
+          std::string shape_dimension_str = unparsed_definition.substr(shape_start_bracket + 1,
+                                                                       shape_end_bracket - shape_start_bracket - 1);
+          std::vector<ov::Dimension> dimension_values;
+          std::stringstream dimension_stream(shape_dimension_str);
+          std::string dimension_token;
+
+          while(std::getline(dimension_stream, dimension_token,',')) {
+            // Remove leading/trailing whitespaces
+            dimension_token.erase(0,dimension_token.find_first_not_of("\t"));
+            dimension_token.erase(dimension_token.find_last_not_of("\t") + 1);
+
+            // Check if dimension is a range
+          size_t range_seperator_pos = dimension_token.find("..");
+          if (range_seperator_pos != std::string::npos) {
+            std::string range_start_str = dimension_token.substr(0, range_seperator_pos);
+            std::string range_end_str = dimension_token.substr(range_seperator_pos + 2);
+
+            //Remove leading/trailing spaced
+            range_start_str.erase(0, range_start_str.find_first_not_of("\t"));
+            range_start_str.erase(range_start_str.find_last_not_of("\t") + 1);
+            range_end_str.erase(0,range_end_str.find_first_not_of("\t"));
+            range_end_str.erase(range_end_str.find_last_not_of("\t") + 1);
+
+            if(range_start_str.empty() || range_end_str.empty() ||
+               !std::all_of(range_start_str.begin(),range_start_str.end(),::isdigit) ||
+               !std::all_of(range_end_str.begin(),range_end_str.end(),::isdigit)) {
+                ORT_THROW("Invalid dimension range format: " + dimension_token + " for tensor: " + tensor_name);
+               }
+
+            int range_start = std::stoi(range_start_str);
+            int range_end = std::stoi(range_end_str);
+
+            if(range_start > range_end) {
+              ORT_THROW("Invalid dimension range (start > end) for tensor: " + tensor_name);
+            }
+
+            dimension_values.emplace_back(ov::Dimension(range_start,range_end));
+          } else {
+            //Handle single dimension value
+            if (dimension_token.empty() ||
+                !std::all_of(dimension_token.begin(),dimension_token.end(),::isdigit)) {
+                  ORT_THROW("Invalid dimension value: " + dimension_token + " for tensor: " + tensor_name);
+                }
+                dimension_values.emplace_back(std::stoi(dimension_token));
+            }
+          }
+
+          //Store parsed shape in result map
+          parsed_shape_map[tensor_name] = ov::PartialShape(dimension_values);
+          //Update reminaing unparsed string
+          unparsed_definition = unparsed_definition.substr(shape_end_bracket + 1);
+          if(!unparsed_definition.empty() && unparsed_definition.front() == ','){
+            unparsed_definition = unparsed_definition.substr(1);
+          }
+          // Remove leading whitespaces
+          unparsed_definition.erase(0, unparsed_definition.find_first_not_of("\t"));
+        }
+      return parsed_shape_map;
+      };
+
+      shape = parse_input_shapes(provider_options_map.at("reshape_input"));
     }
 
     if (provider_options_map.find("load_config") != provider_options_map.end()) {
@@ -359,6 +456,7 @@ struct OpenVINO_Provider : Provider {
                                                      num_of_threads,
                                                      load_config,
                                                      cache_dir,
+                                                     shape,
                                                      model_priority,
                                                      num_streams,
                                                      context,
