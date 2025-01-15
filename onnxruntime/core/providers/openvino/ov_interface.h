@@ -86,8 +86,10 @@ class OVInferRequest {
   ov::InferRequest ovInfReq;
 
  public:
+  uint32_t GetNumInputs();
   OVTensorPtr GetTensor(const std::string& name);
-  void SetTensor(std::string name, OVTensorPtr& blob);
+  std::string GetInputTensorName(uint32_t index);
+  void SetTensor(const std::string& name, OVTensorPtr& blob);
   void StartAsync();
   void Infer();
   void WaitRequest();

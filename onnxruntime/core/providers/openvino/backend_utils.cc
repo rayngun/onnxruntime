@@ -12,10 +12,46 @@
 #include "core/providers/openvino/backend_utils.h"
 #include "core/providers/openvino/ov_interface.h"
 
+#include "Windows.h"
+
 using Exception = ov::Exception;
 
 namespace onnxruntime {
 namespace openvino_ep {
+
+SharedContext::SharedWeights::MappedWeights::MappedWeights(std::filesystem::path filename) {
+  file_ = CreateFile(filename.string().data(),
+                     GENERIC_READ,
+                     FILE_SHARE_READ,
+                     0,
+                     OPEN_EXISTING,
+                     FILE_ATTRIBUTE_NORMAL,
+                     0);
+  ORT_ENFORCE(file_ != nullptr, "Unable to open weight file at ", filename.string());
+
+  mapping_ = CreateFileMapping(file_, 0, PAGE_READONLY, 0, 0, 0);
+  ORT_ENFORCE(mapping_ != nullptr, "Unable to create mapping of weight file at ", filename.string());
+
+  const char* raw_data = static_cast<const char*>(MapViewOfFile(mapping_, FILE_MAP_READ, 0, 0, 0));
+  ORT_ENFORCE(raw_data != nullptr, "Unable to map weight file at ", filename.string());
+
+  weight_data = std::string_view(raw_data, std::filesystem::file_size(filename));
+}
+
+SharedContext::SharedWeights::MappedWeights::~MappedWeights() {
+  if (!weight_data.empty()) {
+    UnmapViewOfFile(weight_data.data());
+  }
+  if (mapping_ != nullptr) {
+    CloseHandle(mapping_);
+    mapping_ = nullptr;
+  }
+  if (file_ != nullptr) {
+    CloseHandle(file_);
+    file_ = nullptr;
+  }
+}
+
 namespace backend_utils {
 
 bool IsDebugEnabled() {
@@ -33,11 +69,6 @@ bool IsCILogEnabled() {
   }
   return false;
 }
-
-struct static_cast_int64 {
-  template <typename T1>  // T1 models type statically convertible to T
-  int64_t operator()(const T1& x) const { return static_cast<int64_t>(x); }
-};
 
 std::shared_ptr<const OVNetwork>
 CreateOVModel(const std::string model,
@@ -266,6 +297,57 @@ void printPerformanceCounts(const std::vector<OVProfilingInfo>& performanceMap,
 void printPerformanceCounts(OVInferRequestPtr request, std::ostream& stream, std::string deviceName) {
   auto performanceMap = request->GetNewObj().get_profiling_info();
   printPerformanceCounts(performanceMap, stream, std::move(deviceName));
+}
+
+ov::element::Type GetOpenVINOElementType(ONNX_NAMESPACE::TensorProto_DataType dt) {
+  static std::unordered_map<ONNX_NAMESPACE::TensorProto_DataType, ov::element::Type> map{
+      {ONNX_NAMESPACE::TensorProto_DataType_FLOAT, ov::element::f32},
+      {ONNX_NAMESPACE::TensorProto_DataType_UINT8, ov::element::u8},
+      {ONNX_NAMESPACE::TensorProto_DataType_INT8, ov::element::i8},
+      {ONNX_NAMESPACE::TensorProto_DataType_UINT16, ov::element::u16},
+      {ONNX_NAMESPACE::TensorProto_DataType_INT16, ov::element::i16},
+      {ONNX_NAMESPACE::TensorProto_DataType_INT32, ov::element::i32},
+      {ONNX_NAMESPACE::TensorProto_DataType_INT64, ov::element::i64},
+      {ONNX_NAMESPACE::TensorProto_DataType_STRING, ov::element::string},
+      {ONNX_NAMESPACE::TensorProto_DataType_BOOL, ov::element::boolean},
+      {ONNX_NAMESPACE::TensorProto_DataType_FLOAT16, ov::element::f16},
+      {ONNX_NAMESPACE::TensorProto_DataType_DOUBLE, ov::element::f64},
+      {ONNX_NAMESPACE::TensorProto_DataType_UINT32, ov::element::u32},
+      {ONNX_NAMESPACE::TensorProto_DataType_UINT64, ov::element::u64},
+      //{ONNX_NAMESPACE::TensorProto_DataType_COMPLEX64, ov::element::undefined},
+      //{ONNX_NAMESPACE::TensorProto_DataType_COMPLEX128, ov::element::undefined},
+      {ONNX_NAMESPACE::TensorProto_DataType_BFLOAT16, ov::element::bf16},
+      //{ONNX_NAMESPACE::TensorProto_DataType_FLOAT8E4M3FN, ov::element::undefined},
+      //{ONNX_NAMESPACE::TensorProto_DataType_FLOAT8E4M3FNUZ, ov::element::undefined},
+      {ONNX_NAMESPACE::TensorProto_DataType_FLOAT8E5M2, ov::element::f8e5m2},
+      //{ONNX_NAMESPACE::TensorProto_DataType_FLOAT8E5M2FNUZ, ov::element::undefined},
+      {ONNX_NAMESPACE::TensorProto_DataType_UINT4, ov::element::u4},
+      {ONNX_NAMESPACE::TensorProto_DataType_INT4, ov::element::i4},
+  };
+
+  if (auto result = map.find(dt); result != map.end()) {
+    return result->second;
+  } else {
+    throw std::runtime_error("Unsupported ONNX data type: " + std::to_string(dt));
+  }
+}
+
+// Function to handle tensor creation from external data
+void CreateOVTensors(SharedContext::SharedWeights::Metadata::Map& metadata_map, std::string_view weights) {
+  for (auto& [key, value] : metadata_map) {
+    if (value.tensor) continue;
+
+    // Get tensor data
+    const auto* tensor_data = weights.data() + value.data_offset;
+
+    // Get element data type
+    auto onnx_element_type = (ONNX_NAMESPACE::TensorProto_DataType)value.element_type;
+    ov::element::Type ov_elementType = GetOpenVINOElementType(onnx_element_type);  // Map to OpenVINO data type
+
+    // Create OpenVINO Tensor
+    value.tensor = std::make_shared<ov::Tensor>(ov_elementType, value.dimensions, (void*)tensor_data);
+    ORT_ENFORCE(value.tensor->get_byte_size() == value.size, "Unexpected tensor size mismatch");
+  }
 }
 
 }  // namespace backend_utils

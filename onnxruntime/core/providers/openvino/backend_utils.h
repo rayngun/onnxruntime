@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <string_view>
 
 #include "core/session/onnxruntime_cxx_api.h"
 #include "core/providers/openvino/contexts.h"
@@ -65,6 +66,9 @@ CreateOVModel(const std::string model,
               const SessionContext& session_context,
               const SubGraphContext& subgraph_context,
               std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map);
+
+void CreateOVTensors(SharedContext::SharedWeights::Metadata::Map& metadata_map,
+                     std::string_view weights);
 
 void printPerformanceCounts(const std::vector<OVProfilingInfo>& performanceMap,
                             std::ostream& stream, std::string deviceName);

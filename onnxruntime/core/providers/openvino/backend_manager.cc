@@ -104,6 +104,24 @@ BackendManager::BackendManager(SessionContext& session_context,
   }
   std::string device_type = session_context_.device_type;
 
+  auto& sw = shared_context_.shared_weights;
+  if (session_context_.so_share_ep_contexts) {
+    std::filesystem::path weight_filename = session_context_.cache_dir.parent_path();
+    if (sw.external_weight_filename.empty())
+    {
+      sw.external_weight_filename = sw.metadata.begin()->second.location;
+    }
+    weight_filename /= sw.external_weight_filename;
+    std::ifstream weight_file(weight_filename);
+
+    if (weight_file) {
+      if (!sw.mapped_weights) {
+        sw.mapped_weights = std::make_unique<SharedContext::SharedWeights::MappedWeights>(weight_filename);
+      }
+      backend_utils::CreateOVTensors(sw.metadata, sw.mapped_weights->weight_data);
+    }
+  }
+
   if (ModelHasSymbolicInputDims(subgraph)) {
     subgraph_context_.has_dynamic_input_shape = true;
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model has symbolic input dims";
@@ -116,6 +134,7 @@ BackendManager::BackendManager(SessionContext& session_context,
         concrete_backend_ = BackendFactory::MakeBackend(model_proto,
                                                         session_context_,
                                                         subgraph_context_,
+                                                        shared_context_,
                                                         model_stream);
       } catch (std::string const& msg) {
         ORT_THROW(msg);
@@ -139,6 +158,7 @@ BackendManager::BackendManager(SessionContext& session_context,
       concrete_backend_ = BackendFactory::MakeBackend(model_proto,
                                                       session_context_,
                                                       subgraph_context_,
+                                                      shared_context_,
                                                       model_stream);
     } catch (const OnnxRuntimeException& ex) {
       std::string exception_str = ex.what();
@@ -158,6 +178,7 @@ BackendManager::BackendManager(SessionContext& session_context,
           concrete_backend_ = BackendFactory::MakeBackend(model_proto,
                                                           session_context_,
                                                           subgraph_context_,
+                                                          shared_context_,
                                                           model_stream);
         } catch (std::string const& msg) {
           ORT_THROW(msg);
@@ -489,6 +510,7 @@ void BackendManager::Compute(OrtKernelContext* context) {
         dynamic_backend = BackendFactory::MakeBackend(modelproto_with_concrete_shapes,
                                                       session_context_,
                                                       subgraph_context_,
+                                                      shared_context_,
                                                       model_stream);
       } catch (const OnnxRuntimeException& ex) {
         // Build option disables fallback to CPU on compilation failures with NPU.
@@ -508,6 +530,7 @@ void BackendManager::Compute(OrtKernelContext* context) {
             dynamic_backend = BackendFactory::MakeBackend(modelproto_with_concrete_shapes,
                                                           session_context_,
                                                           subgraph_context_,
+                                                          shared_context_,
                                                           model_stream);
           } catch (std::string const& msg) {
             ORT_THROW(msg);
