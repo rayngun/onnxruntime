@@ -717,68 +717,6 @@ bool dumpMetaDataMapToBinary(const sw::Metadata::Map& metadata, const std::strin
   return true;
 }
 
-// Helper function to read binary data from a file
-std::vector<float> readBinaryData(const std::string& filePath, size_t offset, size_t length) {
-    std::vector<float> data(length / sizeof(float), 0);
-    std::ifstream file(filePath, std::ios::binary);
-    if (!file) {
-        throw std::runtime_error("Failed to open file: " + filePath);
-    }
-
-    file.seekg(offset, std::ios::beg);
-    file.read(reinterpret_cast<char*>(data.data()), length);
-
-    if (!file) {
-        throw std::runtime_error("Error reading from file: " + filePath);
-    }
-    return data;
-}
-
-// Function to handle tensor creation from external data
-void CreateOVTensor(const ONNX_NAMESPACE::TensorProto* initializer_tensor,
-                    onnxruntime::openvino_ep::SharedContext::SharedWeights::Metadata::Map& metadata_map) {
-
-  for (auto itr: metadata_map) {
-    if (initializer_tensor->name() == itr.first.name) {
-      std::string filePath = itr.second.location;
-      std::uint32_t offset = itr.second.data_offset;
-      std::uint32_t length = itr.second.size;
-
-    // Read binary data
-    auto rawData = readBinaryData(filePath, offset, length);
-
-    // Get dimensions
-    std::vector<size_t> shape;
-    for (auto itt = 0 ; itt < initializer_tensor->dims().size() ; itt++) {
-      shape.push_back(initializer_tensor->dims()[itt]);
-    }
-
-    // Create OpenVINO Tensor
-    ov::element::Type elementType = ov::element::f32;
-    ov::Tensor tensor(elementType, shape, rawData.data());
-    }
-  }
-}
-
-ov::element::Type GetOpenVINOElementType(int onnx_data_type) {
-    switch (onnx_data_type) {
-        case 1: return ov::element::f32;      // FLOAT
-        case 2: return ov::element::u8;       // UINT8
-        case 3: return ov::element::i8;       // INT8
-        case 4: return ov::element::u16;      // UINT16
-        case 5: return ov::element::i16;      // INT16
-        case 6: return ov::element::i32;      // INT32
-        case 7: return ov::element::i64;      // INT64
-        case 9: return ov::element::boolean;  // BOOL
-        case 10: return ov::element::f16;     // FLOAT16
-        case 11: return ov::element::f64;     // DOUBLE
-        case 12: return ov::element::u32;     // UINT32
-        case 13: return ov::element::u64;     // UINT64
-        default:
-            throw std::runtime_error("Unsupported ONNX data type: " + std::to_string(onnx_data_type));
-    }
-}
-
 // Creates a new model without the DQ/Q operators in the src graph.
 Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
                                        const logging::Logger& logger,
@@ -898,11 +836,13 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
   // initialize map for creating metadata for initilizers with external weights
   auto& metadata = shared_weights.metadata;
 
-  const auto& insert_metadata = [&metadata](const std::string& name, ONNX_NAMESPACE::StringStringEntryProtos* entry_protos) {
-    // key: [name], value: [location, offset, length]
-    sw::Metadata::Map::key_type key{name};
+  const auto& insert_metadata = [&metadata](const ONNX_NAMESPACE::TensorProto& proto) {
+    sw::Metadata::Map::key_type key{proto.name()};
     sw::Metadata::Map::mapped_type value{};
 
+    using mutable_proto_t = ONNX_NAMESPACE::TensorProto*;
+    auto& mutable_proto = *const_cast<mutable_proto_t>(&proto);
+    auto* entry_protos = mutable_proto.mutable_external_data();
     for (int i = 0; i < entry_protos->size(); i++) {
       auto& string_entry_proto{entry_protos->at(i)};
       const auto& pb_key{*(string_entry_proto.mutable_key())};
@@ -915,35 +855,28 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
         value.size = std::stoul(pb_value);
       }
     }
+    value.element_type = proto.data_type();
+    value.dimensions.resize(proto.dims_size());
+    for (uint32_t index = 0; auto& dim : value.dimensions) {
+      dim = proto.dims()[index++];
+    }
 
-    metadata.emplace(key, value);
+    metadata.emplace(key, std::move(value));
   };
-  // metadata structure: initializer_name as key
-  // and [location, offset, length] as value
+
+  // Handle constant initializers
   for (auto& it : const_inits) {
-    const auto* initializer_tensor = initializers.at(it);
+    const auto& initializer_tensor = *initializers.at(it);
 
     // Check if the initializer has external data
-    if (initializer_tensor->has_data_location() &&
-        initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL &&
+    if (initializer_tensor.has_data_location() &&
+        initializer_tensor.data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL &&
         enable_ovep_weight_sharing) {
-
-      int onnx_data_type = initializer_tensor->data_type();  // Get ONNX data type
-      ov::element::Type elementType = GetOpenVINOElementType(onnx_data_type); // Map to OpenVINO data type
-
-      // Cast away const to access mutable_external_data
-      auto* non_const_initializer_tensor = const_cast<ONNX_NAMESPACE::TensorProto*>(initializer_tensor);
-
-      // get meta data about the initilizers with external data
-      auto* external_data = non_const_initializer_tensor->mutable_external_data();
-
-      insert_metadata(initializer_tensor->name(), external_data);
+      insert_metadata(initializer_tensor);
 
       // Add initializer with external data as input
       AddInitializerAsInput(dst_graph, accumulated_inputs, src_graph, it);
 
-      // Create OV tensor based on external data and metadata
-      CreateOVTensor(initializer_tensor, metadata);
     } else {
       // Add as an initialized tensor if it does not have external data
       if (initializers_to_keep.count(it))
@@ -962,18 +895,12 @@ Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
       }
 
       if (src_graph.IsConstantInitializer(input->Name(), true)) {
-        const auto* initializer_tensor = src_graph.GetConstantInitializer(input->Name(), true);
+        const auto& initializer_tensor = *src_graph.GetConstantInitializer(input->Name(), true);
         // Check if the initializer has external data
-        if (initializer_tensor->has_data_location() &&
-            initializer_tensor->data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL &&
+        if (initializer_tensor.has_data_location() &&
+            initializer_tensor.data_location() == ONNX_NAMESPACE::TensorProto_DataLocation_EXTERNAL &&
             enable_ovep_weight_sharing) {
-          // Cast away const to access mutable_external_data
-          auto* non_const_initializer_tensor = const_cast<ONNX_NAMESPACE::TensorProto*>(initializer_tensor);
-
-          // get meta data about the initilizers with external data
-          auto* external_data = non_const_initializer_tensor->mutable_external_data();
-
-          insert_metadata(initializer_tensor->name(), external_data);
+          insert_metadata(initializer_tensor);
 
           // Add initializer as input if it has external data
           AddInitializerAsInput(dst_graph, accumulated_inputs, src_graph, input->Name());

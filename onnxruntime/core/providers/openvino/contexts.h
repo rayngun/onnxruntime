@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <string>
 #include <filesystem>
+#include <memory>
+#include "core/common/common.h"
 #include "core/providers/openvino/ov_interface.h"
 
 namespace onnxruntime {
@@ -31,12 +33,29 @@ struct SharedContext {
         std::string location;
         unsigned int data_offset;
         unsigned int size;
-        ov::Tensor* tensor;
+        std::vector<size_t> dimensions;
+        std::int32_t element_type;
+        std::shared_ptr<ov::Tensor> tensor;
       };
       using Map = std::unordered_map<Key, Value, KeyHash>;
     };
-    Metadata::Map metadata;
+
+    struct MappedWeights {
+      ORT_DISALLOW_COPY_ASSIGNMENT_AND_MOVE(MappedWeights);
+      ~MappedWeights();
+      MappedWeights() = delete;
+      explicit MappedWeights(std::filesystem::path filename);
+
+      std::string_view weight_data;
+
+     private:
+      void* file_;
+      void* mapping_;
+    };
+
     fs::path external_weight_filename;
+    std::unique_ptr<MappedWeights> mapped_weights;
+    Metadata::Map metadata;
   } shared_weights;
 };
 
