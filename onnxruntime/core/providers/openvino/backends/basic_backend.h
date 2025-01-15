@@ -12,6 +12,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <map>
+#include <functional>
 
 #include "core/session/onnxruntime_cxx_api.h"
 #include "core/providers/openvino/contexts.h"
@@ -32,6 +33,7 @@ class BasicBackend : public IBackend {
   BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_proto,
                SessionContext& session_context,
                const SubGraphContext& subgraph_context,
+               SharedContext& shared_context,
                ptr_stream_t& model_stream);
 
   void Infer(OrtKernelContext* context) override;
@@ -57,6 +59,7 @@ class BasicBackend : public IBackend {
 
   SessionContext& session_context_;
   SubGraphContext subgraph_context_;
+  SharedContext& shared_context_;
   mutable std::mutex compute_lock_;
   OVExeNetwork exe_network_;
   std::map<std::string, std::shared_ptr<ov::Node>> const_outputs_map_;
@@ -71,10 +74,11 @@ class BasicBackend : public IBackend {
 
 class InferRequestsQueue {
  public:
-  InferRequestsQueue(OVExeNetwork& net, size_t nireq) {
+  InferRequestsQueue(OVExeNetwork& net, size_t nireq, std::function<void(OVInferRequestPtr)> initializer) {
     OVInferRequestPtr infer_request;
     for (size_t id = 0; id < nireq; id++) {
       infer_request = std::make_shared<OVInferRequest>(net.CreateInferRequest());
+      initializer(infer_request);
       infer_requests_.push_back(infer_request);
     }
   }
