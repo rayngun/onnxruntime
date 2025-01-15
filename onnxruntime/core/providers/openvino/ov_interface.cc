@@ -197,7 +197,18 @@ OVTensorPtr OVInferRequest::GetTensor(const std::string& input_name) {
   }
 }
 
-void OVInferRequest::SetTensor(std::string name, OVTensorPtr& blob) {
+std::string OVInferRequest::GetInputTensorName(uint32_t index) {
+  try {
+    const auto &model = ovInfReq.get_compiled_model();
+    return *model.input(index).get_names().begin();
+  } catch (const Exception& e) {
+    ORT_THROW(log_tag + " Cannot access IE Blob for input number: ", index, e.what());
+  } catch (...) {
+    ORT_THROW(log_tag + " Cannot access IE Blob for input number: ", index);
+  }
+}
+
+void OVInferRequest::SetTensor(const std::string &name, OVTensorPtr& blob) {
   try {
     ovInfReq.set_tensor(name, *(blob.get()));
   } catch (const Exception& e) {
@@ -205,6 +216,10 @@ void OVInferRequest::SetTensor(std::string name, OVTensorPtr& blob) {
   } catch (...) {
     ORT_THROW(log_tag + " Cannot set Remote Blob for output: " + name);
   }
+}
+
+uint32_t OVInferRequest::GetNumInputs() {
+  return ovInfReq.get_compiled_model().inputs().size();
 }
 
 void OVInferRequest::StartAsync() {

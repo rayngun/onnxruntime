@@ -23,8 +23,9 @@ using namespace backend_utils;
 BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_proto,
                            SessionContext& session_context,
                            const SubGraphContext& subgraph_context,
+                           SharedContext& shared_context,
                            ptr_stream_t& model_stream)
-    : session_context_(session_context), subgraph_context_(subgraph_context) {
+    : session_context_{session_context}, subgraph_context_{subgraph_context}, shared_context_{shared_context} {
   std::string& hw_target = session_context_.device_type;
 
   if (ValidateSubgraph(const_outputs_map_))
@@ -123,8 +124,24 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
   } catch (const char* msg) {
     ORT_THROW(msg);
   }
+
   int num_infer_req = (session_context_.num_of_threads > 0) ? session_context_.num_of_threads : 1;
-  inferRequestsQueue_ = std::unique_ptr<InferRequestsQueue>(new InferRequestsQueue(exe_network_, num_infer_req));
+  std::function<void(OVInferRequestPtr)> initializer = [](OVInferRequestPtr) {};
+  auto metadata = shared_context_.shared_weights.metadata;
+  if (session_context_.so_share_ep_contexts) {
+    initializer = [&metadata](OVInferRequestPtr ir_ptr) {
+      const auto input_count = ir_ptr->GetNumInputs();
+      for (auto i = 0; i < input_count; i++) {
+        using Key = SharedContext::SharedWeights::Metadata::Key;
+        const auto tensor_key = Key{ir_ptr->GetInputTensorName(i)};
+        if (metadata.contains(tensor_key)) {
+          auto& value = metadata.at(tensor_key);
+          ir_ptr->SetTensor(tensor_key.name, value.tensor);
+        }
+      }
+    };
+  }
+  inferRequestsQueue_ = std::unique_ptr<InferRequestsQueue>(new InferRequestsQueue(exe_network_, num_infer_req, initializer));
 }
 
 bool BasicBackend::ValidateSubgraph(std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map) {
