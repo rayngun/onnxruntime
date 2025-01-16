@@ -112,15 +112,15 @@ struct SessionContext : ProviderInfo {
 
 // Holds context specific to subgraph.
 struct SubGraphContext {
+  using string_index_map_t = std::unordered_map<std::string, uint32_t>;
   bool has_dynamic_input_shape = false;
   bool enable_batching = false;
   bool set_npu_config = false;
   bool is_constant = false;
   void* context = 0;
   std::string subgraph_name;
-  std::vector<int> input_indexes;
-  std::unordered_map<std::string, int> input_names;
-  std::unordered_map<std::string, int> output_names;
+  string_index_map_t input_names;
+  string_index_map_t output_names;
   bool is_wholly_supported_graph = false;
   bool has_external_weights = false;
   std::string model_precision;

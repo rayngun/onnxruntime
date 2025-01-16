@@ -114,7 +114,7 @@ Ort::UnownedValue
 GetOutputTensor(Ort::KernelContext& context, size_t batch_size,
                 OVInferRequestPtr infer_request,
                 std::string output_name,
-                std::unordered_map<std::string, int> output_names) {
+                const SubGraphContext::string_index_map_t& output_names) {
   auto graph_output_blob = infer_request->GetTensor(output_name);
 
   auto graph_output_dims = graph_output_blob->get_shape();
@@ -139,7 +139,7 @@ GetOutputTensor(Ort::KernelContext& context, size_t batch_size,
 Ort::UnownedValue
 GetOutputTensor(Ort::KernelContext& context,
                 std::string output_name,
-                std::unordered_map<std::string, int> output_names,
+                const SubGraphContext::string_index_map_t& output_names,
                 std::shared_ptr<ov::Node> node) {
   // Find position of '/' in the output_name
   int pos = output_name.find("/");
