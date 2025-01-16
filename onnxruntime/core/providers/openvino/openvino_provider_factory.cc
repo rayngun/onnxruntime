@@ -279,7 +279,7 @@ struct OpenVINO_Provider : Provider {
     std::string so_context_file_path = config_options.GetConfigOrDefault(kOrtSessionOptionEpContextFilePath, "").data();
 
     if (pi.so_context_enable && !so_context_file_path.empty()) {
-      pi.cache_dir = std::move(so_context_file_path);
+      pi.cache_dir = so_context_file_path;
     }
 
     // Append values to config to support weight-as-inputs conversion for shared contexts

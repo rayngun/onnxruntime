@@ -102,7 +102,6 @@ struct SessionContext : ProviderInfo {
 
   OVCore ie_core;
   std::vector<bool> deviceAvailableList = {true, true, true, true, true, true, true, true};
-  std::string onnx_model_name;
   std::filesystem::path onnx_model_path_name;
   int onnx_opset_version;
   bool use_api_2;
