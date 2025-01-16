@@ -174,10 +174,13 @@ common::Status OpenVINOExecutionProvider::Compile(
   auto& logger = *GetLogger();
   Status status = Status::OK();
 
-  // Assume these properties are constant for all the model subgraphs, otherwise move to SubGraphContext
-  session_context_.onnx_model_path_name = fused_nodes[0].filtered_graph.get().ModelPath().string();
-  session_context_.onnx_opset_version =
-      fused_nodes[0].filtered_graph.get().DomainToVersionMap().at(kOnnxDomain);
+  if (!fused_nodes.empty()) {
+    // Assume these properties are constant for all the model subgraphs, otherwise move to SubGraphContext
+    const auto& graph_body_viewer_0 = fused_nodes[0].filtered_graph.get();
+    session_context_.onnx_model_path_name = graph_body_viewer_0.ModelPath().string();
+    session_context_.onnx_opset_version =
+        graph_body_viewer_0.DomainToVersionMap().at(kOnnxDomain);
+  }
 
   struct OpenVINOEPFunctionState {
     AllocateFunc allocate_func = nullptr;
@@ -242,10 +245,16 @@ common::Status OpenVINOExecutionProvider::Compile(
   }
 
   if (session_context_.so_share_ep_contexts && session_context_.so_context_enable && !session_context_.cache_dir.empty()) {
+    std::filesystem::path metadata_name = session_context_.cache_dir.parent_path();
+
+    // If cache_dir hasn't been set use the model path to dump files
+    if (metadata_name.empty()) {
+      metadata_name = session_context_.onnx_model_path_name.parent_path();
+    }
+
     // Metadata is generated only for shared contexts
     // If metadata is generated then only save it if also saving epcontext (so_context_enable)
     // If saving metadata then save it to the provided path
-    std::filesystem::path metadata_name = session_context_.cache_dir.parent_path();
     metadata_name /= session_context_.cache_dir.stem().string() + "_metadata";
     metadata_name.replace_extension("bin");
     dumpMetaDataMapToBinary(shared_context_.shared_weights.metadata, metadata_name.string());
