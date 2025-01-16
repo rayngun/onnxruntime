@@ -92,8 +92,9 @@ BackendManager::BackendManager(SessionContext& session_context,
 
   auto& sw = shared_context_.shared_weights;
   if (session_context_.so_share_ep_contexts) {
-    std::filesystem::path weight_filename = session_context_.cache_dir.parent_path();
-    if (sw.external_weight_filename.empty()) {
+    std::filesystem::path weight_filename = session_context_.onnx_model_path_name.parent_path();
+    if (sw.external_weight_filename.empty() && !sw.metadata.empty()) {
+      // Reasonable assumption that all metadata entries have the same external file location
       sw.external_weight_filename = sw.metadata.begin()->second.location;
     }
     weight_filename /= sw.external_weight_filename;
