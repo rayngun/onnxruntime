@@ -45,14 +45,14 @@ void FillOutputHelper(Ort::UnownedValue& out_tensor, std::shared_ptr<ov::Node> n
 Ort::UnownedValue
 GetOutputTensor(Ort::KernelContext& context,
                 std::string output_name,
-                std::unordered_map<std::string, int> output_names,
+                const SubGraphContext::string_index_map_t& output_names,
                 std::shared_ptr<ov::Node> node);
 
 Ort::UnownedValue
 GetOutputTensor(Ort::KernelContext& context, size_t batch_size,
                 OVInferRequestPtr infer_request,
                 std::string output_name,
-                std::unordered_map<std::string, int> output_names);
+                const SubGraphContext::string_index_map_t& output_names);
 
 void FillInputBlob(OVTensorPtr inputBlob, size_t batch_slice_idx,
                    std::string input_name, Ort::KernelContext& context,
