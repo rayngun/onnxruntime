@@ -24,7 +24,7 @@ class BackendFactory {
   MakeBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_proto,
               SessionContext& session_context,
               const SubGraphContext& subgraph_context,
-              SharedContext &shared_context,
+              SharedContext& shared_context,
               ptr_stream_t& model_stream);
 };
 

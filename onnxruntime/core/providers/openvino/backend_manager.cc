@@ -71,30 +71,16 @@ BackendManager::BackendManager(SessionContext& session_context,
 
   // Save the indexes of graph inputs among fused_node's inputDefs
   // (which also contains initializers).
-  auto node_input_defs = fused_node.InputDefs();
-  int i = 0;
-  for (auto idef : node_input_defs) {
-    subgraph_context_.input_names.insert({idef->Name(), i});
-    i++;
+  for (uint32_t index = 0; const auto& node : subgraph.GetInputs()) {
+    subgraph_context_.input_names.insert({node->Name(), index++});
   }
 
-  const std::vector<const NodeArg*>& graph_inputs = subgraph.GetInputs();
-  for (auto input : graph_inputs) {
-    auto it = subgraph_context_.input_names.find(input->Name());
-    if (it == subgraph_context_.input_names.end()) {
-      ORT_THROW("Input not found in the input defs list");
-    }
-    int index = it->second;
-    subgraph_context_.input_indexes.push_back(index);
+  for (uint32_t index = 0; const auto& node : subgraph.GetOutputs()) {
+    subgraph_context_.output_names.insert({node->Name(), index++});
   }
 
-  auto graph_outputs_defs = fused_node.OutputDefs();
-  i = 0;
-  for (auto output_def : graph_outputs_defs) {
-    subgraph_context_.output_names.insert({output_def->Name(), i});
-    i++;
-  }
   subgraph_context_.subgraph_name = fused_node.Name();
+
   ptr_stream_t model_stream;
   std::unique_ptr<onnx::ModelProto> model_proto;
   if (subgraph_context_.is_ep_ctx_graph) {
@@ -107,8 +93,7 @@ BackendManager::BackendManager(SessionContext& session_context,
   auto& sw = shared_context_.shared_weights;
   if (session_context_.so_share_ep_contexts) {
     std::filesystem::path weight_filename = session_context_.cache_dir.parent_path();
-    if (sw.external_weight_filename.empty())
-    {
+    if (sw.external_weight_filename.empty()) {
       sw.external_weight_filename = sw.metadata.begin()->second.location;
     }
     weight_filename /= sw.external_weight_filename;
@@ -276,8 +261,8 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
 bool BackendManager::ModelHasBatchedInputs(const ONNX_NAMESPACE::ModelProto& model_proto) const {
   bool has_batched_inputs = true;
 
-  for (int i = 0; i < static_cast<int>(subgraph_context_.input_indexes.size()); i++) {
-    auto& input = model_proto.graph().input(subgraph_context_.input_indexes[i]);
+  for (const auto& [name, index] : subgraph_context_.input_names) {
+    auto& input = model_proto.graph().input(index);
 
     // Batch-process only raw image inputs (NCHW or NHWC layouts)
     auto& shape = input.type().tensor_type().shape();
@@ -291,8 +276,8 @@ bool BackendManager::ModelHasBatchedInputs(const ONNX_NAMESPACE::ModelProto& mod
       break;
     }
 
-    for (int index = 1; index < 4; index++) {
-      if (shape.dim(index).value_case() != shape.dim(0).kDimValue) {
+    for (int dim_index = 1; dim_index < 4; dim_index++) {
+      if (shape.dim(dim_index).value_case() != shape.dim(0).kDimValue) {
         has_batched_inputs = false;
         break;
       }

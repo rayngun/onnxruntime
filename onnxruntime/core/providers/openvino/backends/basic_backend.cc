@@ -131,7 +131,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
   if (session_context_.so_share_ep_contexts) {
     initializer = [&metadata](OVInferRequestPtr ir_ptr) {
       const auto input_count = ir_ptr->GetNumInputs();
-      for (auto i = 0; i < input_count; i++) {
+      for (auto i = 0u; i < input_count; i++) {
         using Key = SharedContext::SharedWeights::Metadata::Key;
         const auto tensor_key = Key{ir_ptr->GetInputTensorName(i)};
         if (metadata.contains(tensor_key)) {
@@ -357,28 +357,23 @@ void BasicBackend::SetNumThreads(ov::AnyMap& device_config) {
 // an Infer Request indexed by infer_req_idx
 void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferRequestPtr infer_request) {
   try {
-    auto graph_input_info = exe_network_.Get().inputs();
-    int input_idx = 0;
-    for (auto input_info_iter = graph_input_info.begin();
-         input_info_iter != graph_input_info.end(); ++input_info_iter) {
-      auto input_names = input_info_iter->get_names();
-      std::string onnx_input_name;
-      std::string input_name;
-      // use names retrieved from original ONNX model to assign the right onnx input name for the graph
-      for (auto it = subgraph_context_.input_names.begin(); it != subgraph_context_.input_names.end(); ++it) {
-        if (it->second == input_idx) {
-          onnx_input_name = it->first;
+    auto ov_input_info = exe_network_.Get().inputs();
+
+    // Loop over subgraph original input names to find the correspondent OV input name
+    for (const auto& [onnx_input_name, onnx_input_index] : subgraph_context_.input_names) {
+      std::string input_name{};
+      uint32_t input_idx = 0;
+      for (uint32_t index = 0; const auto& ov_input : ov_input_info) {
+        if (ov_input.get_names().contains(onnx_input_name)) {
+          input_name = onnx_input_name;
+          input_idx = index;
           break;
         }
+        index++;
       }
-      // using the input name retrieved from ONNX original to match with the input names returned by OV tensors
-      if (input_names.find(onnx_input_name) != input_names.end()) {
-        input_name = std::move(onnx_input_name);
-      } else {
-        ORT_THROW(log_tag +
-                  "Input names mismatch between OpenVINO and ONNX. " + onnx_input_name +
+      ORT_ENFORCE(!input_name.empty(), log_tag,
+                  "Input names mismatch between OpenVINO and ONNX. ", onnx_input_name,
                   " doesn't exist in the list of OpenVINO input tensor names");
-      }
       size_t batch_slice_idx = 0;
       if (subgraph_context_.has_dynamic_input_shape &&
           !session_context_.disable_dynamic_shapes &&
@@ -395,7 +390,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           input_tensor_shape[tensor_iter] = *i;
           tensor_iter += 1;
         }
-        const auto& input = graph_input_info.at(input_idx);
+        const auto& input = ov_input_info.at(input_idx);
         OVTensorPtr tensor_ptr;
         // avoid input copies on the CPU device
         if (session_context_.device_type.find("CPU") != std::string::npos) {
@@ -428,7 +423,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           if ((it == ort_ov_tensor_map.end()) ||
               (it != ort_ov_tensor_map.end() && (it->second.ort_ptr != tensor.GetTensorRawData()))) {
             ov_tensor_data_t ov_tensor_data;
-            const auto& input = graph_input_info.at(input_idx);
+            const auto& input = ov_input_info.at(input_idx);
             ov_tensor_data.tensor_ptr = std::make_shared<ov::Tensor>(input.get_element_type(), input.get_shape(),
                                                                      const_cast<void*>(tensor.GetTensorRawData()));
 
@@ -443,8 +438,8 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
           }
         }
       }
-      input_idx++;
-    }
+    }  // Loop subgraph original input names
+
     if (session_context_.device_type.find("NPU") != std::string::npos) {
       // Set the output blob as remote blob
       auto graph_output_info = exe_network_.Get().outputs();

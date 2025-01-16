@@ -199,7 +199,7 @@ OVTensorPtr OVInferRequest::GetTensor(const std::string& input_name) {
 
 std::string OVInferRequest::GetInputTensorName(uint32_t index) {
   try {
-    const auto &model = ovInfReq.get_compiled_model();
+    const auto& model = ovInfReq.get_compiled_model();
     return *model.input(index).get_names().begin();
   } catch (const Exception& e) {
     ORT_THROW(log_tag + " Cannot access IE Blob for input number: ", index, e.what());
@@ -208,7 +208,7 @@ std::string OVInferRequest::GetInputTensorName(uint32_t index) {
   }
 }
 
-void OVInferRequest::SetTensor(const std::string &name, OVTensorPtr& blob) {
+void OVInferRequest::SetTensor(const std::string& name, OVTensorPtr& blob) {
   try {
     ovInfReq.set_tensor(name, *(blob.get()));
   } catch (const Exception& e) {
