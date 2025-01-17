@@ -24,7 +24,7 @@ struct SharedContext {
         std::string name;
         bool operator==(const Key&) const = default;
       };
-      struct KeyHash {
+      struct Hash {
         std::size_t operator()(const Key& key) const noexcept {
           return std::hash<std::string>()(key.name);
         }
@@ -37,7 +37,7 @@ struct SharedContext {
         std::int32_t element_type;
         std::shared_ptr<ov::Tensor> tensor;
       };
-      using Map = std::unordered_map<Key, Value, KeyHash>;
+      using Map = std::unordered_map<Key, Value, Hash>;
     };
 
     struct MappedWeights {

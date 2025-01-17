@@ -67,7 +67,9 @@ CreateOVModel(const std::string model,
               const SubGraphContext& subgraph_context,
               std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map);
 
-void CreateOVTensors(SharedContext::SharedWeights::Metadata::Map& metadata_map,
+void CreateOVTensors(const std::string& device_name,
+                     OVCore& ov_core,
+                     SharedContext::SharedWeights::Metadata::Map& metadata_map,
                      std::string_view weights);
 
 void printPerformanceCounts(const std::vector<OVProfilingInfo>& performanceMap,
