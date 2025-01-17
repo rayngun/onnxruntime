@@ -68,7 +68,6 @@ CreateOVModel(const std::string model,
               std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map);
 
 void CreateOVTensors(const std::string& device_name,
-                     OVCore& ov_core,
                      SharedContext::SharedWeights::Metadata::Map& metadata_map,
                      std::string_view weights);
 
