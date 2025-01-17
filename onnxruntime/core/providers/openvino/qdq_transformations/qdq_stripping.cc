@@ -667,56 +667,6 @@ static void AddInitializerAsInput(onnxruntime::Graph& dst_graph,
   }
 }
 
-template <typename T>
-bool writeScalar(std::ofstream& outfile, const T& scalar) {
-  auto size = sizeof(T);
-  outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
-  if (!outfile.good()) return false;
-
-  outfile.write(reinterpret_cast<const char*>(&scalar), size);
-  return outfile.good();
-}
-
-template <>
-bool writeScalar(std::ofstream& outfile, const std::string& text) {
-  auto size = text.size() * sizeof(std::string::value_type);
-  outfile.write(reinterpret_cast<const char*>(&size), size);
-  if (!outfile.good()) return false;
-
-  outfile.write(text.data(), size);
-  return outfile.good();
-}
-
-// Main function to dump the map to a binary file
-bool dumpMetaDataMapToBinary(const sw::Metadata::Map& metadata, const std::string& filename) {
-  std::ofstream outfile(filename, std::ios::binary);
-  if (!outfile.is_open()) {
-    ORT_THROW("Error: Could not open file for writing metadata.");
-    return false;
-  }
-
-  // Write the size of the map
-  size_t map_size = metadata.size();
-  outfile.write(reinterpret_cast<const char*>(&map_size), sizeof(map_size));
-  if (!outfile.good()) {
-    ORT_THROW("Error: Failed to write map size.");
-    return false;
-  }
-
-  // Write each key-value pair
-  for (const auto& [key, value] : metadata) {
-    bool result = true;
-    result &= writeScalar(outfile, key.name);
-    result &= writeScalar(outfile, value.location);
-    result &= writeScalar(outfile, value.data_offset);
-    result &= writeScalar(outfile, value.size);
-
-    ORT_ENFORCE(result, "Error: Failed to write map data.");
-  }
-
-  return true;
-}
-
 // Creates a new model without the DQ/Q operators in the src graph.
 Status CreateModelWithStrippedQDQNodes(const GraphViewer& src_graph,
                                        const logging::Logger& logger,
