@@ -53,6 +53,72 @@ SharedContext::SharedWeights::MappedWeights::~MappedWeights() {
   }
 }
 
+std::ostream& operator<<(std::ostream& stream, const SharedContext::SharedWeights::Metadata::Map& metadata) {
+  try {
+    stream << metadata.size();
+
+    // Write each key-value pair
+    // Put elements in separate lines to facilitate reading
+    for (const auto& [key, value] : metadata) {
+      stream << std::endl
+             << key.name;
+      stream << std::endl
+             << value.location;
+      stream << std::endl
+             << value.data_offset;
+      stream << std::endl
+             << value.size;
+      stream << std::endl
+             << value.dimensions.size();
+      for (const auto& dim : value.dimensions) {
+        stream << std::endl
+               << dim;
+      }
+      stream << std::endl
+             << value.element_type;
+    }
+  } catch (const Exception& e) {
+    ORT_THROW("Error: Failed to write map data.", e.what());
+  } catch (...) {
+    ORT_THROW("Error: Failed to write map data.");
+  }
+
+  ORT_ENFORCE(stream.good(), "Error: Failed to write map data.");
+  return stream;
+}
+
+std::istream& operator>>(std::istream& stream, SharedContext::SharedWeights::Metadata::Map& metadata) {
+  size_t map_size{0};
+  try {
+    stream >> map_size;
+
+    while (!stream.eof()) {
+      SharedContext::SharedWeights::Metadata::Key key;
+      SharedContext::SharedWeights::Metadata::Value value;
+      stream >> key.name;
+      stream >> value.location;
+      stream >> value.data_offset;
+      stream >> value.size;
+      size_t num_dimensions;
+      stream >> num_dimensions;
+      value.dimensions.resize(num_dimensions);
+      for (auto& dim : value.dimensions) {
+        stream >> dim;
+      }
+      stream >> value.element_type;
+      metadata.emplace(key, value);
+    }
+  } catch (const Exception& e) {
+    ORT_THROW("Error: Failed to read map data.", e.what());
+  } catch (...) {
+    ORT_THROW("Error: Failed to read map data.");
+  }
+
+  ORT_ENFORCE(metadata.size() == map_size, "Error: Inconsistent map data.");
+
+  return stream;
+}
+
 namespace backend_utils {
 
 bool IsDebugEnabled() {
