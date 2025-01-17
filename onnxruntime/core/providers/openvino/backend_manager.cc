@@ -232,12 +232,9 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
     }
   } else {
     // External blob
-    std::filesystem::path blob_filename;
-    // Epctx file path from SO is mapped to cache_dir variable for OVEP for readability
-    if (!session_context_.cache_dir.empty()) {
-      blob_filename = session_context_.cache_dir;
-    } else {
-      blob_filename = graph_body_viewer.ModelPath();
+    std::filesystem::path blob_filename = session_context_.so_context_file_path;
+    if (blob_filename.empty()) {
+      blob_filename = session_context_.onnx_model_path_name;
     }
     const auto name{std::format("{}_{}", graph_body_viewer.ModelPath().stem().string(), subgraph_context_.subgraph_name)};
     blob_filename = blob_filename.parent_path() / name;
