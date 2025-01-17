@@ -13,7 +13,8 @@ using Exception = ov::Exception;
 namespace onnxruntime {
 namespace openvino_ep {
 
-const std::string log_tag = "[OpenVINO-EP] ";
+static const std::string log_tag = "[OpenVINO-EP] ";
+static ov::Core g_core;
 
 #ifndef NDEBUG
 void printDebugInfo(const ov::CompiledModel& obj) {
@@ -46,7 +47,7 @@ void printDebugInfo(const ov::CompiledModel& obj) {
 }
 #endif
 
-std::shared_ptr<OVNetwork> OVCore::ReadModel(const std::string& model, const std::string& model_path) const {
+std::shared_ptr<OVNetwork> OVCore::ReadModel(const std::string& model, const std::string& model_path) {
   try {
     std::istringstream modelStringStream(model);
     std::istream& modelStream = modelStringStream;
@@ -77,7 +78,7 @@ OVExeNetwork OVCore::CompileModel(std::shared_ptr<const OVNetwork>& ie_cnn_netwo
                                   const std::string& name) {
   ov::CompiledModel obj;
   try {
-    obj = oe.compile_model(ie_cnn_network, hw_target, device_config);
+    obj = g_core.compile_model(ie_cnn_network, hw_target, device_config);
 #ifndef NDEBUG
     printDebugInfo(obj);
 #endif
@@ -96,7 +97,7 @@ OVExeNetwork OVCore::CompileModel(const std::string& onnx_model,
                                   const std::string& name) {
   ov::CompiledModel obj;
   try {
-    obj = oe.compile_model(onnx_model, ov::Tensor(), hw_target, device_config);
+    obj = g_core.compile_model(onnx_model, ov::Tensor(), hw_target, device_config);
 #ifndef NDEBUG
     printDebugInfo(obj);
 #endif
@@ -115,7 +116,7 @@ OVExeNetwork OVCore::ImportModel(std::istream& model_stream,
                                  std::string name) {
   try {
     ov::CompiledModel obj;
-    obj = oe.import_model(model_stream, hw_target, device_config);
+    obj = g_core.import_model(model_stream, hw_target, device_config);
 #ifndef NDEBUG
     printDebugInfo(obj);
 #endif
@@ -129,7 +130,11 @@ OVExeNetwork OVCore::ImportModel(std::istream& model_stream,
 }
 
 void OVCore::SetCache(const std::string& cache_dir_path) {
-  oe.set_property(ov::cache_dir(cache_dir_path));
+  g_core.set_property(ov::cache_dir(cache_dir_path));
+}
+
+ov::Core& OVCore::Get() {
+  return g_core;
 }
 
 #ifdef IO_BUFFER_ENABLED
@@ -165,12 +170,12 @@ OVExeNetwork OVCore::ImportModel(std::shared_ptr<std::istringstream> model_strea
 #endif
 
 std::vector<std::string> OVCore::GetAvailableDevices() {
-  auto available_devices = oe.get_available_devices();
+  auto available_devices = g_core.get_available_devices();
   return available_devices;
 }
 
 void OVCore::SetStreams(const std::string& device_type, int num_streams) {
-  oe.set_property(device_type, {ov::num_streams(num_streams)});
+  g_core.set_property(device_type, {ov::num_streams(num_streams)});
 }
 
 OVInferRequest OVExeNetwork::CreateInferRequest() {

@@ -18,13 +18,6 @@
 namespace onnxruntime {
 namespace openvino_ep {
 
-struct OVDevices {
-  ov::Core core;
-  std::vector<std::string> get_ov_devices() const {
-    return core.get_available_devices();
-  }
-};
-
 static void print_build_options() {
   std::cout << "[ERROR] INVALID DEVICE BUILD TYPE SPECIFIED" << std::endl;
   std::cout << "Specify the keyword HETERO (or) MULTI (or) AUTO followed by the devices in the order of priority "

@@ -62,9 +62,9 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
     // Pre-requisite is provider_option "context" must be set
 #if defined(IO_BUFFER_ENABLED)
     cl_context ctx = static_cast<cl_context>(session_context_.context);
-    remote_context_ = new ov::intel_gpu::ocl::ClContext(session_context_.ie_core.Get(), ctx);
+    remote_context_ = new ov::intel_gpu::ocl::ClContext(OVCore::Get(), ctx);
     if (subgraph_context_.is_ep_ctx_graph) {
-      exe_network_ = session_context_.ie_core.ImportModel(*model_stream,
+      exe_network_ = OVCore::ImportModel(*model_stream,
                                                           remote_context_,
                                                           subgraph_context_.subgraph_name);
       model_stream.reset();  // Delete stream after it is no longer needed
@@ -78,7 +78,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
         ov_model = CreateOVModel(model, session_context_, subgraph_context_, const_outputs_map_);
       }
       LOGS_DEFAULT(INFO) << log_tag << "IO Buffering Enabled";
-      exe_network_ = session_context_.ie_core.CompileModel(
+      exe_network_ = OVCore::CompileModel(
           ov_model, remote_context_, subgraph_context_.subgraph_name);
     }
 #else  // !IO_BUFFER_ENABLED
@@ -88,7 +88,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
     if (subgraph_context_.is_ep_ctx_graph) {
       // If the blob is held in an EPContext node, then skip FE+Compile
       // and directly move on to creating a backend with the executable blob
-      exe_network_ = session_context_.ie_core.ImportModel(*model_stream,
+      exe_network_ = OVCore::ImportModel(*model_stream,
                                                           hw_target,
                                                           device_config,
                                                           subgraph_context_.subgraph_name);
@@ -102,12 +102,12 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
       // Inputs with static dimenstions
       // Not enabled for models with external weights and when ep context is set.
       const std::string model = model_proto->SerializeAsString();
-      exe_network_ = session_context_.ie_core.CompileModel(model,
+      exe_network_ = OVCore::CompileModel(model,
                                                            hw_target,
                                                            device_config,
                                                            subgraph_context_.subgraph_name);
-    } else {  // For all other types use ov::core read_model() to generate OV IR
-              // followed by ov::core compile_model()
+    } else {  // For all other types use ov::ov_core read_model() to generate OV IR
+              // followed by ov::ov_core compile_model()
       std::shared_ptr<const OVNetwork> ov_model;
       {
         const std::string model = model_proto->SerializeAsString();
@@ -116,7 +116,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
         }
         ov_model = CreateOVModel(model, session_context_, subgraph_context_, const_outputs_map_);
       }
-      exe_network_ = session_context_.ie_core.CompileModel(
+      exe_network_ = OVCore::CompileModel(
           ov_model, hw_target, device_config, subgraph_context_.subgraph_name);
     }
 #endif
@@ -196,7 +196,7 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
     device_config.emplace(ov::device::properties("NPU", device_property));
 #if (((OPENVINO_VERSION_MAJOR == 2024) && (OPENVINO_VERSION_MINOR > 3)) || (OPENVINO_VERSION_MAJOR > 2024))
     if (session_context_.so_context_enable) {
-      session_context_.ie_core.Get().set_property("NPU", ov::intel_npu::bypass_umd_caching(true));
+      OVCore::Get().set_property("NPU", ov::intel_npu::bypass_umd_caching(true));
     }
 #endif
   }
@@ -264,7 +264,7 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
           continue;
         }
         if (is_supported_and_mutable(key, supported_properties)) {
-          session_context_.ie_core.Get().set_property(device, ov::AnyMap{{key, value}});
+          OVCore::Get().set_property(device, ov::AnyMap{{key, value}});
         } else {
           LOGS_DEFAULT(WARNING) << "WARNING: Property \"" << key
                                 << "\" is either unsupported in current OpenVINO version"
@@ -284,14 +284,14 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
       for (const std::string& device : individual_devices) {
         if (target_config.count(device)) {
           // Get supported properties for each individual device
-          auto device_properties = session_context_.ie_core.Get().get_property(device, ov::supported_properties);
+          auto device_properties = OVCore::Get().get_property(device, ov::supported_properties);
           // Set properties for the device
           set_target_properties(device, target_config.at(device), device_properties);
         }
       }
     } else {
       if (target_config.count(session_context_.device_type)) {
-        auto supported_properties = session_context_.ie_core.Get().get_property(session_context_.device_type,
+        auto supported_properties = OVCore::Get().get_property(session_context_.device_type,
                                                                                 ov::supported_properties);
         set_target_properties(session_context_.device_type,
                               target_config.at(session_context_.device_type), supported_properties);
@@ -311,7 +311,7 @@ void BasicBackend::EnableCaching(ov::AnyMap& device_config) {
       device_property = std::make_pair("CACHE_DIR", session_context_.cache_dir);
       device_config.emplace(ov::device::properties("GPU", device_property));
     } else {
-      session_context_.ie_core.SetCache(session_context_.cache_dir.string());
+      OVCore::SetCache(session_context_.cache_dir.string());
     }
   }
 }
@@ -343,7 +343,7 @@ void BasicBackend::EnableStreams() {
     }
     // Do nothing
   } else {
-    session_context_.ie_core.SetStreams(session_context_.device_type, session_context_.num_streams);
+    OVCore::SetStreams(session_context_.device_type, session_context_.num_streams);
   }
 }
 
