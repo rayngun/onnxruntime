@@ -274,11 +274,7 @@ struct OpenVINO_Provider : Provider {
     pi.so_context_enable = config_options.GetConfigOrDefault(kOrtSessionOptionEpContextEnable, "0") == "1";
     pi.so_context_embed_mode = config_options.GetConfigOrDefault(kOrtSessionOptionEpContextEmbedMode, "0") == "1";
     pi.so_share_ep_contexts = config_options.GetConfigOrDefault(kOrtSessionOptionShareEpContexts, "0") == "1";
-    std::string so_context_file_path = config_options.GetConfigOrDefault(kOrtSessionOptionEpContextFilePath, "").data();
-
-    if (pi.so_context_enable && !so_context_file_path.empty()) {
-      pi.cache_dir = so_context_file_path;
-    }
+    pi.so_context_file_path = config_options.GetConfigOrDefault(kOrtSessionOptionEpContextFilePath, "");
 
     // Append values to config to support weight-as-inputs conversion for shared contexts
     if (pi.so_share_ep_contexts) {
