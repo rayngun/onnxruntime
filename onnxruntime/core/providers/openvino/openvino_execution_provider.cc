@@ -243,19 +243,17 @@ common::Status OpenVINOExecutionProvider::Compile(
     }
   }
 
-  if (session_context_.so_share_ep_contexts && session_context_.so_context_enable && !session_context_.cache_dir.empty()) {
-    std::filesystem::path metadata_name = session_context_.cache_dir.parent_path();
-
-    // If cache_dir hasn't been set use the model path to dump files
+  if (session_context_.so_share_ep_contexts) {
+    auto metadata_name = session_context_.so_context_file_path.parent_path();
     if (metadata_name.empty()) {
-      metadata_name = session_context_.onnx_model_path_name.parent_path();
+      metadata_name = session_context_.onnx_model_path_name.parent_path() / "metadata.bin";
+    } else {
+      metadata_name /= metadata_name.stem().string() + "_metadata";
+      metadata_name.replace_extension("bin");
     }
 
     // Metadata is generated only for shared contexts
-    // If metadata is generated then only save it if also saving epcontext (so_context_enable)
-    // If saving metadata then save it to the provided path
-    metadata_name /= session_context_.cache_dir.stem().string() + "_metadata";
-    metadata_name.replace_extension("bin");
+    // If saving metadata then save it to the provided path or ose the original model path
     dumpMetaDataMapToBinary(shared_context_.shared_weights.metadata, metadata_name.string());
   }
 
