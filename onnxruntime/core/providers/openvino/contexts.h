@@ -100,7 +100,6 @@ struct ProviderInfo {
 struct SessionContext : ProviderInfo {
   SessionContext(const ProviderInfo& info) : ProviderInfo{info} {}
 
-  OVCore ie_core;
   std::vector<bool> deviceAvailableList = {true, true, true, true, true, true, true, true};
   std::filesystem::path onnx_model_path_name;
   int onnx_opset_version;

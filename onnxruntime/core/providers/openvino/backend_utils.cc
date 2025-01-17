@@ -80,7 +80,7 @@ CreateOVModel(const std::string model,
     std::cout << "CreateNgraphFunc" << std::endl;
   }
   try {
-    auto ov_model = session_context.ie_core.ReadModel(model, session_context.onnx_model_path_name.string());
+    auto ov_model = OVCore::ReadModel(model, session_context.onnx_model_path_name.string());
 
     // Check for Constant Folding
     if ((session_context.device_type != "NPU") && !subgraph_context.is_wholly_supported_graph) {
@@ -335,7 +335,6 @@ ov::element::Type GetOpenVINOElementType(ONNX_NAMESPACE::TensorProto_DataType dt
 
 // Function to handle tensor creation from external data
 void CreateOVTensors(const std::string& device_name,
-                     OVCore& ov_core,
                      SharedContext::SharedWeights::Metadata::Map& metadata_map,
                      std::string_view weights) {
   for (auto& [key, value] : metadata_map) {
@@ -352,7 +351,7 @@ void CreateOVTensors(const std::string& device_name,
     // Create OpenVINO Tensor
     if (device_name == "NPU") {
       // Use remote tensors
-      auto npu_context = ov_core.Get().get_default_context("NPU").as<ov::intel_npu::level_zero::ZeroContext>();
+      auto npu_context = OVCore::Get().get_default_context("NPU").as<ov::intel_npu::level_zero::ZeroContext>();
       auto&& remote_tensor = npu_context.create_host_tensor(ov_elementType, value.dimensions);
 
       // Copy data to remote tensor

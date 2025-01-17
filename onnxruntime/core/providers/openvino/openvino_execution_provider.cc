@@ -56,8 +56,7 @@ void AdjustProviderInfo(ProviderInfo& info) {
   std::set<std::string> ov_supported_device_types = {"CPU", "GPU",
                                                      "GPU.0", "GPU.1", "NPU"};
 
-  OVDevices devices;
-  std::vector<std::string> available_devices = devices.get_ov_devices();
+  std::vector<std::string> available_devices = OVCore::GetAvailableDevices();
 
   for (auto& device : available_devices) {
     if (ov_supported_device_types.find(device) == ov_supported_device_types.end()) {
@@ -112,10 +111,10 @@ OpenVINOExecutionProvider::OpenVINOExecutionProvider(const ProviderInfo& info, S
   InitProviderOrtApi();
 
   // to check if target device is available
-  // using ie_core capability GetAvailableDevices to fetch list of devices plugged in
+  // using OVCore capability GetAvailableDevices to fetch list of devices plugged in
   if (info.cache_dir.empty()) {
     bool device_found = false;
-    std::vector<std::string> available_devices = session_context_.ie_core.GetAvailableDevices();
+    std::vector<std::string> available_devices = OVCore::GetAvailableDevices();
     // Checking for device_type configuration
     if (info.device_type != "") {
       if (info.device_type.find("HETERO") != std::string::npos ||
@@ -269,7 +268,7 @@ std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators()
     AllocatorCreationInfo npu_allocator_info{
         [this](OrtDevice::DeviceId device_id) {
           return std::make_unique<OVRTAllocator>(
-              session_context_.ie_core.Get(),
+              OVCore::Get(),
               OrtDevice::NPU,
               device_id,
               OpenVINO_RT_NPU);
