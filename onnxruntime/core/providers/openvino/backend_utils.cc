@@ -8,6 +8,7 @@
 
 #include "openvino/pass/convert_fp32_to_fp16.hpp"
 #include "openvino/pass/constant_folding.hpp"
+#include "openvino/runtime/intel_npu/level_zero/level_zero.hpp"
 #include "core/providers/shared_library/provider_api.h"
 #include "core/providers/openvino/backend_utils.h"
 #include "core/providers/openvino/ov_interface.h"
@@ -333,7 +334,10 @@ ov::element::Type GetOpenVINOElementType(ONNX_NAMESPACE::TensorProto_DataType dt
 }
 
 // Function to handle tensor creation from external data
-void CreateOVTensors(SharedContext::SharedWeights::Metadata::Map& metadata_map, std::string_view weights) {
+void CreateOVTensors(const std::string& device_name,
+                     OVCore& ov_core,
+                     SharedContext::SharedWeights::Metadata::Map& metadata_map,
+                     std::string_view weights) {
   for (auto& [key, value] : metadata_map) {
     if (value.tensor) continue;
 
@@ -342,10 +346,22 @@ void CreateOVTensors(SharedContext::SharedWeights::Metadata::Map& metadata_map, 
 
     // Get element data type
     auto onnx_element_type = (ONNX_NAMESPACE::TensorProto_DataType)value.element_type;
+
     ov::element::Type ov_elementType = GetOpenVINOElementType(onnx_element_type);  // Map to OpenVINO data type
 
     // Create OpenVINO Tensor
-    value.tensor = std::make_shared<ov::Tensor>(ov_elementType, value.dimensions, (void*)tensor_data);
+    if (device_name == "NPU") {
+      // Use remote tensors
+      auto npu_context = ov_core.Get().get_default_context("NPU").as<ov::intel_npu::level_zero::ZeroContext>();
+      auto&& remote_tensor = npu_context.create_host_tensor(ov_elementType, value.dimensions);
+
+      // Copy data to remote tensor
+      std::memcpy(remote_tensor.data(), (void*)tensor_data, value.size);
+      value.tensor = std::make_shared<ov::Tensor>(remote_tensor);
+    } else {
+      // Use vanilla tensors
+      value.tensor = std::make_shared<ov::Tensor>(ov_elementType, value.dimensions, (void*)tensor_data);
+    }
     ORT_ENFORCE(value.tensor->get_byte_size() == value.size, "Unexpected tensor size mismatch");
   }
 }
