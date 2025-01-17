@@ -181,6 +181,17 @@ common::Status OpenVINOExecutionProvider::Compile(
         graph_body_viewer_0.DomainToVersionMap().at(kOnnxDomain);
   }
 
+  // Temporary code to read metadata before it moves to the .bin
+  auto& metadata = shared_context_.shared_weights.metadata;
+  if (session_context_.so_share_ep_contexts && metadata.empty()) {
+    // Metadata is always read from model location, this could be a source or epctx model
+    fs::path metadata_filename = session_context_.onnx_model_path_name.parent_path() / "metadata.bin";
+    std::ifstream file(metadata_filename, std::ios::binary);
+    if (file) {
+      file >> metadata;
+    }
+  }
+
   struct OpenVINOEPFunctionState {
     AllocateFunc allocate_func = nullptr;
     DestroyFunc destroy_func = nullptr;
@@ -193,8 +204,6 @@ common::Status OpenVINOExecutionProvider::Compile(
     const Node& fused_node = fused_node_graph.fused_node;
 
     NodeComputeInfo compute_info;
-
-    session_context_.use_api_2 = true;
 
     // During backend creation, we check if user wants to use precompiled blob onnx model or the original model
     // For precompiled blob, directly load the model instead of compiling the model
@@ -244,17 +253,21 @@ common::Status OpenVINOExecutionProvider::Compile(
   }
 
   if (session_context_.so_share_ep_contexts) {
-    auto metadata_name = session_context_.so_context_file_path.parent_path();
-    if (metadata_name.empty()) {
-      metadata_name = session_context_.onnx_model_path_name.parent_path() / "metadata.bin";
+    fs::path metadata_filename;
+    if (session_context_.so_context_file_path.empty()) {
+      metadata_filename = session_context_.onnx_model_path_name.parent_path() / "metadata.bin";
     } else {
-      metadata_name /= metadata_name.stem().string() + "_metadata";
-      metadata_name.replace_extension("bin");
+      metadata_filename = session_context_.so_context_file_path.parent_path() / "metadata.bin";
     }
 
     // Metadata is generated only for shared contexts
     // If saving metadata then save it to the provided path or ose the original model path
-    dumpMetaDataMapToBinary(shared_context_.shared_weights.metadata, metadata_name.string());
+    // Multiple calls to Compile() will update the metadata and for the last call
+    //   the resulting file will contain the aggregated content
+    std::ofstream file(metadata_filename, std::ios::binary);
+    if (file) {
+      file << metadata;
+    }
   }
 
   return status;

@@ -38,6 +38,8 @@ struct SharedContext {
         std::shared_ptr<ov::Tensor> tensor;
       };
       using Map = std::unordered_map<Key, Value, Hash>;
+      friend std::ostream& operator<<(std::ostream& right, const Metadata::Map& metadata);
+      friend std::istream& operator>>(std::istream& right, Metadata::Map& metadata);
     };
 
     struct MappedWeights {
@@ -103,9 +105,8 @@ struct SessionContext : ProviderInfo {
 
   std::vector<bool> deviceAvailableList = {true, true, true, true, true, true, true, true};
   std::filesystem::path onnx_model_path_name;
-  int onnx_opset_version;
-  bool use_api_2;
-  const std::vector<int> OpenVINO_Version = {OPENVINO_VERSION_MAJOR, OPENVINO_VERSION_MINOR};
+  uint32_t onnx_opset_version{0};
+  const std::vector<uint32_t> OpenVINO_Version = {OPENVINO_VERSION_MAJOR, OPENVINO_VERSION_MINOR};
   const std::string openvino_sdk_version = std::format("{}.{}", OPENVINO_VERSION_MAJOR, OPENVINO_VERSION_MINOR);
 };
 
