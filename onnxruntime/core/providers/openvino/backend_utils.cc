@@ -418,10 +418,10 @@ void CreateOVTensors(const std::string& device_name,
     if (device_name == "NPU") {
       // Use remote tensors
       auto npu_context = OVCore::Get().get_default_context("NPU").as<ov::intel_npu::level_zero::ZeroContext>();
-      auto&& remote_tensor = npu_context.create_host_tensor(ov_elementType, value.dimensions);
+      auto&& remote_tensor = npu_context.create_l0_host_tensor(ov_elementType, value.dimensions, ov::intel_npu::TensorType::INPUT);
 
       // Copy data to remote tensor
-      std::memcpy(remote_tensor.data(), (void*)tensor_data, value.size);
+      std::memcpy(remote_tensor.get(), (void*)tensor_data, value.size);
       value.tensor = std::make_shared<ov::Tensor>(remote_tensor);
     } else {
       // Use vanilla tensors
