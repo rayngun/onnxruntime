@@ -115,7 +115,9 @@ std::unique_ptr<std::istream> EPCtxHandler::GetModelBlobStream(const GraphViewer
   if (embed_mode) {
     result.reset((std::istream*)new std::istringstream(ep_cache_context));
   } else {
-    result.reset((std::istream*)new std::ifstream(ep_cache_context, std::ios_base::binary | std::ios_base::in));
+    const auto& blob_filepath = graph_viewer.ModelPath().parent_path() / ep_cache_context;
+    ORT_ENFORCE(std::filesystem::exists(blob_filepath), "Blob file not found: ", blob_filepath.string());
+    result.reset((std::istream*)new std::ifstream(blob_filepath, std::ios_base::binary | std::ios_base::in));
   }
   LOGS_DEFAULT(VERBOSE) << "[OpenVINO EP] Read blob from EPContext Node";
   return result;
