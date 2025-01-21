@@ -245,7 +245,7 @@ Status BackendManager::ExportCompiledBlobAsEPCtxNode(const onnxruntime::GraphVie
       ORT_THROW("Unable to open file for epctx model dump.");
     }
     compiled_model.export_model(blob_file);
-    model_blob_str = blob_filename.string();
+    model_blob_str = blob_filename.filename().string();
   }
 
   ORT_RETURN_IF_ERROR(ep_ctx_handle_.AddOVEPCtxNodeToGraph(graph_body_viewer,
