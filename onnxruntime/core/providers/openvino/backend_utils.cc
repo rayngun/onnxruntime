@@ -6,6 +6,14 @@
 #include <fstream>
 #include <utility>
 
+#include <fcntl.h>       // For open
+#include <sys/mman.h>    // For mmap, munmap
+#include <sys/stat.h>    // For fstat
+#include <unistd.h>      // For close
+#include <string>
+#include <filesystem>
+#include <stdexcept>
+
 #include "openvino/pass/convert_fp32_to_fp16.hpp"
 #include "openvino/pass/constant_folding.hpp"
 #include "openvino/runtime/intel_npu/level_zero/level_zero.hpp"
@@ -13,13 +21,16 @@
 #include "core/providers/openvino/backend_utils.h"
 #include "core/providers/openvino/ov_interface.h"
 
+#ifdef _WIN32
 #include "Windows.h"
+#endif
 
 using Exception = ov::Exception;
 
 namespace onnxruntime {
 namespace openvino_ep {
 
+#ifdef _WIN32
 SharedContext::SharedWeights::MappedWeights::MappedWeights(std::filesystem::path filename) {
   file_ = CreateFile(filename.string().data(),
                      GENERIC_READ,
@@ -52,6 +63,50 @@ SharedContext::SharedWeights::MappedWeights::~MappedWeights() {
     file_ = nullptr;
   }
 }
+#else
+SharedContext::SharedWeights::MappedWeights::MappedWeights(std::filesystem::path filename)
+    : file_(nullptr), mapping_(nullptr) {
+    // Open the file
+    int fd = open(filename.c_str(), O_RDONLY);
+    if (fd == -1) {
+        ORT_THROW("Unable to open weight file at " + filename.string());
+    }
+
+    // Get file size
+    struct stat file_stat;
+    if (fstat(fd, &file_stat) == -1) {
+        close(fd);
+        ORT_THROW("Unable to get file size for " + filename.string());
+    }
+    size_t file_size = file_stat.st_size;
+
+    // Map the file into memory
+    void* raw_data = mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (raw_data == MAP_FAILED) {
+        close(fd);
+        ORT_THROW("Unable to map weight file at " + filename.string());
+    }
+
+    // Set class members
+    file_ = reinterpret_cast<void*>(fd);       // Store file descriptor
+    mapping_ = raw_data;                       // Store mapping address
+    weight_data = std::string_view(static_cast<const char*>(raw_data), file_size);
+
+    // Close the file descriptor, as mmap does not need it open
+    close(fd);
+}
+
+SharedContext::SharedWeights::MappedWeights::~MappedWeights() {
+    // Unmap memory if it was mapped
+    if (mapping_ != nullptr) {
+        munmap(mapping_, weight_data.size());
+        mapping_ = nullptr;
+    }
+
+    // Clear the file descriptor, though it was already closed after mmap
+    file_ = nullptr;
+}
+#endif
 
 std::ostream& operator<<(std::ostream& stream, const SharedContext::SharedWeights::Metadata::Map& metadata) {
   try {
