@@ -5,7 +5,7 @@
 #include <string>
 #include <memory>
 #include <vector>
-#include <format>
+// #include <format>
 #include "core/providers/shared_library/provider_api.h"
 #include "core/providers/openvino/openvino_execution_provider.h"
 #include "core/providers/openvino/contexts.h"
@@ -23,6 +23,7 @@ namespace onnxruntime {
 namespace openvino_ep {
 
 // Parking this code here for now before it's moved to the factory
+#if defined OPENVINO_CONFIG_HETERO || defined OPENVINO_CONFIG_MULTI || defined OPENVINO_CONFIG_AUTO
 static std::vector<std::string> parseDevices(const std::string& device_string,
                                              const std::vector<std::string>& available_devices) {
   std::string comma_separated_devices = device_string;
@@ -50,6 +51,7 @@ static std::vector<std::string> parseDevices(const std::string& device_string,
   }
   return devices;
 }
+#endif
 
 // Parking this code here for now before it's moved to the factory
 void AdjustProviderInfo(ProviderInfo& info) {
@@ -93,10 +95,14 @@ void AdjustProviderInfo(ProviderInfo& info) {
 #endif
   } else if (ov_supported_device_types.find(info.device_type) != ov_supported_device_types.end()) {
     info.device_type = std::move(info.device_type);
-  } else if (info.device_type.find("HETERO") == 0 || info.device_type.find("MULTI") == 0 || info.device_type.find("AUTO") == 0) {
+  }
+#if defined OPENVINO_CONFIG_HETERO || defined OPENVINO_CONFIG_MULTI || defined OPENVINO_CONFIG_AUTO  
+   else if (info.device_type.find("HETERO") == 0 || info.device_type.find("MULTI") == 0 || info.device_type.find("AUTO") == 0) {
     std::ignore = parseDevices(info.device_type, available_devices);
     info.device_type = std::move(info.device_type);
-  } else {
+  } 
+#endif
+  else {
     ORT_THROW("Invalid device string: " + info.device_type);
   }
   LOGS_DEFAULT(INFO) << "[OpenVINO-EP]"
