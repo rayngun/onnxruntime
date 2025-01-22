@@ -35,7 +35,7 @@ GetCapability::GetCapability(const GraphViewer& graph_viewer_param,
     device_type_ = "CPU";
     if (enable_qdq_optimizer) npu_qdq_optimizer_enabled = true;
   }
-#if OPENVINO_VERSION_MAJOR == 2024 && OPENVINO_VERSION_MINOR == 4
+#if OPENVINO_VERSION_MAJOR == 2024 &&  OPENVINO_VERSION_MINOR == 4
   data_ops_ = new DataOps(graph_viewer_, V_2024_4, device_type_, npu_qdq_optimizer_enabled);
 #elif OPENVINO_VERSION_MAJOR == 2024 && OPENVINO_VERSION_MINOR == 5
   data_ops_ = new DataOps(graph_viewer_, V_2024_5, device_type_, npu_qdq_optimizer_enabled);
