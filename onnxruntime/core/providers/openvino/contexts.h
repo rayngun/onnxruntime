@@ -107,7 +107,6 @@ struct SessionContext : ProviderInfo {
   std::filesystem::path onnx_model_path_name;
   uint32_t onnx_opset_version{0};
   const std::vector<uint32_t> OpenVINO_Version = {OPENVINO_VERSION_MAJOR, OPENVINO_VERSION_MINOR};
-  // const std::string openvino_sdk_version = std::format("{}.{}", OPENVINO_VERSION_MAJOR, OPENVINO_VERSION_MINOR);
   const std::string openvino_sdk_version = std::to_string(OPENVINO_VERSION_MAJOR) + "." + std::to_string(OPENVINO_VERSION_MINOR);
 };
 
