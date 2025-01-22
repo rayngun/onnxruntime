@@ -5,7 +5,6 @@
 #include <string>
 #include <memory>
 #include <vector>
-// #include <format>
 #include "core/providers/shared_library/provider_api.h"
 #include "core/providers/openvino/openvino_execution_provider.h"
 #include "core/providers/openvino/contexts.h"
