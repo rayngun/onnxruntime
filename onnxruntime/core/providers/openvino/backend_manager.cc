@@ -102,9 +102,9 @@ BackendManager::BackendManager(SessionContext& session_context,
 
     if (weight_file) {
       if (!sw.mapped_weights) {
-        sw.mapped_weights = std::make_unique<SharedContext::SharedWeights::MappedWeights>(weight_filename);
+        sw.mapped_weights = std::make_unique<SharedContext::SharedWeights::WeightsFile>(weight_filename);
       }
-      backend_utils::CreateOVTensors(session_context_.device_type, sw.metadata, sw.mapped_weights->weight_data);
+      backend_utils::CreateOVTensors(session_context_.device_type, sw.metadata, *sw.mapped_weights);
     }
   }
 

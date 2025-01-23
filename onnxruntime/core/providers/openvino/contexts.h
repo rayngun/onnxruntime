@@ -42,21 +42,20 @@ struct SharedContext {
       friend std::istream& operator>>(std::istream& right, Metadata::Map& metadata);
     };
 
-    struct MappedWeights {
-      ORT_DISALLOW_COPY_ASSIGNMENT_AND_MOVE(MappedWeights);
-      ~MappedWeights();
-      MappedWeights() = delete;
-      explicit MappedWeights(std::filesystem::path filename);
+    struct WeightsFile {
+      ORT_DISALLOW_COPY_ASSIGNMENT_AND_MOVE(WeightsFile);
+      WeightsFile() = delete;
+      explicit WeightsFile(std::filesystem::path filename);
 
-      std::string_view weight_data;
+      void load_weights(size_t file_offset, void* data, size_t size);
 
      private:
-      void* file_;
-      void* mapping_;
+      std::ifstream file_;
+      size_t weights_size_;
     };
 
     fs::path external_weight_filename;
-    std::unique_ptr<MappedWeights> mapped_weights;
+    std::unique_ptr<WeightsFile> mapped_weights;
     Metadata::Map metadata;
   } shared_weights;
 };
