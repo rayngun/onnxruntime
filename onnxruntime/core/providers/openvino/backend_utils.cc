@@ -1,6 +1,5 @@
 // Copyright (C) Intel Corporation
 // Licensed under the MIT License
-
 #include <algorithm>
 #include <sstream>
 #include <fstream>
@@ -16,97 +15,26 @@
 #include "core/providers/openvino/backend_utils.h"
 #include "core/providers/openvino/ov_interface.h"
 
-#ifdef _WIN32
-#include "Windows.h"
-#else
-#include <fcntl.h>       // For open
-#include <sys/mman.h>    // For mmap, munmap
-#include <sys/stat.h>    // For fstat
-#include <unistd.h>      // For close
-#endif
 
 using Exception = ov::Exception;
 
 namespace onnxruntime {
 namespace openvino_ep {
 
-#ifdef _WIN32
-SharedContext::SharedWeights::MappedWeights::MappedWeights(std::filesystem::path filename) {
-  file_ = CreateFile(filename.string().data(),
-                     GENERIC_READ,
-                     FILE_SHARE_READ,
-                     0,
-                     OPEN_EXISTING,
-                     FILE_ATTRIBUTE_NORMAL,
-                     0);
-  ORT_ENFORCE(file_ != nullptr, "Unable to open weight file at ", filename.string());
-
-  mapping_ = CreateFileMapping(file_, 0, PAGE_READONLY, 0, 0, 0);
-  ORT_ENFORCE(mapping_ != nullptr, "Unable to create mapping of weight file at ", filename.string());
-
-  const char* raw_data = static_cast<const char*>(MapViewOfFile(mapping_, FILE_MAP_READ, 0, 0, 0));
-  ORT_ENFORCE(raw_data != nullptr, "Unable to map weight file at ", filename.string());
-
-  weight_data = std::string_view(raw_data, std::filesystem::file_size(filename));
-}
-
-SharedContext::SharedWeights::MappedWeights::~MappedWeights() {
-  if (!weight_data.empty()) {
-    UnmapViewOfFile(weight_data.data());
-  }
-  if (mapping_ != nullptr) {
-    CloseHandle(mapping_);
-    mapping_ = nullptr;
-  }
-  if (file_ != nullptr) {
-    CloseHandle(file_);
-    file_ = nullptr;
+SharedContext::SharedWeights::WeightsFile::WeightsFile(std::filesystem::path filename) : file_(filename, std::ios::in | std::ios::binary) {
+  try {
+    file_.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+    weights_size_ = file_.seekg(0, std::ios::end).tellg();
+  } catch (std::ifstream::failure& e) {
+    ORT_THROW("Error: Failed to open weight file at ", filename.string(), " ", e.what());
   }
 }
-#else
-SharedContext::SharedWeights::MappedWeights::MappedWeights(std::filesystem::path filename)
-    : file_(nullptr), mapping_(nullptr) {
-    // Open the file
-    int fd = open(filename.c_str(), O_RDONLY);
-    if (fd == -1) {
-        ORT_THROW("Unable to open weight file at " + filename.string());
-    }
 
-    // Get file size
-    struct stat file_stat;
-    if (fstat(fd, &file_stat) == -1) {
-        close(fd);
-        ORT_THROW("Unable to get file size for " + filename.string());
-    }
-    size_t file_size = file_stat.st_size;
-
-    // Map the file into memory
-    void* raw_data = mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (raw_data == MAP_FAILED) {
-        close(fd);
-        ORT_THROW("Unable to map weight file at " + filename.string());
-    }
-
-    // Set class members
-    file_ = reinterpret_cast<void*>(fd);       // Store file descriptor
-    mapping_ = raw_data;                       // Store mapping address
-    weight_data = std::string_view(static_cast<const char*>(raw_data), file_size);
-
-    // Close the file descriptor, as mmap does not need it open
-    close(fd);
+void SharedContext::SharedWeights::WeightsFile::load_weights(size_t file_offset, void* data, size_t size) {
+  ORT_ENFORCE(file_offset < weights_size_ && size <= weights_size_ && (file_offset <= weights_size_ - size), "Error: File offset is out of bounds.");
+  file_.seekg(file_offset);
+  file_.read(reinterpret_cast<char*>(data), size);
 }
-
-SharedContext::SharedWeights::MappedWeights::~MappedWeights() {
-    // Unmap memory if it was mapped
-    if (mapping_ != nullptr) {
-        munmap(mapping_, weight_data.size());
-        mapping_ = nullptr;
-    }
-
-    // Clear the file descriptor, though it was already closed after mmap
-    file_ = nullptr;
-}
-#endif
 
 std::ostream& operator<<(std::ostream& stream, const SharedContext::SharedWeights::Metadata::Map& metadata) {
   try {
@@ -457,12 +385,9 @@ ov::element::Type GetOpenVINOElementType(ONNX_NAMESPACE::TensorProto_DataType dt
 // Function to handle tensor creation from external data
 void CreateOVTensors(const std::string& device_name,
                      SharedContext::SharedWeights::Metadata::Map& metadata_map,
-                     std::string_view weights) {
+                     SharedContext::SharedWeights::WeightsFile &weights) {
   for (auto& [key, value] : metadata_map) {
     if (value.tensor) continue;
-
-    // Get tensor data
-    const auto* tensor_data = weights.data() + value.data_offset;
 
     // Get element data type
     auto onnx_element_type = (ONNX_NAMESPACE::TensorProto_DataType)value.element_type;
@@ -476,11 +401,12 @@ void CreateOVTensors(const std::string& device_name,
       auto&& remote_tensor = npu_context.create_l0_host_tensor(ov_elementType, value.dimensions, ov::intel_npu::TensorType::INPUT);
 
       // Copy data to remote tensor
-      std::memcpy(remote_tensor.get(), (void*)tensor_data, value.size);
+      weights.load_weights(value.data_offset, remote_tensor.get(), value.size);
       value.tensor = std::make_shared<ov::Tensor>(remote_tensor);
     } else {
       // Use vanilla tensors
-      value.tensor = std::make_shared<ov::Tensor>(ov_elementType, value.dimensions, (void*)tensor_data);
+      value.tensor = std::make_shared<ov::Tensor>(ov_elementType, value.dimensions);
+      weights.load_weights(value.data_offset, value.tensor->data(), value.size);
     }
     ORT_ENFORCE(value.tensor->get_byte_size() == value.size, "Unexpected tensor size mismatch");
   }
