@@ -93,6 +93,12 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
     }
   }
 
+  // If all the nodes have been accounted for then no more processing is needed
+  if (result.size() == nodes.size()) {
+    is_wholly_supported_graph_ = true;
+    return result;
+  }
+
   // This is a list of initializers that nGraph considers as constants. Example weights, reshape shape etc.
   std::unordered_set<std::string> ng_required_initializers;
 
