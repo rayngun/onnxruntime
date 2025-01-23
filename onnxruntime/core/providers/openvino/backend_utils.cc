@@ -6,11 +6,6 @@
 #include <fstream>
 #include <utility>
 
-#include <fcntl.h>       // For open
-#include <sys/mman.h>    // For mmap, munmap
-#include <sys/stat.h>    // For fstat
-#include <unistd.h>      // For close
-#include <string>
 #include <filesystem>
 #include <stdexcept>
 
@@ -23,6 +18,11 @@
 
 #ifdef _WIN32
 #include "Windows.h"
+#else
+#include <fcntl.h>       // For open
+#include <sys/mman.h>    // For mmap, munmap
+#include <sys/stat.h>    // For fstat
+#include <unistd.h>      // For close
 #endif
 
 using Exception = ov::Exception;
