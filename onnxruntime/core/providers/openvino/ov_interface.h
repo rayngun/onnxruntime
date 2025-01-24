@@ -38,6 +38,9 @@ typedef ov::RemoteContext OVRemoteContext;
 #endif
 
 struct OVCore {
+  static void Initialize();
+  static void Teardown();
+
   // OV Interface For Reading Model
   static std::shared_ptr<OVNetwork> ReadModel(const std::string& model_stream, const std::string& model_path);
 
@@ -66,7 +69,7 @@ struct OVCore {
 #endif
   static std::vector<std::string> GetAvailableDevices();
   static void SetCache(const std::string& cache_dir_path);
-  static ov::Core& Get();
+  inline static ov::Core& Get();
   static void SetStreams(const std::string& device_type, int num_streams);
 };
 
