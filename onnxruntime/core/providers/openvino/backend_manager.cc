@@ -79,6 +79,10 @@ BackendManager::BackendManager(SessionContext& session_context,
     subgraph_context_.output_names.insert({node->Name(), index++});
   }
 
+  if(!session_context.shape.empty()) {
+    ValidateInputShapes(session_context.shape,subgraph.GetInputs());
+  }
+
   subgraph_context_.subgraph_name = fused_node.Name();
 
   ptr_stream_t model_stream;
@@ -108,7 +112,7 @@ BackendManager::BackendManager(SessionContext& session_context,
     }
   }
 
-  if (ModelHasSymbolicInputDims(subgraph)) {
+  if (ModelHasSymbolicInputDims(subgraph) && session_context.shape.empty()) {
     subgraph_context_.has_dynamic_input_shape = true;
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Model has symbolic input dims";
     if ((session_context_.device_type.find("CPU") != std::string::npos ||
@@ -306,6 +310,66 @@ bool BackendManager::ModelHasSymbolicInputDims(const onnxruntime::GraphViewer& s
     }
   }
   return has_sym_dims;
+}
+
+void BackendManager::ValidateInputShapes(const shape_t& shape,
+                                        const std::vector<const NodeArg*>& graph_inputs) const {
+
+  for(const auto& [tensor_name,requested_shape] : shape) {
+
+      // Find matching input in graph
+      const NodeArg* graph_input = nullptr;
+      for(const auto* input : graph_inputs) {
+           if(input->Name() == tensor_name) {
+              graph_input = input;
+              break;
+           }
+      }
+
+      if(!graph_input) {
+        ORT_THROW("Input " + tensor_name + "specified in reshape_input does not exist");
+      }
+
+      const ONNX_NAMESPACE::TensorShapeProto* graph_shape = graph_input->Shape();
+      if(!graph_shape) {
+        ORT_THROW("Graph input" + tensor_name + "has no shape information");
+      }
+
+      // Check dimensions count matches
+      size_t graph_dim_count = graph_shape->dim_size();
+      size_t requested_dim_count = requested_shape.get_max_shape().size();
+      if(graph_dim_count != requested_dim_count) {
+        ORT_THROW("Dimensions mismatched for input" + tensor_name +
+                  ": graph expects " + std::to_string(graph_dim_count) +
+                  " dimensions but reshape_input specifies " +
+                  std::to_string(requested_dim_count) + " dimensions");
+      }
+
+      // Validate each dimensions against max shape and min shape
+
+      for(size_t i =0; i < graph_dim_count; i++) {
+        const auto& graph_dim_value = graph_shape->dim(i);
+        int64_t requested_max_dim = requested_shape.get_max_shape()[i];
+        int64_t requested_min_dim = requested_shape.get_min_shape()[i];
+
+        if (graph_dim_value.has_dim_value()) {
+           // Check if requested max dimension is greater than the graph's fixed dimension
+           if (requested_max_dim > graph_dim_value.dim_value()) {
+               ORT_THROW("Invalid dimension size for input " + tensor_name +
+                         " at index " + std::to_string(i) + ": requested max size " +
+                         std::to_string(requested_max_dim) + " is greater than graph input size " +
+                         std::to_string(graph_dim_value.dim_value()));
+           }
+           // Check if requested min dimension is less than the graph's fixed dimension
+           if (requested_min_dim < graph_dim_value.dim_value()) {
+               ORT_THROW("Invalid dimension size for input " + tensor_name +
+                         " at index " + std::to_string(i) + ": requested min size " +
+                         std::to_string(requested_min_dim) + " is less than graph input size " +
+                         std::to_string(graph_dim_value.dim_value()));
+           }
+        }
+      }
+  }
 }
 
 // Check to see if the graph is QDQ

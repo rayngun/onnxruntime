@@ -96,6 +96,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
     } else if (!subgraph_context_.has_external_weights &&
                !subgraph_context_.has_dynamic_input_shape &&
                !session_context_.so_context_enable &&
+               session_context_.shape.empty() &&
                auto_unified_compile) {
       // Unified OV compile_model is efficient when ov model caching is enabled
       // Unified OV compile_model API is supported with AUTO from version 2024.3 and above
@@ -408,7 +409,8 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
         }
       } else {
         if ((session_context_.device_type.find("CPU") != std::string::npos ||
-             session_context_.device_type.find("GPU") != std::string::npos)) {
+             session_context_.device_type.find("GPU") != std::string::npos ||
+             session_context_.device_type.find("NPU") != std::string::npos)) {
           OVTensorPtr graph_input_blob;
           try {
             graph_input_blob = infer_request->GetTensor(input_name);
@@ -442,6 +444,7 @@ void BasicBackend::StartAsyncInference(Ort::KernelContext& context, OVInferReque
 
     if (session_context_.device_type.find("NPU") != std::string::npos) {
       // Set the output blob as remote blob
+      std::cout<<"Hi i am reaching this stage at line 447 at output blob"<<std::endl;
       auto graph_output_info = exe_network_.Get().outputs();
       auto output_idx = 0;
       for (auto output_info_iter = graph_output_info.begin();

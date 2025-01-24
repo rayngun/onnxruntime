@@ -775,6 +775,8 @@ select from 'TF8', 'TF16', 'UINT8', 'FLOAT', 'ITENSOR'. \n)");
         ov_options[key] = load_json(value);
       } else if (key == "model_priority") {
         ov_options[key] = value;
+      } else if (key == "reshape_input") {
+        ov_options[key] = value;
       } else if (key == "cache_dir") {
         ov_options[key] = value;
       } else if (key == "context") {

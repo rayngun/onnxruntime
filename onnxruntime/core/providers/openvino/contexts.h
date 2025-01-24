@@ -62,41 +62,43 @@ struct SharedContext {
 };
 
 using config_t = std::map<std::string, ov::AnyMap>;
+using shape_t = std::map<std::string, ov::PartialShape>;
 
 struct ProviderInfo {
-  std::string device_type{""};             // [device_type]: Overrides the accelerator hardware type and
-                                           // precision with these values at runtime.
-  std::string precision{""};               // [precision]: Sets the inference precision for execution.
-                                           // Supported precision for devices are
-                                           // CPU=FP32, GPU=FP32,FP16, NPU=FP16.
-                                           // Not setting precision will execute with optimized precision for
-                                           // best inference latency. set Precision=ACCURACY for executing
-                                           // models with input precision for best accuracy.
-  uint32_t num_of_threads{0};              // [num_of_threads]: Overrides the accelerator default value of
-                                           // number of threads with this value at runtime.
-  config_t load_config{};                  // JSON config map to load custom OV parameters.
-  fs::path cache_dir{""};                  // [cache_dir]: specify the path to
-                                           // dump and load the blobs for the model caching/kernel caching
-                                           // (GPU) feature. If blob files are already present,
-                                           // it will be directly loaded.
-  std::string model_priority{"DEFAULT"};   // High-level OpenVINO model priority hint
-                                           // Defines what model should be provided with more performant
-                                           // bounded resource first
-  uint32_t num_streams{1};                 // [num_streams]: Option that specifies the number of parallel
-                                           // inference requests to be processed on a given `device_type`.
-                                           // Overrides the accelerator default value of number of streams
-                                           // with this value at runtime.
-  void* context{nullptr};                  // OpenCL context
-  bool enable_opencl_throttling{false};    // [enable_opencl_throttling]: Enables OpenCL queue throttling for
-                                           // GPU device (Reduces CPU Utilization when using GPU)
-  bool disable_dynamic_shapes{false};      // [disable_dynamic_shapes]:  Rewrite dynamic shaped models to
-                                           // static shape at runtime and execute.
-  bool enable_qdq_optimizer{false};        // Enables QDQ pruning for efficient inference latency with NPU
-  bool so_context_enable{false};           // ORT session option
-  bool so_disable_cpu_ep_fallback{false};  // ORT session option
-  bool so_context_embed_mode{false};       // ORT session option
-  bool so_share_ep_contexts{false};        // ORT session option
-  fs::path so_context_file_path{};         // ORT session option
+  std::string device_type{""};                    // [device_type]: Overrides the accelerator hardware type and
+                                                  // precision with these values at runtime.
+  std::string precision{""};                      // [precision]: Sets the inference precision for execution.
+                                                  // Supported precision for devices are
+                                                  // CPU=FP32, GPU=FP32,FP16, NPU=FP16.
+                                                  // Not setting precision will execute with optimized precision for
+                                                  // best inference latency. set Precision=ACCURACY for executing
+                                                  // models with input precision for best accuracy.
+  uint32_t num_of_threads{0};                     // [num_of_threads]: Overrides the accelerator default value of
+                                                  // number of threads with this value at runtime.
+  shape_t shape{};                                // Reshapes the ov tensor for the specified inputs
+  config_t load_config{};                         // JSON config map to load custom OV parameters.
+  fs::path cache_dir{""};                         // [cache_dir]: specify the path to
+                                                  // dump and load the blobs for the model caching/kernel caching
+                                                  // (GPU) feature. If blob files are already present,
+                                                  // it will be directly loaded.
+  std::string model_priority{"DEFAULT"};          // High-level OpenVINO model priority hint
+                                                  // Defines what model should be provided with more performant
+                                                  // bounded resource first
+  uint32_t num_streams{1};                        // [num_streams]: Option that specifies the number of parallel
+                                                  // inference requests to be processed on a given `device_type`.
+                                                  // Overrides the accelerator default value of number of streams
+                                                  // with this value at runtime.
+  void* context{nullptr};                         // OpenCL context
+  bool enable_opencl_throttling{false};           // [enable_opencl_throttling]: Enables OpenCL queue throttling for
+                                                  // GPU device (Reduces CPU Utilization when using GPU)
+  bool disable_dynamic_shapes{false};             // [disable_dynamic_shapes]:  Rewrite dynamic shaped models to
+                                                  // static shape at runtime and execute.
+  bool enable_qdq_optimizer{false};               // Enables QDQ pruning for efficient inference latency with NPU
+  bool so_context_enable{false};                  // ORT session option
+  bool so_disable_cpu_ep_fallback{false};         // ORT session option
+  bool so_context_embed_mode{false};              // ORT session option
+  bool so_share_ep_contexts{false};               // ORT session option
+  fs::path so_context_file_path{};                // ORT session option
 };
 
 // Holds context applicable to the entire EP instance.
