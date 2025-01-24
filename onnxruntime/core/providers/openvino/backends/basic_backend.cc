@@ -93,7 +93,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
                                          device_config,
                                          subgraph_context_.subgraph_name);
       model_stream.reset();  // Delete stream after it is no longer needed
-    } else if (!subgraph_context_.has_external_weights &&
+    } else if (!session_context_.has_external_weights &&
                !subgraph_context_.has_dynamic_input_shape &&
                !session_context_.so_context_enable &&
                auto_unified_compile) {

@@ -61,14 +61,6 @@ BackendManager::BackendManager(SessionContext& session_context,
     return "";
   }(subgraph);
 
-  openvino_ep::GetCapability obj(ep_ctx_handle_,
-                                 subgraph,
-                                 session_context_.device_type,
-                                 session_context_.enable_qdq_optimizer);
-  std::ignore = obj.Execute();
-  subgraph_context_.is_wholly_supported_graph = obj.IsWhollySupportedGraph();
-  subgraph_context_.has_external_weights = obj.HasExternalWeights();
-
   // Save the indexes of graph inputs among fused_node's inputDefs
   // (which also contains initializers).
   for (uint32_t index = 0; const auto& node : subgraph.GetInputs()) {
