@@ -125,6 +125,9 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
     ORT_THROW(msg);
   }
 
+  // Release OVCore Resources for clean exit & avoid memory leaks
+  OVCore::Get().reset();
+
   int num_infer_req = (session_context_.num_of_threads > 0) ? session_context_.num_of_threads : 1;
   std::function<void(OVInferRequestPtr)> initializer = [](OVInferRequestPtr) {};
   auto metadata = shared_context_.shared_weights.metadata;
@@ -196,7 +199,7 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
     device_config.emplace(ov::device::properties("NPU", device_property));
 #if (((OPENVINO_VERSION_MAJOR == 2024) && (OPENVINO_VERSION_MINOR > 3)) || (OPENVINO_VERSION_MAJOR > 2024))
     if (session_context_.so_context_enable) {
-      OVCore::Get().set_property("NPU", ov::intel_npu::bypass_umd_caching(true));
+      OVCore::Get()->set_property("NPU", ov::intel_npu::bypass_umd_caching(true));
     }
 #endif
   }
@@ -264,7 +267,7 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
           continue;
         }
         if (is_supported_and_mutable(key, supported_properties)) {
-          OVCore::Get().set_property(device, ov::AnyMap{{key, value}});
+          OVCore::Get()->set_property(device, ov::AnyMap{{key, value}});
         } else {
           LOGS_DEFAULT(WARNING) << "WARNING: Property \"" << key
                                 << "\" is either unsupported in current OpenVINO version"
@@ -284,14 +287,14 @@ void BasicBackend::PopulateConfigValue(ov::AnyMap& device_config) {
       for (const std::string& device : individual_devices) {
         if (target_config.count(device)) {
           // Get supported properties for each individual device
-          auto device_properties = OVCore::Get().get_property(device, ov::supported_properties);
+          auto device_properties = OVCore::Get()->get_property(device, ov::supported_properties);
           // Set properties for the device
           set_target_properties(device, target_config.at(device), device_properties);
         }
       }
     } else {
       if (target_config.count(session_context_.device_type)) {
-        auto supported_properties = OVCore::Get().get_property(session_context_.device_type,
+        auto supported_properties = OVCore::Get()->get_property(session_context_.device_type,
                                                                ov::supported_properties);
         set_target_properties(session_context_.device_type,
                               target_config.at(session_context_.device_type), supported_properties);

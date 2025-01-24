@@ -397,7 +397,7 @@ void CreateOVTensors(const std::string& device_name,
     // Create OpenVINO Tensor
     if (device_name == "NPU") {
       // Use remote tensors
-      auto npu_context = OVCore::Get().get_default_context("NPU").as<ov::intel_npu::level_zero::ZeroContext>();
+      auto npu_context = OVCore::Get()->get_default_context("NPU").as<ov::intel_npu::level_zero::ZeroContext>();
       auto&& remote_tensor = npu_context.create_l0_host_tensor(ov_elementType, value.dimensions, ov::intel_npu::TensorType::INPUT);
 
       // Copy data to remote tensor

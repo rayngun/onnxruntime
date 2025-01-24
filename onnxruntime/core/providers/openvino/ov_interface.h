@@ -67,7 +67,7 @@ struct OVCore {
   static std::vector<std::string> GetAvailableDevices();
   static void SetCache(const std::string& cache_dir_path);
   static void SetStreams(const std::string& device_type, int num_streams);
-  static ov::Core& Get();
+  static std::shared_ptr<ov::Core>& Get();
   private:
   OVCore() = default;
   ORT_DISALLOW_COPY_AND_ASSIGNMENT(OVCore);

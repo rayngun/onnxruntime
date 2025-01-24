@@ -95,11 +95,11 @@ void AdjustProviderInfo(ProviderInfo& info) {
   } else if (ov_supported_device_types.find(info.device_type) != ov_supported_device_types.end()) {
     info.device_type = std::move(info.device_type);
   }
-#if defined OPENVINO_CONFIG_HETERO || defined OPENVINO_CONFIG_MULTI || defined OPENVINO_CONFIG_AUTO  
+#if defined OPENVINO_CONFIG_HETERO || defined OPENVINO_CONFIG_MULTI || defined OPENVINO_CONFIG_AUTO
    else if (info.device_type.find("HETERO") == 0 || info.device_type.find("MULTI") == 0 || info.device_type.find("AUTO") == 0) {
     std::ignore = parseDevices(info.device_type, available_devices);
     info.device_type = std::move(info.device_type);
-  } 
+  }
 #endif
   else {
     ORT_THROW("Invalid device string: " + info.device_type);
@@ -283,8 +283,9 @@ std::vector<AllocatorPtr> OpenVINOExecutionProvider::CreatePreferredAllocators()
   if (session_context_.device_type.find("NPU") != std::string::npos) {
     AllocatorCreationInfo npu_allocator_info{
         [this](OrtDevice::DeviceId device_id) {
+          auto& core_ref = *OVCore::Get();
           return std::make_unique<OVRTAllocator>(
-              OVCore::Get(),
+              core_ref,
               OrtDevice::NPU,
               device_id,
               OpenVINO_RT_NPU);
