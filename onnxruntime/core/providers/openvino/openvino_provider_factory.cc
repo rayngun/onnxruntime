@@ -19,25 +19,23 @@ struct OpenVINOProviderFactory : IExecutionProviderFactory {
 
   ~OpenVINOProviderFactory() override {}
 
-  std::unique_ptr<IExecutionProvider> CreateProvider() override;
+  std::unique_ptr<IExecutionProvider> CreateProvider() override {
+    return std::make_unique<OpenVINOExecutionProvider>(provider_info_, shared_context_);
+  }
 
  private:
   ProviderInfo provider_info_;
   SharedContext& shared_context_;
 };
 
-std::unique_ptr<IExecutionProvider> OpenVINOProviderFactory::CreateProvider() {
-  return std::make_unique<OpenVINOExecutionProvider>(provider_info_, shared_context_);
-}
-
 struct ProviderInfo_OpenVINO_Impl : ProviderInfo_OpenVINO {
   std::vector<std::string> GetAvailableDevices() const override {
     return OVCore::GetAvailableDevices();
   }
-} g_info;
+};
 
 struct OpenVINO_Provider : Provider {
-  void* GetInfo() override { return &g_info; }
+  void* GetInfo() override { return &info_; }
 
   std::shared_ptr<IExecutionProviderFactory> CreateExecutionProviderFactory(const void* void_params) override {
     // Extract the void_params into ProviderOptions and ConfigOptions
@@ -287,14 +285,17 @@ struct OpenVINO_Provider : Provider {
   }
 
   void Initialize() override {
+    OVCore::Initialize();
   }
 
   void Shutdown() override {
+    OVCore::Teardown();
   }
 
  private:
   SharedContext shared_context_;
-} g_provider;
+  ProviderInfo_OpenVINO_Impl info_;
+};  // OpenVINO_Provider
 
 }  // namespace openvino_ep
 }  // namespace onnxruntime
@@ -302,6 +303,7 @@ struct OpenVINO_Provider : Provider {
 extern "C" {
 
 ORT_API(onnxruntime::Provider*, GetProvider) {
-  return &onnxruntime::openvino_ep::g_provider;
+  static onnxruntime::openvino_ep::OpenVINO_Provider g_provider;
+  return &g_provider;
 }
 }
