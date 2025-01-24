@@ -46,7 +46,7 @@ static std::vector<std::string> split(const std::string& s, char delim) {
 class OpenVINOExecutionProvider : public IExecutionProvider {
  public:
   explicit OpenVINOExecutionProvider(const ProviderInfo& info, SharedContext& shared_context);
-  ~OpenVINOExecutionProvider() = default;
+  ~OpenVINOExecutionProvider();
 
   std::vector<std::unique_ptr<ComputeCapability>>
   GetCapability(const GraphViewer& graph_viewer,

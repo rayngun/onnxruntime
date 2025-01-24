@@ -8,6 +8,7 @@
 #include "core/providers/openvino/openvino_execution_provider.h"
 #include "core/providers/openvino/openvino_provider_factory_creator.h"
 #include "core/providers/openvino/contexts.h"
+#include "core/providers/openvino/backend_utils.h"
 #include "core/session/onnxruntime_session_options_config_keys.h"
 #include "nlohmann/json.hpp"
 
@@ -289,6 +290,7 @@ struct OpenVINO_Provider : Provider {
   }
 
   void Shutdown() override {
+    backend_utils::DestroyOVTensors(shared_context_.shared_weights.metadata);
     OVCore::Teardown();
   }
 

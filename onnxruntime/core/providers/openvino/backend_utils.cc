@@ -412,6 +412,15 @@ void CreateOVTensors(const std::string& device_name,
   }
 }
 
+void DestroyOVTensors(SharedContext::SharedWeights::Metadata::Map& metadata_map) {
+  for (auto& [key, value] : metadata_map) {
+    if (value.tensor) {
+      value.tensor.reset();
+    }
+  }
+  metadata_map.clear();
+}
+
 }  // namespace backend_utils
 }  // namespace openvino_ep
 }  // namespace onnxruntime

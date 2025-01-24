@@ -26,6 +26,7 @@ class BackendFactory {
               const SubGraphContext& subgraph_context,
               SharedContext& shared_context,
               ptr_stream_t& model_stream);
+  static void DestroyBackend(IBackend* backend);
 };
 
 }  // namespace openvino_ep

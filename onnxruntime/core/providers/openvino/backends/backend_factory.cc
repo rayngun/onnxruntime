@@ -33,5 +33,11 @@ BackendFactory::MakeBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_p
     ORT_THROW("[OpenVINO-EP] Backend factory error: Unknown backend type: " + type);
   }
 }
+
+void BackendFactory::DestroyBackend(IBackend* backend) {
+  BasicBackend* backend_ptr = (BasicBackend*)backend;
+  delete backend_ptr;
+  backend_ptr = nullptr;
+}
 }  // namespace openvino_ep
 }  // namespace onnxruntime
