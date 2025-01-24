@@ -123,7 +123,6 @@ bool IsCILogEnabled() {
 std::shared_ptr<const OVNetwork>
 CreateOVModel(const std::string model,
               const SessionContext& session_context,
-              const SubGraphContext& subgraph_context,
               std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map) {
   if (IsCILogEnabled()) {
     std::cout << "CreateNgraphFunc" << std::endl;
