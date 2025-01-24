@@ -95,11 +95,11 @@ void AdjustProviderInfo(ProviderInfo& info) {
   } else if (ov_supported_device_types.find(info.device_type) != ov_supported_device_types.end()) {
     info.device_type = std::move(info.device_type);
   }
-#if defined OPENVINO_CONFIG_HETERO || defined OPENVINO_CONFIG_MULTI || defined OPENVINO_CONFIG_AUTO  
-   else if (info.device_type.find("HETERO") == 0 || info.device_type.find("MULTI") == 0 || info.device_type.find("AUTO") == 0) {
+#if defined OPENVINO_CONFIG_HETERO || defined OPENVINO_CONFIG_MULTI || defined OPENVINO_CONFIG_AUTO
+  else if (info.device_type.find("HETERO") == 0 || info.device_type.find("MULTI") == 0 || info.device_type.find("AUTO") == 0) {
     std::ignore = parseDevices(info.device_type, available_devices);
     info.device_type = std::move(info.device_type);
-  } 
+  }
 #endif
   else {
     ORT_THROW("Invalid device string: " + info.device_type);
@@ -151,6 +151,13 @@ OpenVINOExecutionProvider::OpenVINOExecutionProvider(const ProviderInfo& info, S
       ORT_THROW("[ERROR] [OpenVINO] Specified device - " + info.device_type + " is not available");
     }
   }
+}
+
+OpenVINOExecutionProvider::~OpenVINOExecutionProvider() {
+  for (auto& backend_manager : backend_managers_) {
+    backend_manager.ShutdownBackendManager();
+  }
+  backend_managers_.clear();
 }
 
 std::vector<std::unique_ptr<ComputeCapability>>

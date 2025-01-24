@@ -70,6 +70,7 @@ CreateOVModel(const std::string model,
 void CreateOVTensors(const std::string& device_name,
                      SharedContext::SharedWeights::Metadata::Map& metadata_map,
                      SharedContext::SharedWeights::WeightsFile& weights);
+void DestroyOVTensors(SharedContext::SharedWeights::Metadata::Map& metadata_map);
 
 void printPerformanceCounts(const std::vector<OVProfilingInfo>& performanceMap,
                             std::ostream& stream, std::string deviceName);
