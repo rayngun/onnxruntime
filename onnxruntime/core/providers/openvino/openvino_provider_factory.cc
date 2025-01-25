@@ -14,6 +14,150 @@
 
 namespace onnxruntime {
 namespace openvino_ep {
+void ParseConfigOptions(ProviderInfo& pi, const ConfigOptions& config_options) {
+  pi.so_disable_cpu_ep_fallback = config_options.GetConfigOrDefault(kOrtSessionOptionsDisableCPUEPFallback, "0") == "1";
+  pi.so_context_enable = config_options.GetConfigOrDefault(kOrtSessionOptionEpContextEnable, "0") == "1";
+  pi.so_context_embed_mode = config_options.GetConfigOrDefault(kOrtSessionOptionEpContextEmbedMode, "0") == "1";
+  pi.so_share_ep_contexts = config_options.GetConfigOrDefault(kOrtSessionOptionShareEpContexts, "0") == "1";
+  pi.so_context_file_path = config_options.GetConfigOrDefault(kOrtSessionOptionEpContextFilePath, "");
+}
+
+void* ParseUint64(const ProviderOptions& provider_options, std::string option_name) {
+  if (provider_options.contains("context")) {
+    uint64_t number = std::strtoull(provider_options.at("context").data(), nullptr, 16);
+    return reinterpret_cast<void*>(number);
+  } else {
+    return nullptr;
+  }
+}
+
+bool ParseBooleanOption(const ProviderOptions& provider_options, std::string option_name) {
+  if (provider_options.contains(option_name)) {
+    const auto& value = provider_options.at(option_name);
+    if (value == "true" || value == "True") {
+      return true;
+    } else if (value == "false" || value == "False") {
+      return false;
+    } else {
+      ORT_THROW("[ERROR] [OpenVINO-EP] ", option_name, " should be a boolean.\n");
+    }
+  }
+  return false;
+}
+
+std::string ParseDeviceType(const ProviderOptions& provider_options, std::string option_name) {
+  const std::vector<std::string> ov_available_devices = OVCore::GetAvailableDevices();
+
+  std::set<std::string> ov_supported_device_types = {"CPU", "GPU",
+                                                     "GPU.0", "GPU.1", "NPU"};
+  std::set<std::string> deprecated_device_types = {"CPU_FP32", "GPU_FP32",
+                                                   "GPU.0_FP32", "GPU.1_FP32", "GPU_FP16",
+                                                   "GPU.0_FP16", "GPU.1_FP16"};
+
+  // Expand set of supported device with OV devices
+  ov_supported_device_types.insert(ov_available_devices.begin(), ov_available_devices.end());
+
+  if (provider_options.contains(option_name)) {
+    const auto& selected_device = provider_options.at("device_type");
+
+    if (deprecated_device_types.contains(selected_device)) {
+      // Deprecated device and precision is handled together at ParsePrecision
+      return selected_device;
+    }
+
+    if (!((ov_supported_device_types.contains(selected_device)) ||
+          (selected_device.find("HETERO:") == 0) ||
+          (selected_device.find("MULTI:") == 0) ||
+          (selected_device.find("AUTO:") == 0))) {
+      ORT_THROW(
+          "[ERROR] [OpenVINO] You have selected wrong configuration value for the key 'device_type'. "
+          "Select from 'CPU', 'GPU', 'NPU', 'GPU.x' where x = 0,1,2 and so on or from"
+          " HETERO/MULTI/AUTO options available. \n");
+    }
+    return selected_device;
+  } else {
+    std::string default_device;
+
+    // Take default behavior from project configuration
+#if defined OPENVINO_CONFIG_CPU
+    default_device = "CPU";
+#elif defined OPENVINO_CONFIG_GPU
+    default_device = "GPU";
+#elif defined OPENVINO_CONFIG_NPU
+    default_device = "NPU";
+#elif defined OPENVINO_CONFIG_HETERO || defined OPENVINO_CONFIG_MULTI || defined OPENVINO_CONFIG_AUTO
+    default_device = DEVICE_NAME;
+
+    // Validate that devices passed are valid
+    int delimit = device_type.find(":");
+    const auto& devices = device_type.substr(delimit + 1);
+    auto device_list = split(devices, ',');
+    for (const auto& device : devices) {
+      if (!ov_supported_device_types.contains(device)) {
+        ORT_THROW("[ERROR] [OpenVINO] Invalid device selected: ", device);
+      }
+    }
+#endif
+
+    LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Choosing Device: " << default_device;
+    return default_device;
+  }
+}
+
+// Depends on ProviderOptions.
+std::string ParsePrecision(const ProviderOptions& provider_options, std::string& device_type, const std::string& option_name) {
+  using DeviceName = std::string;
+  using DefaultValue = std::string;
+  using ValidValues = std::list<std::string>;
+  using foo = std::pair<DefaultValue, ValidValues>;
+  using ParserHelper = std::map<DeviceName, foo>;
+  ParserHelper helper = {
+      {"GPU", {"FP16", {"FP16", "FP32"}}},
+      {"NPU", {"FP16", {"FP16"}}},
+      {"CPU", {"FP32", {"FP32"}}},
+  };
+
+  std::set<std::string> deprecated_device_types = {"CPU_FP32", "GPU_FP32",
+                                                   "GPU.0_FP32", "GPU.1_FP32", "GPU_FP16",
+                                                   "GPU.0_FP16", "GPU.1_FP16"};
+
+  if (provider_options.contains(option_name)) {
+    // Start by checking if the device_type is a normal valid one
+    if (helper.contains(device_type)) {
+      auto const& valid_values = helper[device_type].second;
+      const auto& precision = provider_options.at(option_name);
+      if (precision == "ACCURACY") {
+        return valid_values.back();  // Return highest supported precision
+      } else {
+        if (std::find(valid_values.begin(), valid_values.end(), precision) != valid_values.end()) {
+          return precision;  // Return precision selected if valid
+        } else {
+          auto value_iter = valid_values.begin();
+          std::string valid_values_joined = *value_iter;
+          // Append 2nd and up, if only one then ++value_iter is same as end()
+          for (++value_iter; value_iter != valid_values.end(); ++value_iter) {
+            valid_values_joined += ", " + *value_iter;
+          }
+
+          ORT_THROW("[ERROR] [OpenVINO] Unsupported inference precision is selected. ", device_type, " only supports", valid_values_joined, ".\n");
+        }
+      }
+    } else if (deprecated_device_types.contains(device_type)) {
+      LOGS_DEFAULT(WARNING) << "[OpenVINO] Selected 'device_type' " + device_type + " is deprecated. \n"
+                            << "Update the 'device_type' to specified types 'CPU', 'GPU', 'GPU.0', "
+                            << "'GPU.1', 'NPU' or from"
+                            << " HETERO/MULTI/AUTO options and set 'precision' separately. \n";
+      int delimit = device_type.find("_");
+      device_type = device_type.substr(0, delimit);
+      return device_type.substr(delimit + 1);
+    }
+  }
+  // Return default
+  return helper[device_type].first;
+}
+
+void ParseProviderOptions(ProviderInfo& result, const ProviderOptions& config_options) {}
+
 struct OpenVINOProviderFactory : IExecutionProviderFactory {
   OpenVINOProviderFactory(ProviderInfo provider_info, SharedContext& shared_context)
       : provider_info_(provider_info), shared_context_(shared_context) {}
@@ -42,49 +186,17 @@ struct OpenVINO_Provider : Provider {
     // Extract the void_params into ProviderOptions and ConfigOptions
     using ConfigBuffer = std::pair<const ProviderOptions*, const ConfigOptions&>;
     const ConfigBuffer* buffer = reinterpret_cast<const ConfigBuffer*>(void_params);
-    const auto& provider_options_map = *buffer->first;
+    const auto& provider_options = *buffer->first;
     const auto& config_options = buffer->second;
 
     ProviderInfo pi;
 
     std::string bool_flag = "";
-    if (provider_options_map.find("device_type") != provider_options_map.end()) {
-      pi.device_type = provider_options_map.at("device_type").c_str();
 
-      std::set<std::string> ov_supported_device_types = {"CPU", "GPU",
-                                                         "GPU.0", "GPU.1", "NPU"};
-      std::set<std::string> deprecated_device_types = {"CPU_FP32", "GPU_FP32",
-                                                       "GPU.0_FP32", "GPU.1_FP32", "GPU_FP16",
-                                                       "GPU.0_FP16", "GPU.1_FP16"};
-      std::vector<std::string> available_devices = OVCore::GetAvailableDevices();
+    pi.device_type = ParseDeviceType(provider_options, "device_type");
 
-      for (auto& device : available_devices) {
-        if (ov_supported_device_types.find(device) == ov_supported_device_types.end()) {
-          ov_supported_device_types.emplace(device);
-        }
-      }
-      if (deprecated_device_types.find(pi.device_type) != deprecated_device_types.end()) {
-        std::string deprecated_device = pi.device_type;
-        int delimit = pi.device_type.find("_");
-        pi.device_type = deprecated_device.substr(0, delimit);
-        pi.precision = deprecated_device.substr(delimit + 1);
-        LOGS_DEFAULT(WARNING) << "[OpenVINO] Selected 'device_type' " + deprecated_device + " is deprecated. \n"
-                              << "Update the 'device_type' to specified types 'CPU', 'GPU', 'GPU.0', "
-                              << "'GPU.1', 'NPU' or from"
-                              << " HETERO/MULTI/AUTO options and set 'precision' separately. \n";
-      }
-      if (!((ov_supported_device_types.find(pi.device_type) != ov_supported_device_types.end()) ||
-            (pi.device_type.find("HETERO:") == 0) ||
-            (pi.device_type.find("MULTI:") == 0) ||
-            (pi.device_type.find("AUTO:") == 0))) {
-        ORT_THROW(
-            "[ERROR] [OpenVINO] You have selected wrong configuration value for the key 'device_type'. "
-            "Select from 'CPU', 'GPU', 'NPU', 'GPU.x' where x = 0,1,2 and so on or from"
-            " HETERO/MULTI/AUTO options available. \n");
-      }
-    }
-    if (provider_options_map.find("device_id") != provider_options_map.end()) {
-      std::string dev_id = provider_options_map.at("device_id").c_str();
+    if (provider_options.contains("device_id")) {
+      std::string dev_id = provider_options.at("device_id").data();
       LOGS_DEFAULT(WARNING) << "[OpenVINO] The options 'device_id' is deprecated. "
                             << "Upgrade to set deice_type and precision session options.\n";
       if (dev_id == "CPU" || dev_id == "GPU" || dev_id == "NPU") {
@@ -93,34 +205,13 @@ struct OpenVINO_Provider : Provider {
         ORT_THROW("[ERROR] [OpenVINO] Unsupported device_id is selected. Select from available options.");
       }
     }
-    if (provider_options_map.find("precision") != provider_options_map.end()) {
-      pi.precision = provider_options_map.at("precision").c_str();
-    }
-    if (pi.device_type.find("GPU") != std::string::npos) {
-      if (pi.precision == "") {
-        pi.precision = "FP16";
-      } else if (pi.precision != "ACCURACY" && pi.precision != "FP16" && pi.precision != "FP32") {
-        ORT_THROW("[ERROR] [OpenVINO] Unsupported inference precision is selected. GPU only supports FP32 / FP16. \n");
-      }
-    } else if (pi.device_type.find("NPU") != std::string::npos) {
-      if (pi.precision == "" || pi.precision == "ACCURACY" || pi.precision == "FP16") {
-        pi.precision = "FP16";
-      } else {
-        ORT_THROW("[ERROR] [OpenVINO] Unsupported inference precision is selected. NPU only supported FP16. \n");
-      }
-    } else if (pi.device_type.find("CPU") != std::string::npos) {
-      if (pi.precision == "" || pi.precision == "ACCURACY" || pi.precision == "FP32") {
-        pi.precision = "FP32";
-      } else {
-        ORT_THROW("[ERROR] [OpenVINO] Unsupported inference precision is selected. CPU only supports FP32 . \n");
-      }
+    if (provider_options.contains("cache_dir")) {
+      pi.cache_dir = provider_options.at("cache_dir");
     }
 
-    if (provider_options_map.find("cache_dir") != provider_options_map.end()) {
-      pi.cache_dir = provider_options_map.at("cache_dir");
-    }
+    pi.precision = ParsePrecision(provider_options, pi.device_type, "precision");
 
-    if (provider_options_map.find("load_config") != provider_options_map.end()) {
+    if (provider_options.contains("load_config")) {
       auto parse_config = [&](const std::string& config_str) -> std::map<std::string, ov::AnyMap> {
         // If the config string is empty, return an empty map and skip processing
         if (config_str.empty()) {
@@ -179,29 +270,25 @@ struct OpenVINO_Provider : Provider {
         return target_map;
       };
 
-      pi.load_config = parse_config(provider_options_map.at("load_config"));
+      pi.load_config = parse_config(provider_options.at("load_config"));
     }
 
-    if (provider_options_map.find("context") != provider_options_map.end()) {
-      std::string str = provider_options_map.at("context");
-      uint64_t number = std::strtoull(str.c_str(), nullptr, 16);
-      pi.context = reinterpret_cast<void*>(number);
-    }
+    pi.context = ParseUint64(provider_options, "context");
 #if defined(IO_BUFFER_ENABLED)
     // a valid context must be provided to enable IO Buffer optimizations
-    if (context == nullptr) {
+    if (pi.context == nullptr) {
 #undef IO_BUFFER_ENABLED
 #define IO_BUFFER_ENABLED = 0
       LOGS_DEFAULT(WARNING) << "Context is not set. Disabling IO Buffer optimization";
     }
 #endif
 
-    if (provider_options_map.find("num_of_threads") != provider_options_map.end()) {
-      if (!std::all_of(provider_options_map.at("num_of_threads").begin(),
-                       provider_options_map.at("num_of_threads").end(), ::isdigit)) {
+    if (provider_options.contains("num_of_threads")) {
+      if (!std::all_of(provider_options.at("num_of_threads").begin(),
+                       provider_options.at("num_of_threads").end(), ::isdigit)) {
         ORT_THROW("[ERROR] [OpenVINO-EP] Number of threads should be a number. \n");
       }
-      pi.num_of_threads = std::stoi(provider_options_map.at("num_of_threads"));
+      pi.num_of_threads = std::stoi(provider_options.at("num_of_threads"));
       if (pi.num_of_threads <= 0) {
         pi.num_of_threads = 1;
         LOGS_DEFAULT(WARNING) << "[OpenVINO-EP] The value for the key 'num_threads' should be in the positive range.\n "
@@ -209,8 +296,8 @@ struct OpenVINO_Provider : Provider {
       }
     }
 
-    if (provider_options_map.find("model_priority") != provider_options_map.end()) {
-      pi.model_priority = provider_options_map.at("model_priority").c_str();
+    if (provider_options.contains("model_priority")) {
+      pi.model_priority = provider_options.at("model_priority").data();
       std::vector<std::string> supported_priorities({"LOW", "MEDIUM", "HIGH", "DEFAULT"});
       if (std::find(supported_priorities.begin(), supported_priorities.end(),
                     pi.model_priority) == supported_priorities.end()) {
@@ -221,59 +308,26 @@ struct OpenVINO_Provider : Provider {
       }
     }
 
-    if (provider_options_map.find("num_streams") != provider_options_map.end()) {
-      pi.num_streams = std::stoi(provider_options_map.at("num_streams"));
+    if (provider_options.contains("num_streams")) {
+      pi.num_streams = std::stoi(provider_options.at("num_streams"));
       if (pi.num_streams <= 0) {
         pi.num_streams = 1;
         LOGS_DEFAULT(WARNING) << "[OpenVINO-EP] The value for the key 'num_streams' should be in the range of 1-8.\n "
                               << "Executing with num_streams=1";
       }
     }
-    if (provider_options_map.find("enable_opencl_throttling") != provider_options_map.end()) {
-      bool_flag = provider_options_map.at("enable_opencl_throttling");
-      if (bool_flag == "true" || bool_flag == "True")
-        pi.enable_opencl_throttling = true;
-      else if (bool_flag == "false" || bool_flag == "False")
-        pi.enable_opencl_throttling = false;
-      bool_flag = "";
-    }
+    pi.enable_opencl_throttling = ParseBooleanOption(provider_options, "enable_opencl_throttling");
 
-    if (provider_options_map.find("enable_qdq_optimizer") != provider_options_map.end()) {
-      bool_flag = provider_options_map.at("enable_qdq_optimizer");
-      if (bool_flag == "true" || bool_flag == "True")
-        pi.enable_qdq_optimizer = true;
-      else if (bool_flag == "false" || bool_flag == "False")
-        pi.enable_qdq_optimizer = false;
-      else
-        ORT_THROW("[ERROR] [OpenVINO-EP] enable_qdq_optimiser should be a boolean.\n");
-      bool_flag = "";
-    }
+    pi.enable_qdq_optimizer = ParseBooleanOption(provider_options, "enable_qdq_optimizer");
+
+    pi.disable_dynamic_shapes = ParseBooleanOption(provider_options, "disable_dynamic_shapes");
+
+    ParseConfigOptions(pi, config_options);
 
     // Always true for NPU plugin or when passed .
     if (pi.device_type.find("NPU") != std::string::npos) {
       pi.disable_dynamic_shapes = true;
     }
-    if (provider_options_map.find("disable_dynamic_shapes") != provider_options_map.end()) {
-      bool_flag = provider_options_map.at("disable_dynamic_shapes");
-      if (bool_flag == "true" || bool_flag == "True") {
-        pi.disable_dynamic_shapes = true;
-      } else if (bool_flag == "false" || bool_flag == "False") {
-        if (pi.device_type.find("NPU") != std::string::npos) {
-          pi.disable_dynamic_shapes = true;
-          LOGS_DEFAULT(INFO) << "[OpenVINO-EP] The value for the key 'disable_dynamic_shapes' will be set to "
-                             << "TRUE for NPU backend.\n ";
-        } else {
-          pi.disable_dynamic_shapes = false;
-        }
-      }
-      bool_flag = "";
-    }
-
-    pi.so_disable_cpu_ep_fallback = config_options.GetConfigOrDefault(kOrtSessionOptionsDisableCPUEPFallback, "0") == "1";
-    pi.so_context_enable = config_options.GetConfigOrDefault(kOrtSessionOptionEpContextEnable, "0") == "1";
-    pi.so_context_embed_mode = config_options.GetConfigOrDefault(kOrtSessionOptionEpContextEmbedMode, "0") == "1";
-    pi.so_share_ep_contexts = config_options.GetConfigOrDefault(kOrtSessionOptionShareEpContexts, "0") == "1";
-    pi.so_context_file_path = config_options.GetConfigOrDefault(kOrtSessionOptionEpContextFilePath, "");
 
     // Append values to config to support weight-as-inputs conversion for shared contexts
     if (pi.so_share_ep_contexts) {
