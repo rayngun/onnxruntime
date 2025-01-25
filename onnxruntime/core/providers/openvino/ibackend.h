@@ -16,6 +16,7 @@ class IBackend {
  public:
   virtual void Infer(OrtKernelContext* context) = 0;
   virtual ov::CompiledModel& GetOVCompiledModel() = 0;
+  virtual ~IBackend() = default;
 };
 using ptr_stream_t = std::unique_ptr<std::istream>;
 class BackendFactory {
@@ -26,7 +27,6 @@ class BackendFactory {
               const SubGraphContext& subgraph_context,
               SharedContext& shared_context,
               ptr_stream_t& model_stream);
-  static void DestroyBackend(IBackend* backend);
 };
 
 }  // namespace openvino_ep

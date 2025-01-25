@@ -545,7 +545,6 @@ void BackendManager::Compute(OrtKernelContext* context) {
 
 void BackendManager::ShutdownBackendManager() {
   backend_map_.clear();
-  BackendFactory::DestroyBackend(concrete_backend_.get());
   concrete_backend_.reset();
 }
 

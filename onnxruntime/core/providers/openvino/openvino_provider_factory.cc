@@ -22,7 +22,7 @@ void ParseConfigOptions(ProviderInfo& pi, const ConfigOptions& config_options) {
   pi.so_context_file_path = config_options.GetConfigOrDefault(kOrtSessionOptionEpContextFilePath, "");
 }
 
-void* ParseUint64(const ProviderOptions& provider_options, std::string option_name) {
+void* ParseUint64(const ProviderOptions& provider_options, [[maybe_unused]] std::string option_name) {
   if (provider_options.contains("context")) {
     uint64_t number = std::strtoull(provider_options.at("context").data(), nullptr, 16);
     return reinterpret_cast<void*>(number);
@@ -156,7 +156,7 @@ std::string ParsePrecision(const ProviderOptions& provider_options, std::string&
   return helper[device_type].first;
 }
 
-void ParseProviderOptions(ProviderInfo& result, const ProviderOptions& config_options) {}
+void ParseProviderOptions([[maybe_unused]] ProviderInfo& result, [[maybe_unused]] const ProviderOptions& config_options) {}
 
 struct OpenVINOProviderFactory : IExecutionProviderFactory {
   OpenVINOProviderFactory(ProviderInfo provider_info, SharedContext& shared_context)
