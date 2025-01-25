@@ -37,6 +37,7 @@ class BasicBackend : public IBackend {
                ptr_stream_t& model_stream);
 
   void Infer(OrtKernelContext* context) override;
+  ~BasicBackend() override = default;
   ov::CompiledModel& GetOVCompiledModel() override {
     return exe_network_.Get();
   }
