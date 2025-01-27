@@ -3,6 +3,7 @@
 #include <map>
 #include <unordered_set>
 #include <type_traits>
+#include <utility>
 
 #include "core/providers/shared_library/provider_api.h"
 #include "core/providers/openvino/backend_utils.h"
@@ -32,7 +33,7 @@ GetCapability::GetCapability(const EPCtxHandler& ep_ctx_handler,
                              const std::string device_type_param,
                              const bool enable_qdq_optimizer) : ep_ctx_handler_(ep_ctx_handler),
                                                                 graph_viewer_(graph_viewer_param),
-                                                                device_type_(device_type_param) {
+                                                                device_type_(std::move(device_type_param)) {
   bool npu_qdq_optimizer_enabled = false;
   if (device_type_.find("NPU") != std::string::npos) {
     device_type_ = "CPU";
@@ -170,15 +171,14 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
     int no_of_clusters = 0;
 
     for (auto this_cluster : connected_clusters) {
-
       // If subgraph has less then three, graph is considered trivial unless its an epctx cluster
       if (this_cluster.size() < 3) {
         bool is_epctx_node = false;
-        for(auto node_idx:this_cluster){
-          if(graph_viewer_.GetNode(node_idx)->OpType() == "EPContext")
+        for (auto node_idx : this_cluster) {
+          if (graph_viewer_.GetNode(node_idx)->OpType() == "EPContext")
             is_epctx_node = true;
         }
-        if(!is_epctx_node)
+        if (!is_epctx_node)
           continue;
       }
 

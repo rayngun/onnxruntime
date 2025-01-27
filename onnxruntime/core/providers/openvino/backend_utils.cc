@@ -83,7 +83,22 @@ std::istream& operator>>(std::istream& stream, SharedContext::SharedWeights::Met
       stream >> value.size;
       size_t num_dimensions;
       stream >> num_dimensions;
-      value.dimensions.resize(num_dimensions);
+
+      if (stream.fail()) {
+        ORT_THROW("Error: Failed to read num_dimensions from stream.");
+      }
+
+      constexpr size_t MAX_SAFE_DIMENSIONS = 1024;
+
+      if (num_dimensions == 0 || num_dimensions > MAX_SAFE_DIMENSIONS) {
+        ORT_THROW("Invalid number of dimensions: " + std::to_string(num_dimensions));
+      }
+      try {
+        value.dimensions.resize(num_dimensions);
+      } catch (const std::bad_alloc&) {
+        ORT_THROW("Error: Memory allocation failed while resizing dimensions.");
+      }
+
       for (auto& dim : value.dimensions) {
         stream >> dim;
       }
@@ -235,23 +250,23 @@ int GetFirstAvailableDevice(SessionContext& session_context) {
 void FillOutputsWithConstantData(std::shared_ptr<ov::Node> node, Ort::UnownedValue& out_tensor) {
   switch (node->get_element_type()) {
     case ov::element::Type_t::f32: {
-      FillOutputHelper<float>(out_tensor, node);
+      FillOutputHelper<float>(out_tensor, std::move(node));
       break;
     }
     case ov::element::Type_t::boolean: {
-      FillOutputHelper<char>(out_tensor, node);
+      FillOutputHelper<char>(out_tensor, std::move(node));
       break;
     }
     case ov::element::Type_t::i32: {
-      FillOutputHelper<int32_t>(out_tensor, node);
+      FillOutputHelper<int32_t>(out_tensor, std::move(node));
       break;
     }
     case ov::element::Type_t::i64: {
-      FillOutputHelper<int64_t>(out_tensor, node);
+      FillOutputHelper<int64_t>(out_tensor, std::move(node));
       break;
     }
     case ov::element::Type_t::f16: {
-      FillOutputHelper<float>(out_tensor, node);
+      FillOutputHelper<float>(out_tensor, std::move(node));
       break;
     }
     default:
