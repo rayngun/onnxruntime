@@ -123,7 +123,6 @@ bool IsCILogEnabled() {
 std::shared_ptr<const OVNetwork>
 CreateOVModel(const std::string model,
               const SessionContext& session_context,
-              const SubGraphContext& subgraph_context,
               std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map) {
   if (IsCILogEnabled()) {
     std::cout << "CreateNgraphFunc" << std::endl;
@@ -132,7 +131,7 @@ CreateOVModel(const std::string model,
     auto ov_model = OVCore::ReadModel(model, session_context.onnx_model_path_name.string());
 
     // Check for Constant Folding
-    if ((session_context.device_type != "NPU") && !subgraph_context.is_wholly_supported_graph) {
+    if ((session_context.device_type != "NPU") && !session_context.is_wholly_supported_graph) {
       ov::pass::ConstantFolding pass_const_obj;
       pass_const_obj.run_on_model(ov_model);
       auto& results = const_cast<ov::ResultVector&>(ov_model.get()->get_results());

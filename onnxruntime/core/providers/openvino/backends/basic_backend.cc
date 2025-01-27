@@ -75,7 +75,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
         if (!subgraph_context.has_dynamic_input_shape) {
           delete model_proto.release();
         }
-        ov_model = CreateOVModel(model, session_context_, subgraph_context_, const_outputs_map_);
+        ov_model = CreateOVModel(model, session_context_, const_outputs_map_);
       }
       LOGS_DEFAULT(INFO) << log_tag << "IO Buffering Enabled";
       exe_network_ = OVCore::CompileModel(
@@ -93,7 +93,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
                                          device_config,
                                          subgraph_context_.subgraph_name);
       model_stream.reset();  // Delete stream after it is no longer needed
-    } else if (!subgraph_context_.has_external_weights &&
+    } else if (!session_context_.has_external_weights &&
                !subgraph_context_.has_dynamic_input_shape &&
                !session_context_.so_context_enable &&
                auto_unified_compile) {
@@ -114,7 +114,7 @@ BasicBackend::BasicBackend(std::unique_ptr<ONNX_NAMESPACE::ModelProto>& model_pr
         if (!subgraph_context.has_dynamic_input_shape) {
           delete model_proto.release();
         }
-        ov_model = CreateOVModel(model, session_context_, subgraph_context_, const_outputs_map_);
+        ov_model = CreateOVModel(model, session_context_, const_outputs_map_);
       }
       exe_network_ = OVCore::CompileModel(
           ov_model, hw_target, device_config, subgraph_context_.subgraph_name);

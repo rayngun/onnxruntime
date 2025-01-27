@@ -169,13 +169,13 @@ OpenVINOExecutionProvider::GetCapability(const GraphViewer& graph_viewer,
   if (!(GetEnvironmentVar("ORT_OPENVINO_ENABLE_CI_LOG").empty())) {
     std::cout << "In the OpenVINO EP" << std::endl;
   }
-
   openvino_ep::GetCapability obj(ep_ctx_handle_,
                                  graph_viewer,
                                  session_context_.device_type,
                                  session_context_.enable_qdq_optimizer);
   result = obj.Execute();
-
+  session_context_.is_wholly_supported_graph = obj.IsWhollySupportedGraph();
+  session_context_.has_external_weights = obj.HasExternalWeights();
   return result;
 }
 

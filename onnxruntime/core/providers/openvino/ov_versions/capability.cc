@@ -74,26 +74,6 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
 
   // Check for EpContext nodes
   const auto& nodes = graph_viewer_.GetNodesInTopologicalOrder();
-  for (const auto node_index : nodes) {
-    const auto& node = *graph_viewer_.GetNode(node_index);
-    if (ep_ctx_handler_.CheckForOVEPCtxNode(node)) {
-      std::vector<std::string> inputs;
-      std::vector<std::string> outputs;
-
-      Iterable2String(inputs, node.InputDefs());
-      Iterable2String(outputs, node.OutputDefs());
-
-      auto sub_graph = IndexedSubGraph::Create();
-      sub_graph->Nodes().push_back(node_index);
-      auto meta_def = IndexedSubGraph_MetaDef::Create();
-      meta_def->name() = node.Name();
-      meta_def->domain() = kMSDomain;
-      meta_def->inputs() = inputs;
-      meta_def->outputs() = outputs;
-      sub_graph->SetMetaDef(std::move(meta_def));
-      result.push_back(ComputeCapability::Create(std::move(sub_graph)));
-    }
-  }
 
   // If all the nodes have been accounted for then no more processing is needed
   if (result.size() == nodes.size()) {
@@ -109,8 +89,8 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
   if (openvino_ep::backend_utils::IsDebugEnabled()) {
     std::cout << "No of unsupported nodes " << unsupported_nodes.size() << std::endl;
     for (size_t i = 0; i < unsupported_nodes.size(); i++) {
-      const Node* node = graph_viewer_.GetNode(unsupported_nodes[i]);
-      std::cout << "Unsupported node op " << node->OpType() << std::endl;
+      const Node* unode = graph_viewer_.GetNode(unsupported_nodes[i]);
+      std::cout << "Unsupported node op " << unode->OpType() << std::endl;
     }
   }
 #endif
@@ -190,9 +170,16 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
     int no_of_clusters = 0;
 
     for (auto this_cluster : connected_clusters) {
-      // If subgraph has less then three, graph is considered trivial
+
+      // If subgraph has less then three, graph is considered trivial unless its an epctx cluster
       if (this_cluster.size() < 3) {
-        continue;
+        bool is_epctx_node = false;
+        for(auto node_idx:this_cluster){
+          if(graph_viewer_.GetNode(node_idx)->OpType() == "EPContext")
+            is_epctx_node = true;
+        }
+        if(!is_epctx_node)
+          continue;
       }
 
       std::vector<std::string> cluster_graph_inputs, cluster_inputs, cluster_outputs;
@@ -245,7 +232,6 @@ std::vector<std::unique_ptr<ComputeCapability>> GetCapability::Execute() {
     }
     LOGS_DEFAULT(INFO) << "[OpenVINO-EP] Supported subgraphs on OpenVINO: " << no_of_clusters;
   }
-
   return result;
 }
 

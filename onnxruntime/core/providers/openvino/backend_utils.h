@@ -64,7 +64,6 @@ void FillOutputBlob(OVTensorPtr outputBlob, Ort::UnownedValue& output_tensor,
 std::shared_ptr<const OVNetwork>
 CreateOVModel(const std::string model,
               const SessionContext& session_context,
-              const SubGraphContext& subgraph_context,
               std::map<std::string, std::shared_ptr<ov::Node>>& const_outputs_map);
 
 void CreateOVTensors(const std::string& device_name,
