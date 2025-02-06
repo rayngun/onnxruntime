@@ -478,6 +478,7 @@ static void AddStandaloneNodeUnit(onnxruntime::Graph& dst_graph, const onnxrunti
   };
 
   if (node_unit.OpType() == "QuantizeLinear") {
+    const auto& node =node_unit.GetNode();
     SkipReason reason;
     // keep if next target is supported
     if (CheckQRuleSet(node_unit, &node_unit.GetNode(), src_graph, reason))
@@ -485,14 +486,24 @@ static void AddStandaloneNodeUnit(onnxruntime::Graph& dst_graph, const onnxrunti
     // #2 If input 0 is a constant initializer, then don't keep the Q
     else if (src_graph.IsConstantInitializer(node_unit.GetNode().InputDefs().at(0)->Name(), true))
       return;
+    else if (node.GetInputEdgesCount() == 1 &&
+        (node.InputNodesBegin()->OpType() == "Conv" || node.InputNodesBegin()->OpType() == "Add") &&
+        (GetQDQDataType(&node) == DT_UINT8 || GetQDQDataType(&node) == DT_INT8))
+      AddNode(initializers_to_keep, src_graph, dst_graph, node_unit.GetNode());
     else
       add_identity_op(false);
   } else if (node_unit.OpType() == "DequantizeLinear") {
+    const auto& node =node_unit.GetNode();
     // keep if prev target is supported
     if (node_unit.GetNode().Name().find(DuplicateDQ) != std::string::npos)
       add_identity_op(true);
     else if (IsConnectedQPresent(src_graph, dst_graph.Nodes(), &node_unit.GetNode(), node_unit.GetNode().InputDefs()))
       AddNode(initializers_to_keep, src_graph, dst_graph, node_unit.GetNode());
+    else if (src_graph.IsConstantInitializer(node_unit.GetNode().InputDefs().at(0)->Name(), true))
+      AddNode(initializers_to_keep, src_graph, dst_graph, node_unit.GetNode());
+    else if (node.GetOutputEdgesCount() == 1 && node.OutputNodesBegin()->OpType() == "Conv" &&
+        (GetQDQDataType(&node) == DT_UINT16 || GetQDQDataType(&node) == DT_INT16))
+      add_identity_op(false);
     else if (DQFeedsASupportedOp(&node_unit.GetNode()))
       AddNode(initializers_to_keep, src_graph, dst_graph, node_unit.GetNode());
     else
